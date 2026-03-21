@@ -1,0 +1,7 @@
+{
+  "shell": {
+    "default_shell": "bash",
+    "working_directory": "/Users/ola/Documents/Repo/myapp"
+  },
+  "tools_used": ["Agent", "Grep", "Edit"]
+}

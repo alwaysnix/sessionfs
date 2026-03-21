@@ -1,0 +1,161 @@
+"""Daemon management commands: sfs daemon start|stop|status|logs."""
+
+from __future__ import annotations
+
+import os
+import signal
+import subprocess
+import sys
+from pathlib import Path
+
+import typer
+from rich.panel import Panel
+from rich.table import Table
+
+from sessionfs.cli.common import console, err_console, get_store_dir
+from sessionfs.daemon.status import read_status
+
+daemon_app = typer.Typer(name="daemon", help="Manage the SessionFS daemon.", no_args_is_help=True)
+
+
+def _pid_path() -> Path:
+    return get_store_dir() / "sfsd.pid"
+
+
+def _log_path() -> Path:
+    return get_store_dir() / "daemon.log"
+
+
+def _status_path() -> Path:
+    return get_store_dir() / "daemon.json"
+
+
+def _read_pid() -> int | None:
+    """Read PID from file, return None if not found or invalid."""
+    pid_file = _pid_path()
+    if not pid_file.exists():
+        return None
+    try:
+        return int(pid_file.read_text().strip())
+    except (ValueError, OSError):
+        return None
+
+
+def _is_running(pid: int) -> bool:
+    """Check if a process is running."""
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+@daemon_app.command()
+def start(
+    config: str | None = typer.Option(None, help="Path to config.toml"),
+    log_level: str = typer.Option("INFO", help="Log level (DEBUG, INFO, WARNING, ERROR)"),
+) -> None:
+    """Start the SessionFS daemon in the background."""
+    pid = _read_pid()
+    if pid and _is_running(pid):
+        console.print(f"[yellow]Daemon already running (PID {pid}).[/yellow]")
+        return
+
+    # Build sfsd command
+    cmd = [sys.executable, "-m", "sessionfs.daemon.main", "--log-level", log_level]
+    if config:
+        cmd.extend(["--config", config])
+
+    # Ensure store dir exists
+    store_dir = get_store_dir()
+    store_dir.mkdir(parents=True, exist_ok=True)
+
+    # Start detached process
+    log_file = open(_log_path(), "a")
+    proc = subprocess.Popen(
+        cmd,
+        stdout=log_file,
+        stderr=log_file,
+        start_new_session=True,
+    )
+
+    # Write PID
+    _pid_path().write_text(str(proc.pid))
+    console.print(f"[green]Daemon started (PID {proc.pid}).[/green]")
+    console.print(f"Logs: {_log_path()}")
+
+
+@daemon_app.command()
+def stop() -> None:
+    """Stop the SessionFS daemon."""
+    pid = _read_pid()
+    if pid is None:
+        console.print("[yellow]No daemon PID file found.[/yellow]")
+        return
+
+    if not _is_running(pid):
+        console.print("[yellow]Daemon not running (stale PID file). Cleaning up.[/yellow]")
+        _pid_path().unlink(missing_ok=True)
+        return
+
+    os.kill(pid, signal.SIGTERM)
+    console.print(f"[green]Sent SIGTERM to daemon (PID {pid}).[/green]")
+
+    # Clean up PID file
+    _pid_path().unlink(missing_ok=True)
+
+
+@daemon_app.command()
+def status() -> None:
+    """Show daemon status."""
+    pid = _read_pid()
+    running = pid is not None and _is_running(pid)
+
+    daemon_status = read_status(_status_path())
+
+    if daemon_status:
+        table = Table(title="SessionFS Daemon Status")
+        table.add_column("Field", style="bold")
+        table.add_column("Value")
+
+        table.add_row("PID", str(daemon_status.pid))
+        table.add_row("Running", "[green]Yes[/green]" if running else "[red]No[/red]")
+        table.add_row("Started", daemon_status.started_at)
+        table.add_row("Sessions", str(daemon_status.sessions_total))
+
+        for w in daemon_status.watchers:
+            health = w.health
+            color = {"healthy": "green", "degraded": "yellow", "broken": "red"}.get(health, "white")
+            table.add_row(
+                f"Watcher: {w.name}",
+                f"[{color}]{health}[/{color}] ({w.sessions_tracked} sessions)",
+            )
+
+        console.print(table)
+    elif running:
+        console.print(f"[green]Daemon running (PID {pid}), no status file yet.[/green]")
+    else:
+        console.print("[dim]Daemon not running.[/dim]")
+
+
+@daemon_app.command()
+def logs(
+    lines: int = typer.Option(50, "--lines", "-n", help="Number of lines to show."),
+    follow: bool = typer.Option(False, "--follow", "-f", help="Follow log output."),
+) -> None:
+    """Show daemon logs."""
+    log_file = _log_path()
+    if not log_file.exists():
+        console.print("[dim]No log file found.[/dim]")
+        return
+
+    if follow:
+        try:
+            subprocess.run(["tail", "-f", str(log_file)])
+        except KeyboardInterrupt:
+            pass
+    else:
+        # Read last N lines
+        all_lines = log_file.read_text().splitlines()
+        for line in all_lines[-lines:]:
+            console.print(line)

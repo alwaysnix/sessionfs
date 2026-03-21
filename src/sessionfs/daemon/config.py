@@ -1,0 +1,102 @@
+"""Daemon configuration management.
+
+Loads from ~/.sessionfs/config.toml with sensible defaults.
+Creates default config file on first run.
+"""
+
+from __future__ import annotations
+
+import sys
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
+from pathlib import Path
+
+from pydantic import BaseModel, Field
+
+DEFAULT_CONFIG_DIR = Path.home() / ".sessionfs"
+DEFAULT_CONFIG_PATH = DEFAULT_CONFIG_DIR / "config.toml"
+
+
+class ClaudeCodeWatcherConfig(BaseModel):
+    """Claude Code watcher configuration."""
+
+    enabled: bool = True
+    home_dir: Path = Field(default_factory=lambda: Path.home() / ".claude")
+
+
+class CodexWatcherConfig(BaseModel):
+    """Codex CLI watcher configuration (future)."""
+
+    enabled: bool = False
+    home_dir: Path = Field(default_factory=lambda: Path.home() / ".codex")
+
+
+class SyncConfig(BaseModel):
+    """Cloud sync configuration."""
+
+    enabled: bool = False
+    api_url: str = "https://api.sessionfs.dev"
+    api_key: str = ""
+    push_interval: int = 30  # seconds between sync pushes
+    retry_max: int = 5  # max consecutive failures before degraded
+
+
+class DaemonConfig(BaseModel):
+    """Top-level daemon configuration."""
+
+    store_dir: Path = Field(default_factory=lambda: Path.home() / ".sessionfs")
+    log_level: str = "INFO"
+    scan_interval_s: float = 5.0
+    claude_code: ClaudeCodeWatcherConfig = Field(default_factory=ClaudeCodeWatcherConfig)
+    codex: CodexWatcherConfig = Field(default_factory=CodexWatcherConfig)
+    sync: SyncConfig = Field(default_factory=SyncConfig)
+
+
+def load_config(config_path: Path = DEFAULT_CONFIG_PATH) -> DaemonConfig:
+    """Load config from TOML file. Returns defaults if file doesn't exist."""
+    if not config_path.exists():
+        return DaemonConfig()
+
+    with open(config_path, "rb") as f:
+        raw = tomllib.load(f)
+
+    return DaemonConfig.model_validate(raw)
+
+
+def default_config_toml() -> str:
+    """Generate default config TOML content."""
+    return """\
+# SessionFS Daemon Configuration
+
+# Log level: DEBUG, INFO, WARNING, ERROR
+log_level = "INFO"
+
+# Seconds to wait after a filesystem event before re-scanning
+scan_interval_s = 5.0
+
+[claude_code]
+enabled = true
+# home_dir = "~/.claude"
+
+[codex]
+enabled = false
+# home_dir = "~/.codex"
+
+[sync]
+enabled = false                          # Must be explicitly enabled
+api_url = "https://api.sessionfs.dev"    # Server URL
+api_key = ""                             # Set by `sfs auth login`
+push_interval = 30                       # Seconds between sync pushes (daemon)
+retry_max = 5                            # Max consecutive failures before degraded
+"""
+
+
+def ensure_config(config_path: Path = DEFAULT_CONFIG_PATH) -> None:
+    """Create default config file if it doesn't exist."""
+    if config_path.exists():
+        return
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(default_config_toml())

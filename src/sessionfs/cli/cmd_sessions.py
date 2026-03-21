@@ -1,0 +1,321 @@
+"""Session browsing commands: sfs list, sfs show."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+import typer
+from rich.panel import Panel
+from rich.table import Table
+
+from sessionfs.cli.common import (
+    console,
+    err_console,
+    get_session_dir_or_exit,
+    open_store,
+    read_sfs_messages,
+    resolve_session_id,
+)
+from sessionfs.cli.cost import estimate_cost
+from sessionfs.cli.titles import (
+    abbreviate_model,
+    abbreviate_tool,
+    extract_title,
+    format_relative_time,
+    format_token_count,
+    sanitize_title_secrets,
+)
+
+# Default minimum messages to show (filters empty/aborted sessions)
+_DEFAULT_MIN_MESSAGES = 2
+
+
+def _parse_since(since_str: str) -> datetime | None:
+    """Parse a 'since' string like '7d', '24h', or ISO date."""
+    since_str = since_str.strip()
+    now = datetime.now(timezone.utc)
+
+    if since_str.endswith("d"):
+        try:
+            days = int(since_str[:-1])
+            return now - timedelta(days=days)
+        except ValueError:
+            return None
+    elif since_str.endswith("h"):
+        try:
+            hours = int(since_str[:-1])
+            return now - timedelta(hours=hours)
+        except ValueError:
+            return None
+    else:
+        try:
+            return datetime.fromisoformat(since_str.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+
+def _get_display_title(session: dict[str, Any], store=None) -> str:
+    """Get a clean display title for a session.
+
+    Tries the indexed title first. If it looks like junk, re-extracts from
+    messages on disk (fallback for sessions indexed before smart extraction).
+    """
+    raw_title = session.get("title")
+
+    # Quick check: if title looks usable, sanitize and return
+    if raw_title:
+        from sessionfs.cli.titles import _is_usable_title
+        if _is_usable_title(raw_title):
+            return sanitize_title_secrets(raw_title)
+
+    # Title is junk or missing — try re-extracting from messages
+    if store:
+        session_dir = store.get_session_dir(session["session_id"])
+        if session_dir:
+            messages = read_sfs_messages(session_dir)
+            manifest = None
+            manifest_path = session_dir / "manifest.json"
+            if manifest_path.exists():
+                try:
+                    manifest = json.loads(manifest_path.read_text())
+                except (json.JSONDecodeError, OSError):
+                    pass
+            return extract_title(manifest=manifest, messages=messages)
+
+    # Last resort
+    msg_count = session.get("message_count", 0)
+    if msg_count > 0:
+        return f"Untitled session ({msg_count} messages)"
+    return "Untitled session"
+
+
+def list_sessions(
+    tool: str | None = typer.Option(None, help="Filter by source tool."),
+    since: str | None = typer.Option(None, help="Show sessions since (7d, 24h, ISO date)."),
+    tag: str | None = typer.Option(None, help="Filter by tag."),
+    sort: str = typer.Option("recent", help="Sort order: recent, oldest, messages, tokens."),
+    output_json: bool = typer.Option(False, "--json", help="Output as JSON."),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Only print session IDs."),
+    show_all: bool = typer.Option(False, "--all", "-a", help="Show all sessions including empty."),
+    min_messages: int = typer.Option(
+        _DEFAULT_MIN_MESSAGES, "--min-messages",
+        help="Minimum message count to display.",
+    ),
+) -> None:
+    """List captured sessions."""
+    store = open_store()
+    try:
+        sessions = store.list_sessions()
+        total_before_filter = len(sessions)
+
+        # Filter empty sessions (Issue 4)
+        if not show_all:
+            sessions = [s for s in sessions if s.get("message_count", 0) >= min_messages]
+
+        # Filter by tool
+        if tool:
+            sessions = [s for s in sessions if s.get("source_tool") == tool]
+
+        # Filter by since
+        if since:
+            cutoff = _parse_since(since)
+            if cutoff:
+                sessions = [
+                    s for s in sessions
+                    if s.get("created_at", "") >= cutoff.isoformat()
+                ]
+
+        # Filter by tag
+        if tag:
+            filtered = []
+            for s in sessions:
+                tags = json.loads(s.get("tags", "[]"))
+                if tag in tags:
+                    filtered.append(s)
+            sessions = filtered
+
+        # Sort
+        if sort == "oldest":
+            sessions.sort(key=lambda s: s.get("created_at", ""))
+        elif sort == "messages":
+            sessions.sort(key=lambda s: s.get("message_count", 0), reverse=True)
+        elif sort == "tokens":
+            sessions.sort(
+                key=lambda s: s.get("total_input_tokens", 0) + s.get("total_output_tokens", 0),
+                reverse=True,
+            )
+        # 'recent' is default from list_sessions (already DESC)
+
+        if not sessions:
+            console.print("[dim]No sessions found.[/dim]")
+            return
+
+        if quiet:
+            for s in sessions:
+                console.print(s["session_id"])
+            return
+
+        if output_json:
+            console.print(json.dumps(sessions, indent=2))
+            return
+
+        # Table output (Issue 3: clean formatting)
+        table = Table(title=f"Sessions ({len(sessions)})", show_lines=False, expand=True)
+        table.add_column("ID", style="cyan", no_wrap=True, min_width=8, max_width=8)
+        table.add_column("Src", style="dim", no_wrap=True, max_width=3)
+        table.add_column("Model", no_wrap=True, max_width=10)
+        table.add_column("Msgs", justify="right", no_wrap=True, max_width=5)
+        table.add_column("Tokens", justify="right", no_wrap=True, max_width=6)
+        table.add_column("Age", no_wrap=True, max_width=8)
+        table.add_column("Title", ratio=1)
+
+        for s in sessions:
+            total_tokens = s.get("total_input_tokens", 0) + s.get("total_output_tokens", 0)
+            title = _get_display_title(s, store)
+            # Truncate title at word boundary for table
+            if len(title) > 60:
+                from sessionfs.cli.titles import _truncate_at_word
+                title = _truncate_at_word(title, 60)
+
+            table.add_row(
+                s["session_id"][:8],
+                abbreviate_tool(s.get("source_tool")),
+                abbreviate_model(s.get("model_id")),
+                str(s.get("message_count", 0)),
+                format_token_count(total_tokens),
+                format_relative_time(s.get("updated_at") or s.get("created_at")),
+                title,
+            )
+
+        console.print(table)
+
+        # Footer: filter status (Issue 4)
+        hidden = total_before_filter - len(sessions)
+        if hidden > 0 and not show_all:
+            console.print(
+                f"[dim]Showing {len(sessions)} of {total_before_filter} sessions "
+                f"(use --all to show all)[/dim]"
+            )
+    finally:
+        store.close()
+
+
+def show_session(
+    session_id: str = typer.Argument(help="Session ID or prefix (min 4 chars)."),
+    messages: bool = typer.Option(False, "--messages", "-m", help="Show messages."),
+    cost: bool = typer.Option(False, "--cost", "-c", help="Show cost estimate."),
+    page_size: int = typer.Option(20, "--page-size", help="Messages per page."),
+) -> None:
+    """Show session details."""
+    store = open_store()
+    try:
+        full_id = resolve_session_id(store, session_id)
+        session_dir = get_session_dir_or_exit(store, full_id)
+
+        manifest = json.loads((session_dir / "manifest.json").read_text())
+        source = manifest.get("source", {})
+        model = manifest.get("model", {})
+        stats = manifest.get("stats", {})
+
+        # Detail panel
+        lines = [
+            f"[bold]Session ID:[/bold] {manifest.get('session_id', '')}",
+            f"[bold]Title:[/bold] {manifest.get('title', 'Untitled')}",
+            f"[bold]Tool:[/bold] {source.get('tool', '')} {source.get('tool_version', '')}",
+            f"[bold]Model:[/bold] {model.get('model_id', '')} ({model.get('provider', '')})",
+            f"[bold]Created:[/bold] {manifest.get('created_at', '')}",
+            f"[bold]Updated:[/bold] {manifest.get('updated_at', '')}",
+            "",
+            f"[bold]Messages:[/bold] {stats.get('message_count', 0)}",
+            f"[bold]Turns:[/bold] {stats.get('turn_count', 0)}",
+            f"[bold]Tool uses:[/bold] {stats.get('tool_use_count', 0)}",
+            f"[bold]Input tokens:[/bold] {stats.get('total_input_tokens', 0):,}",
+            f"[bold]Output tokens:[/bold] {stats.get('total_output_tokens', 0):,}",
+        ]
+
+        if stats.get("duration_ms"):
+            duration_s = stats["duration_ms"] / 1000
+            if duration_s >= 3600:
+                lines.append(f"[bold]Duration:[/bold] {duration_s / 3600:.1f}h")
+            elif duration_s >= 60:
+                lines.append(f"[bold]Duration:[/bold] {duration_s / 60:.1f}m")
+            else:
+                lines.append(f"[bold]Duration:[/bold] {duration_s:.0f}s")
+
+        console.print(Panel("\n".join(lines), title="Session Details"))
+
+        # Cost estimate
+        if cost and model.get("model_id"):
+            cost_info = estimate_cost(
+                model["model_id"],
+                stats.get("total_input_tokens", 0),
+                stats.get("total_output_tokens", 0),
+                stats.get("cache_read_tokens", 0),
+            )
+            cost_lines = [
+                f"[bold]Model:[/bold] {cost_info['model_id']}",
+                f"[bold]Input cost:[/bold] ${cost_info['input_cost_usd']:.4f}",
+                f"[bold]Output cost:[/bold] ${cost_info['output_cost_usd']:.4f}",
+                f"[bold]Cache cost:[/bold] ${cost_info['cache_cost_usd']:.4f}",
+                f"[bold]Total:[/bold] ${cost_info['total_cost_usd']:.4f}",
+            ]
+            if cost_info["cache_savings_usd"] > 0:
+                cost_lines.append(
+                    f"[bold]Cache savings:[/bold] ${cost_info['cache_savings_usd']:.4f}"
+                )
+            if not cost_info["model_matched"]:
+                cost_lines.append("[dim]Model not in pricing table — costs shown as $0[/dim]")
+
+            console.print(Panel("\n".join(cost_lines), title="Cost Estimate"))
+
+        # Messages
+        if messages:
+            msg_list = read_sfs_messages(session_dir)
+            main_msgs = [m for m in msg_list if not m.get("is_sidechain")]
+
+            for i, msg in enumerate(main_msgs):
+                role = msg.get("role", "unknown")
+                ts = msg.get("timestamp", "")[:19]
+
+                role_color = {
+                    "user": "green",
+                    "assistant": "blue",
+                    "system": "yellow",
+                    "tool": "dim",
+                    "developer": "magenta",
+                }.get(role, "white")
+
+                content_blocks = msg.get("content", [])
+                text_parts = []
+                for block in content_blocks:
+                    btype = block.get("type")
+                    if btype == "text":
+                        text_parts.append(block.get("text", ""))
+                    elif btype == "thinking":
+                        text_parts.append("[thinking...]")
+                    elif btype == "tool_use":
+                        text_parts.append(f"[tool: {block.get('name', '')}]")
+                    elif btype == "tool_result":
+                        content = block.get("content", "")
+                        if len(content) > 200:
+                            content = content[:200] + "..."
+                        text_parts.append(f"[result: {content}]")
+                    elif btype == "summary":
+                        text_parts.append(f"[summary: {block.get('text', '')[:100]}]")
+
+                text = "\n".join(text_parts)
+                console.print(f"[{role_color}]{role}[/{role_color}] [{ts}]")
+                console.print(text)
+                console.print()
+
+                # Pagination
+                if (i + 1) % page_size == 0 and i + 1 < len(main_msgs):
+                    console.print(f"[dim]-- {i + 1}/{len(main_msgs)} messages shown --[/dim]")
+                    try:
+                        input("Press Enter for more, Ctrl+C to stop...")
+                    except (KeyboardInterrupt, EOFError):
+                        break
+    finally:
+        store.close()

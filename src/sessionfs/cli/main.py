@@ -1,0 +1,56 @@
+"""SessionFS CLI entry point.
+
+Usage:
+    sfs daemon start|stop|status|logs
+    sfs list [--tool] [--since] [--tag] [--sort] [--json] [--quiet]
+    sfs show <session_id> [--messages] [--cost]
+    sfs resume <session_id> [--project PATH]
+    sfs checkpoint <session_id> --name <name>
+    sfs fork <session_id> --name <name> [--from-checkpoint <name>]
+    sfs import [FILE] [--from TOOL] [--format FORMAT]
+    sfs export <session_id> [--format markdown|claude-code|sfs]
+    sfs config show|set
+"""
+
+from __future__ import annotations
+
+import typer
+
+app = typer.Typer(
+    name="sfs",
+    help="SessionFS — Dropbox for AI agent sessions.",
+    no_args_is_help=True,
+)
+
+# Register sub-command groups
+from sessionfs.cli.cmd_daemon import daemon_app
+from sessionfs.cli.cmd_config import config_app
+from sessionfs.cli.cmd_cloud import auth_app
+
+app.add_typer(daemon_app, name="daemon")
+app.add_typer(config_app, name="config")
+app.add_typer(auth_app, name="auth")
+
+# Register top-level commands
+from sessionfs.cli.cmd_sessions import list_sessions, show_session
+from sessionfs.cli.cmd_ops import resume, checkpoint, fork
+from sessionfs.cli.cmd_io import import_sessions, export_session
+from sessionfs.cli.cmd_cloud import push, pull, list_remote, sync_all, handoff
+
+app.command("list")(list_sessions)
+app.command("show")(show_session)
+app.command("resume")(resume)
+app.command("checkpoint")(checkpoint)
+app.command("fork")(fork)
+app.command("import")(import_sessions)
+app.command("export")(export_session)
+app.command("push")(push)
+app.command("pull")(pull)
+app.command("list-remote")(list_remote)
+app.command("sync")(sync_all)
+app.command("handoff")(handoff)
+
+
+def cli_main() -> None:
+    """Entry point for the sfs CLI."""
+    app()
