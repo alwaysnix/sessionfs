@@ -29,6 +29,12 @@ Project-specific agent personas are in `.agents/`. Load the relevant agent for y
 
 A `.sfs` session is a directory containing: `manifest.json`, `messages.jsonl`, `workspace.json`, `tools.json`. All file paths within are relative to workspace root. Sessions are append-only — conflict resolution appends both sides rather than merging.
 
+## Commit Rules
+
+- **NEVER include "Co-Authored-By" lines referencing Claude, Anthropic, or any AI assistant.**
+- **NEVER mention Claude Code, Claude, AI, LLM, or any AI tooling in commit messages.**
+- Commit messages should read as if written by a human developer. Focus on what changed and why.
+
 ## Git Branch Policy
 
 - **Default push target: `develop` (private).** All commits and pushes go here unless explicitly told otherwise. This branch contains internal files (.agents/, src/spikes/, docs/security/, DOGFOOD.md).
