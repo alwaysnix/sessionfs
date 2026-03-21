@@ -42,19 +42,19 @@
 
 - [x] `sfs resume` writes session that Claude Code picks up (161 messages converted)
 - [ ] Resumed session has full context (need manual verification in CC)
-- [ ] `sfs export --format markdown` produces readable output
-- [ ] `sfs checkpoint` creates snapshot
-- [ ] `sfs fork` creates independent branch
+- [x] `sfs export --format markdown` produces readable output (3,186 lines)
+- [x] `sfs checkpoint` creates snapshot
+- [x] `sfs fork` creates independent branch (ses_ ID fix applied)
 
 ---
 
 ## Day 5-6 — Cloud Sync & Cross-Machine
 
 - [x] Server starts via Docker Compose (port 8000, PostgreSQL + API)
-- [ ] `sfs auth login` stores API key (bootstrap gap — manual SQL required)
+- [x] `sfs auth signup` creates account + API key (bootstrap fix applied)
 - [x] `sfs push` uploads session with full metadata extraction
 - [x] `sfs pull` downloads and restores all 4 .sfs files
-- [x] `sfs sync` bidirectional sync works (after page_size fix)
+- [x] `sfs sync` bidirectional sync works — 0 pushed, 0 pulled, 0 conflicts
 - [ ] Secret scanner fires on sessions with API keys
 - [ ] Sync recovers from network interruption
 
@@ -86,6 +86,9 @@
 | 11 | UX | Tool name not abbreviated in list | FIXED |
 | 12 | UX | Port mismatch: docs say 8080, server runs on 8000 | FIXED (was already consistent) |
 | 13 | UX | Server tests require `pip install -e ".[server,dev]"` | FIXED |
+| 14 | BUG | Fork command generates UUID instead of ses_ prefix | FIXED |
+| 15 | BUG | Daemon overwrites sync metadata after pull (race condition) | OPEN |
+| 16 | BUG | `sfs sync` page_size 500 exceeds server max 100 (pagination) | FIXED |
 
 ### FIXED: Auth bootstrap chicken-and-egg
 - Added `POST /api/v1/auth/signup` — unauthenticated, creates user + first API key
@@ -99,4 +102,43 @@
 ### FIXED: Server test dependencies
 - `[dev]` group now includes `sessionfs[server]` so `pip install -e ".[dev]"` installs everything
 - Added `pytest.importorskip` guards to 8 test files as safety net
-- Full suite: **327 passed in 12.79s**
+- Full suite: **346 passed in 14.37s** (with dashboard API tests)
+
+### FIXED: Fork generates UUID instead of ses_ ID
+- `cmd_ops.py` fork command used `uuid4()` directly instead of `generate_session_id()`
+- Caused `sfs sync` to fail with 400 "Invalid session ID format" for forked sessions
+- Fix: import and use `generate_session_id()` from `sessionfs.session_id`
+
+---
+
+## Known Bugs — Fix in Future Iterations
+
+### OPEN #15: Daemon overwrites sync metadata after pull
+- **Severity:** Medium — causes sync conflicts on next push after pull
+- **Reproduction:** `sfs pull <id>` writes files to `~/.sessionfs/sessions/`. Daemon detects the filesystem change, re-captures the session, and overwrites `manifest.json` without the `sync.etag` field. Next `sfs sync` sees a conflict because the local ETag is gone.
+- **Workaround:** Stop daemon before pulling (`sfs daemon stop`), pull, then restart.
+- **Proper fix:** Daemon watcher should ignore writes made by the CLI. Options:
+  - Write a sentinel file (e.g., `.sfs-cli-writing`) that the watcher checks before processing
+  - Use a file lock on the session directory during CLI operations
+  - Have the daemon track its own PID and skip events from the same process group
+  - Add a brief debounce/cooldown after CLI writes before the watcher re-processes
+
+### OPEN: Sync pagination only fetches first 100 sessions
+- **Severity:** Low — affects users with 100+ remote sessions
+- **Context:** `sfs sync` sends `page_size=100` (server max). Users with more than 100 sessions on the server will only sync the first page.
+- **Fix:** Paginate through all pages in the sync command's `_sync()` function until `has_more` is false.
+
+### OPEN: `sfs sync` conflict resolution is pull-first only
+- **Severity:** Low — inconvenient but not data-losing
+- **Context:** When local and remote diverge, sync says "pull first" but doesn't auto-resolve. User must manually pull then push. A `--force` flag on push or an auto-resolve strategy (local-wins, remote-wins) would improve UX.
+
+### OPEN: Docker container must be rebuilt after code changes
+- **Severity:** Low — dev workflow friction
+- **Context:** `docker compose up -d` doesn't pick up local source changes. Must use `--build`. Consider adding a volume mount for `src/` in dev mode.
+
+### UNTESTED: Items not yet verified
+- Secret scanner firing on sessions with real API keys
+- Sync recovery from network interruption
+- Partial write handling (closing Claude Code mid-generation)
+- Daemon kill + restart recovery
+- Resumed session full context verification in Claude Code
