@@ -30,9 +30,8 @@ Thumbs.db
 # SessionFS local data (never commit user sessions)
 .sessionfs/
 
-# Internal — not for public repo
-.agents/
-src/spikes/
+# Internal — never commit to main
 docs/security/
-docs/positioning.md
+src/spikes/
+.agents/
 DOGFOOD.md
