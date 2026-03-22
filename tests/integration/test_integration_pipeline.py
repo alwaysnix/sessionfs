@@ -56,6 +56,7 @@ async def pipeline_env(tmp_path: Path):
             email="pipeline@test.com",
             display_name="Pipeline Tester",
             created_at=datetime.now(timezone.utc),
+            email_verified=True,
         )
         session.add(user)
         await session.commit()

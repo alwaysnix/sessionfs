@@ -50,6 +50,7 @@ A `.sfs` session is a directory containing: `manifest.json`, `messages.jsonl`, `
 - All file paths in .sfs format are relative to workspace root.
 - Sessions are append-only. Never modify messages in place.
 - Team handoff is the core monetization wedge. Individual tier is free forever.
+- **All GCP infrastructure must be created via Terraform.** No `gcloud` imperative commands for resource creation. Secrets stored in GCP Secret Manager only — never in code, env files, or CI configs.
 
 ## Current Phase
 

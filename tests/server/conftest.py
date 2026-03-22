@@ -58,6 +58,7 @@ async def test_user(db_session: AsyncSession) -> User:
         email="test@example.com",
         display_name="Test User",
         created_at=datetime.now(timezone.utc),
+        email_verified=True,
     )
     db_session.add(user)
     await db_session.commit()

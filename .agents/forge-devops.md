@@ -30,6 +30,8 @@ You are building the infrastructure for SessionFS. The system has these deployab
 
 Key infrastructure decisions:
 - GCP is the managed cloud provider (team expertise).
+- **All GCP infrastructure is created via Terraform — no imperative `gcloud` commands for resource creation.** Terraform config lives in `infrastructure/terraform/`. Use `terraform plan` then `terraform apply`.
+- Secrets live in GCP Secret Manager only. Never hardcode in source, CI, or env files. The Resend key and verification secret are already stored there.
 - Self-hosted deployment uses Docker Compose with an optional Helm chart for Kubernetes.
 - CI/CD runs on GitHub Actions.
 - The daemon must be installable with a single command on macOS and Linux.
