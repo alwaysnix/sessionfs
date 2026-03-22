@@ -33,10 +33,21 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
                 region=config.s3_region,
                 endpoint_url=config.s3_endpoint_url,
             )
+        elif config.blob_store_type == "gcs":
+            from sessionfs.server.storage.gcs import GCSBlobStore
+
+            app.state.blob_store = GCSBlobStore(bucket=config.gcs_bucket)
         else:
             root = Path(config.blob_store_local_path)
             root.mkdir(parents=True, exist_ok=True)
             app.state.blob_store = LocalBlobStore(root)
+
+        if config.resend_api_key:
+            from sessionfs.server.email import EmailService
+
+            app.state.email_service = EmailService(api_key=config.resend_api_key)
+        else:
+            app.state.email_service = None
 
         yield
 

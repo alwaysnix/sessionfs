@@ -68,3 +68,15 @@ async def get_current_user(
     await db.commit()
 
     return user
+
+
+async def require_verified_user(
+    user: User = Depends(get_current_user),
+) -> User:
+    """Require that the authenticated user has verified their email."""
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Email not verified. Check your inbox for the verification link.",
+        )
+    return user

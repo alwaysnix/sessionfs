@@ -24,6 +24,7 @@ A `.sfs` session is a directory containing: `manifest.json`, `messages.jsonl`, `
 - Daemon defaults to local-only. Cloud sync is explicit opt-in.
 - All file paths in .sfs format are relative to workspace root.
 - Sessions are append-only. Never modify messages in place.
+
 ## Current Phase
 
 **v0.1.0 — Public Beta**

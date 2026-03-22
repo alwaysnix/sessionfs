@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import uuid
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+import jwt
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,12 +24,15 @@ from sessionfs.server.schemas.auth import (
     SignupResponse,
 )
 
+SFS_VERIFICATION_SECRET = os.environ.get("SFS_VERIFICATION_SECRET", "dev-verification-secret")
+
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 @router.post("/signup", response_model=SignupResponse, status_code=201)
 async def signup(
     body: SignupRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new user account and return the first API key.
@@ -57,11 +64,83 @@ async def signup(
 
     await db.commit()
 
+    # Generate verification JWT
+    verification_payload = {
+        "user_id": user_id,
+        "email": body.email,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+    }
+    verification_token = jwt.encode(
+        verification_payload, SFS_VERIFICATION_SECRET, algorithm="HS256"
+    )
+    verification_link = (
+        f"https://api.sessionfs.dev/api/v1/auth/verify?token={verification_token}"
+    )
+
+    # Send verification email if email service is available
+    email_service = getattr(request.app.state, "email_service", None)
+    if email_service is not None:
+        await email_service.send_verification(body.email, verification_link)
+
     return SignupResponse(
         user_id=user_id,
         email=body.email,
         raw_key=raw_key,
         key_id=key_id,
+        message="Account created. Verify your email to enable cloud sync.",
+    )
+
+
+@router.get("/verify", response_class=HTMLResponse)
+async def verify_email(
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Verify a user's email address via JWT token."""
+    try:
+        payload = jwt.decode(token, SFS_VERIFICATION_SECRET, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        return HTMLResponse(
+            content="<html><body><h1>Verification Failed</h1>"
+            "<p>This verification link has expired. Please request a new one.</p>"
+            "</body></html>",
+            status_code=400,
+        )
+    except jwt.InvalidTokenError:
+        return HTMLResponse(
+            content="<html><body><h1>Verification Failed</h1>"
+            "<p>Invalid verification link.</p>"
+            "</body></html>",
+            status_code=400,
+        )
+
+    user_id = payload.get("user_id")
+    if not user_id:
+        return HTMLResponse(
+            content="<html><body><h1>Verification Failed</h1>"
+            "<p>Invalid verification token payload.</p>"
+            "</body></html>",
+            status_code=400,
+        )
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if user is None:
+        return HTMLResponse(
+            content="<html><body><h1>Verification Failed</h1>"
+            "<p>User not found.</p>"
+            "</body></html>",
+            status_code=404,
+        )
+
+    user.email_verified = True
+    await db.commit()
+
+    return HTMLResponse(
+        content="<html><body><h1>Email Verified!</h1>"
+        "<p>Email verified! You can now sync sessions to the cloud.</p>"
+        "</body></html>",
+        status_code=200,
     )
 
 

@@ -16,7 +16,7 @@ class SignupResponse(BaseModel):
     email: str
     raw_key: str
     key_id: str
-    message: str = "Save your API key — it won't be shown again."
+    message: str = "Account created. Verify your email to enable cloud sync."
 
 
 class CreateApiKeyRequest(BaseModel):

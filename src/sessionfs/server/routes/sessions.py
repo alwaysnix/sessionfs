@@ -5,28 +5,32 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import re
+import secrets
 import tarfile
 import threading
 import uuid
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, UploadFile
 from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sessionfs.server.auth.dependencies import get_current_user
+from sessionfs.server.auth.dependencies import get_current_user, require_verified_user
 from sessionfs.server.db.engine import get_db
-from sessionfs.server.db.models import Session, User
+from sessionfs.server.db.models import Session, ShareLink, User
 from sessionfs.server.schemas.sessions import (
+    CreateShareLinkRequest,
     MessagesResponse,
     SessionDetail,
     SessionListResponse,
     SessionMetadataUpdate,
     SessionSummary,
     SessionUploadResponse,
+    ShareLinkResponse,
     SyncPushResponse,
     WorkspaceResponse,
     ToolsResponse,
@@ -34,6 +38,8 @@ from sessionfs.server.schemas.sessions import (
 from sessionfs.server.storage.base import BlobStore
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
+
+SFS_MAX_SYNC_BYTES = int(os.environ.get("SFS_MAX_SYNC_BYTES", str(10 * 1024 * 1024)))
 
 # --- Validation helpers ---
 
@@ -328,7 +334,7 @@ async def upload_session(
     source_tool: str = Query(..., min_length=1, max_length=50, pattern=r"^[a-z0-9_-]+$"),
     title: str | None = Query(None, max_length=500),
     tags: str = Query("[]", max_length=5000),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_verified_user),
     db: AsyncSession = Depends(get_db),
     request: Request = None,
 ):
@@ -519,7 +525,7 @@ async def delete_session(
 async def sync_push(
     session_id: str,
     file: UploadFile,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_verified_user),
     db: AsyncSession = Depends(get_db),
     request: Request = None,
 ):
@@ -527,8 +533,35 @@ async def sync_push(
     _validate_session_id(session_id)
     blob_store = _get_blob_store(request)
 
+    # Check content-length against sync limit
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > SFS_MAX_SYNC_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "code": "PAYLOAD_TOO_LARGE",
+                "message": (
+                    "Session exceeds 10MB cloud limit. Run sfs compact to reduce "
+                    "size, or keep this session local-only."
+                ),
+            },
+        )
+
     # M3: Upload size limit
     data = await _read_upload(file)
+
+    # Enforce sync byte limit on actual data
+    if len(data) > SFS_MAX_SYNC_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail={
+                "code": "PAYLOAD_TOO_LARGE",
+                "message": (
+                    "Session exceeds 10MB cloud limit. Run sfs compact to reduce "
+                    "size, or keep this session local-only."
+                ),
+            },
+        )
 
     # M7: Tar archive validation
     try:
@@ -805,6 +838,164 @@ async def reindex_sessions(
         "updated": updated,
         "errors": errors,
     }
+
+
+@router.post("/admin/cleanup")
+async def cleanup_expired_sessions(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,
+):
+    """Soft-delete stale free-tier sessions older than 14 days.
+
+    Intended for admin or cron job use.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=14)
+    blob_store = _get_blob_store(request)
+
+    # Find free-tier users
+    free_users_q = select(User.id).where(User.tier == "free")
+    free_user_ids = (await db.execute(free_users_q)).scalars().all()
+
+    if not free_user_ids:
+        return {"deleted": 0}
+
+    result = await db.execute(
+        select(Session).where(
+            Session.user_id.in_(free_user_ids),
+            Session.updated_at < cutoff,
+            Session.is_deleted == False,  # noqa: E712
+        )
+    )
+    sessions = result.scalars().all()
+
+    now = datetime.now(timezone.utc)
+    deleted = 0
+    for session in sessions:
+        # Delete blob from storage
+        try:
+            await blob_store.delete(session.blob_key)
+        except Exception as exc:
+            _logger.warning("Failed to delete blob for session %s: %s", session.id, exc)
+
+        session.is_deleted = True
+        session.deleted_at = now
+        deleted += 1
+
+    await db.commit()
+    return {"deleted": deleted}
+
+
+@router.post("/{session_id}/share", response_model=ShareLinkResponse, status_code=201)
+async def create_share_link(
+    session_id: str,
+    body: CreateShareLinkRequest,
+    user: User = Depends(require_verified_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Create a share link for a session."""
+    _validate_session_id(session_id)
+    await _get_user_session(db, user.id, session_id)
+
+    link_id = str(uuid.uuid4())
+    token = secrets.token_urlsafe(48)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=body.expires_in_hours)
+
+    password_hash = None
+    if body.password:
+        password_hash = hashlib.sha256(body.password.encode()).hexdigest()
+
+    share_link = ShareLink(
+        id=link_id,
+        session_id=session_id,
+        user_id=user.id,
+        token=token,
+        expires_at=expires_at,
+        password_hash=password_hash,
+    )
+    db.add(share_link)
+    await db.commit()
+
+    return ShareLinkResponse(
+        link_id=link_id,
+        url=f"https://api.sessionfs.dev/api/v1/sessions/share/{token}",
+        expires_at=expires_at,
+        has_password=password_hash is not None,
+    )
+
+
+@router.delete("/{session_id}/share/{link_id}", status_code=204)
+async def revoke_share_link(
+    session_id: str,
+    link_id: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke a share link."""
+    _validate_session_id(session_id)
+    result = await db.execute(
+        select(ShareLink).where(
+            ShareLink.id == link_id,
+            ShareLink.session_id == session_id,
+            ShareLink.user_id == user.id,
+        )
+    )
+    link = result.scalar_one_or_none()
+    if link is None:
+        raise HTTPException(status_code=404, detail="Share link not found")
+
+    link.is_revoked = True
+    await db.commit()
+
+
+@router.get("/share/{token}")
+async def access_share_link(
+    token: str,
+    password: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    request: Request = None,
+):
+    """Access a shared session via share link token (public, no auth required)."""
+    result = await db.execute(
+        select(ShareLink).where(ShareLink.token == token)
+    )
+    link = result.scalar_one_or_none()
+    if link is None:
+        raise HTTPException(status_code=404, detail="Share link not found")
+
+    if link.is_revoked:
+        raise HTTPException(status_code=410, detail="Share link has been revoked")
+
+    if link.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Share link has expired")
+
+    if link.password_hash is not None:
+        if not password:
+            raise HTTPException(status_code=401, detail="Password required")
+        if hashlib.sha256(password.encode()).hexdigest() != link.password_hash:
+            raise HTTPException(status_code=401, detail="Invalid password")
+
+    # Fetch session and blob
+    result = await db.execute(
+        select(Session).where(
+            Session.id == link.session_id,
+            Session.is_deleted == False,  # noqa: E712
+        )
+    )
+    session = result.scalar_one_or_none()
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    blob_store = _get_blob_store(request)
+    data = await blob_store.get(session.blob_key)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Session blob not found")
+
+    return Response(
+        content=data,
+        media_type="application/gzip",
+        headers={"ETag": f'"{session.etag}"'},
+    )
 
 
 async def _get_user_session(db: AsyncSession, user_id: str, session_id: str) -> Session:

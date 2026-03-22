@@ -102,3 +102,15 @@ class WorkspaceResponse(BaseModel):
 
 class ToolsResponse(BaseModel):
     tools: dict
+
+
+class CreateShareLinkRequest(BaseModel):
+    expires_in_hours: int = 24
+    password: str | None = None
+
+
+class ShareLinkResponse(BaseModel):
+    link_id: str
+    url: str
+    expires_at: datetime
+    has_password: bool

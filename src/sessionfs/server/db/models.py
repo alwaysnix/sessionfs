@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text, ForeignKey
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, Text, ForeignKey, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -22,6 +22,8 @@ class User(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    tier: Mapped[str] = mapped_column(String(20), default="free")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -75,3 +77,22 @@ class Session(Base):
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ShareLink(Base):
+    __tablename__ = "share_links"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("sessions.id"), nullable=False
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    is_revoked: Mapped[bool] = mapped_column(Boolean, default=False)
