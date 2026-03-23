@@ -276,7 +276,7 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 # HTTP/SSE App
 # ---------------------------------------------------------------------------
 
-sse_transport = SseServerTransport("/messages/")
+sse_transport = SseServerTransport("/mcp/messages/")
 
 
 async def handle_sse(request: Request):
@@ -540,6 +540,8 @@ app = Starlette(
         Route("/authorize", handle_authorize_post, methods=["POST"]),
         Route("/token", handle_token, methods=["POST"]),
         Route("/sse", handle_sse),
-        Mount("/messages/", routes=[Route("/", handle_messages, methods=["POST"])]),
+        Route("/", handle_sse, methods=["GET", "POST"]),
+        Mount("/mcp/messages/", routes=[Route("/", handle_messages, methods=["POST"])]),
+        Route("/mcp", handle_messages, methods=["POST"]),
     ],
 )
