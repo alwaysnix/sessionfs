@@ -445,9 +445,16 @@ async def handle_token(request: Request):
 # OAuth metadata (well-known)
 # ---------------------------------------------------------------------------
 
+def _get_base_url(request: Request) -> str:
+    """Get the public base URL, respecting X-Forwarded-Proto from Cloud Run."""
+    proto = request.headers.get("x-forwarded-proto", "https")
+    host = request.headers.get("host", request.base_url.hostname or "mcp.sessionfs.dev")
+    return f"{proto}://{host}"
+
+
 async def handle_oauth_metadata(request: Request):
     """GET /.well-known/oauth-authorization-server"""
-    base = str(request.base_url).rstrip("/")
+    base = _get_base_url(request)
     return JSONResponse({
         "issuer": base,
         "authorization_endpoint": f"{base}/authorize",
