@@ -459,11 +459,64 @@ async def handle_oauth_metadata(request: Request):
         "issuer": base,
         "authorization_endpoint": f"{base}/authorize",
         "token_endpoint": f"{base}/token",
+        "registration_endpoint": f"{base}/register",
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code"],
         "code_challenge_methods_supported": ["S256"],
         "token_endpoint_auth_methods_supported": ["none"],
     })
+
+
+async def handle_protected_resource_metadata(request: Request):
+    """GET /.well-known/oauth-protected-resource (RFC 9728)"""
+    base = _get_base_url(request)
+    return JSONResponse({
+        "resource": base,
+        "authorization_servers": [base],
+        "scopes_supported": [],
+        "bearer_methods_supported": ["header"],
+    })
+
+
+# ---------------------------------------------------------------------------
+# Dynamic Client Registration (RFC 7591)
+# ---------------------------------------------------------------------------
+# Claude.ai registers as a public client. We accept any registration and
+# return a client_id. Since we authenticate via the user's API key (not
+# client credentials), the client_id is just for protocol compliance.
+
+_registered_clients: dict[str, dict[str, Any]] = {}
+
+
+async def handle_register(request: Request):
+    """POST /register — Dynamic Client Registration."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    client_id = secrets.token_urlsafe(16)
+    redirect_uris = body.get("redirect_uris", [])
+
+    _registered_clients[client_id] = {
+        "client_id": client_id,
+        "redirect_uris": redirect_uris,
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code"],
+        "response_types": ["code"],
+        "client_name": body.get("client_name", "MCP Client"),
+    }
+
+    return JSONResponse(
+        {
+            "client_id": client_id,
+            "redirect_uris": redirect_uris,
+            "token_endpoint_auth_method": "none",
+            "grant_types": ["authorization_code"],
+            "response_types": ["code"],
+        },
+        status_code=201,
+    )
 
 
 @asynccontextmanager
@@ -481,6 +534,8 @@ app = Starlette(
     routes=[
         Route("/health", handle_health),
         Route("/.well-known/oauth-authorization-server", handle_oauth_metadata),
+        Route("/.well-known/oauth-protected-resource", handle_protected_resource_metadata),
+        Route("/register", handle_register, methods=["POST"]),
         Route("/authorize", handle_authorize_get, methods=["GET"]),
         Route("/authorize", handle_authorize_post, methods=["POST"]),
         Route("/token", handle_token, methods=["POST"]),
