@@ -77,6 +77,31 @@ export interface SignupResponse {
   key_id: string;
 }
 
+export interface AuditFinding {
+  message_index: number;
+  claim: string;
+  verdict: 'verified' | 'unverified' | 'hallucination';
+  severity: 'minor' | 'moderate' | 'major';
+  evidence: string;
+  explanation: string;
+}
+
+export interface AuditSummary {
+  total_claims: number;
+  verified: number;
+  unverified: number;
+  hallucinations: number;
+  trust_score: number;
+}
+
+export interface AuditReport {
+  session_id: string;
+  model: string;
+  timestamp: string;
+  findings: AuditFinding[];
+  summary: AuditSummary;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -175,6 +200,20 @@ export function createApiClient(baseUrl: string, apiKey: string) {
       if (!resp.ok) throw new ApiError(resp.status, 'Download failed');
       return resp.blob();
     },
+
+    runAudit: (
+      sessionId: string,
+      model: string,
+      llmApiKey: string,
+      provider?: string,
+    ) =>
+      request<AuditReport>(`/api/v1/sessions/${sessionId}/audit`, {
+        method: 'POST',
+        body: JSON.stringify({ model, llm_api_key: llmApiKey, ...(provider ? { provider } : {}) }),
+      }),
+
+    getAudit: (sessionId: string) =>
+      request<AuditReport>(`/api/v1/sessions/${sessionId}/audit`),
   };
 }
 

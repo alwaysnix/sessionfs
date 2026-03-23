@@ -7,13 +7,17 @@ import { estimateCost } from '../utils/cost';
 import CopyButton from '../components/CopyButton';
 import RelativeDate from '../components/RelativeDate';
 import ConversationView from './ConversationView';
+import AuditTab from './AuditTab';
 import HandoffModal from '../handoffs/HandoffModal';
+
+type Tab = 'messages' | 'audit';
 
 export default function SessionDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: session, isLoading, error } = useSession(id!);
   const [showHandoff, setShowHandoff] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>('messages');
 
   if (isLoading) {
     return <div className="p-8 text-text-muted">Loading session...</div>;
@@ -125,9 +129,39 @@ export default function SessionDetail() {
         </div>
       </aside>
 
-      {/* Conversation */}
-      <div className="flex-1 overflow-y-auto">
-        <ConversationView sessionId={session.id} />
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Tabs */}
+        <div className="flex border-b border-border bg-bg-secondary shrink-0">
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`px-4 py-2 text-xs font-medium transition-colors ${
+              activeTab === 'messages'
+                ? 'text-accent border-b-2 border-accent'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            Messages
+          </button>
+          <button
+            onClick={() => setActiveTab('audit')}
+            className={`px-4 py-2 text-xs font-medium transition-colors ${
+              activeTab === 'audit'
+                ? 'text-accent border-b-2 border-accent'
+                : 'text-text-muted hover:text-text-secondary'
+            }`}
+          >
+            Audit
+          </button>
+        </div>
+
+        {/* Tab content */}
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === 'messages' && <ConversationView sessionId={session.id} />}
+          {activeTab === 'audit' && (
+            <AuditTab sessionId={session.id} messageCount={session.message_count} />
+          )}
+        </div>
       </div>
 
       {showHandoff && (

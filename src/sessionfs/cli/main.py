@@ -42,6 +42,7 @@ from sessionfs.cli.cmd_ops import resume, checkpoint, fork
 from sessionfs.cli.cmd_io import import_sessions, export_session
 from sessionfs.cli.cmd_cloud import push, pull, pull_handoff, list_remote, sync_all, handoff
 from sessionfs.cli.cmd_search import search
+from sessionfs.cli.cmd_audit import audit
 
 app.command("list")(list_sessions)
 app.command("show")(show_session)
@@ -57,6 +58,7 @@ app.command("sync")(sync_all)
 app.command("handoff")(handoff)
 app.command("pull-handoff")(pull_handoff)
 app.command("search")(search)
+app.command("audit")(audit)
 
 
 def cli_main() -> None:
