@@ -30,8 +30,13 @@ Thumbs.db
 # SessionFS local data (never commit user sessions)
 .sessionfs/
 
-# Internal — never commit to main
-docs/security/
-src/spikes/
+# Internal — never commit to main (see .release/private-files.txt)
 .agents/
+.claude/commands/
+.claude/settings.local.json
+.release/
+src/spikes/
+docs/security/
+docs/positioning.md
+docs/pricing.md
 DOGFOOD.md
