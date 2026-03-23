@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { createApiClient, type ApiClient } from '../api/client';
 
+const STORAGE_KEY = 'sessionfs_auth';
+
 interface AuthState {
   apiKey: string;
   baseUrl: string;
@@ -15,16 +17,33 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function loadStoredAuth(): AuthState | null {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const { apiKey, baseUrl } = JSON.parse(raw);
+    if (!apiKey || !baseUrl) return null;
+    const client = createApiClient(baseUrl, apiKey);
+    return { apiKey, baseUrl, client };
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [auth, setAuth] = useState<AuthState | null>(null);
+  const [auth, setAuth] = useState<AuthState | null>(loadStoredAuth);
 
   const login = useCallback(async (baseUrl: string, apiKey: string) => {
     const client = createApiClient(baseUrl, apiKey);
     await client.health();
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ apiKey, baseUrl }));
     setAuth({ apiKey, baseUrl, client });
   }, []);
 
-  const logout = useCallback(() => setAuth(null), []);
+  const logout = useCallback(() => {
+    sessionStorage.removeItem(STORAGE_KEY);
+    setAuth(null);
+  }, []);
 
   return (
     <AuthContext.Provider value={{ auth, login, logout }}>
