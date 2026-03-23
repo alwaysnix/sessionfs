@@ -23,7 +23,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from mcp.server import Server
-from mcp.server.sse import SseServerTransport
+from mcp.server.streamable_http import StreamableHTTPServerTransport
 from mcp.types import TextContent, Tool
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -276,11 +276,8 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 # HTTP/SSE App
 # ---------------------------------------------------------------------------
 
-sse_transport = SseServerTransport("/mcp/messages/")
-
-
-async def handle_sse(request: Request):
-    """SSE endpoint — client connects here for MCP communication."""
+async def handle_mcp(request: Request):
+    """Handle MCP requests (GET for SSE stream, POST for messages)."""
     global _current_api_key
 
     # Authenticate
@@ -296,13 +293,21 @@ async def handle_sse(request: Request):
 
     _current_api_key = api_key
 
-    async with sse_transport.connect_sse(request.scope, request.receive, request._send) as streams:
-        await mcp.run(streams[0], streams[1], mcp.create_initialization_options())
+    transport = StreamableHTTPServerTransport(
+        mcp_session_id=None,
+        is_json_response_enabled=True,
+    )
 
+    async with transport.connect() as (read_stream, write_stream):
+        # Start MCP server in background
+        import anyio
 
-async def handle_messages(request: Request):
-    """POST endpoint for MCP messages over SSE."""
-    await sse_transport.handle_post_message(request.scope, request.receive, request._send)
+        async with anyio.create_task_group() as tg:
+            async def run_server():
+                await mcp.run(read_stream, write_stream, mcp.create_initialization_options())
+
+            tg.start_soon(run_server)
+            await transport.handle_request(request.scope, request.receive, request._send)
 
 
 async def handle_health(request: Request):
@@ -539,9 +544,8 @@ app = Starlette(
         Route("/authorize", handle_authorize_get, methods=["GET"]),
         Route("/authorize", handle_authorize_post, methods=["POST"]),
         Route("/token", handle_token, methods=["POST"]),
-        Route("/sse", handle_sse),
-        Route("/", handle_sse, methods=["GET", "POST"]),
-        Mount("/mcp/messages/", routes=[Route("/", handle_messages, methods=["POST"])]),
-        Route("/mcp", handle_messages, methods=["POST"]),
+        Route("/sse", handle_mcp, methods=["GET", "POST"]),
+        Route("/mcp", handle_mcp, methods=["GET", "POST"]),
+        Route("/", handle_mcp, methods=["GET", "POST", "DELETE"]),
     ],
 )
