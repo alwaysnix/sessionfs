@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 import stat
 from pathlib import Path
 from typing import Any
@@ -30,7 +29,7 @@ from sessionfs.watchers.base import NativeSessionRef
 logger = logging.getLogger("sessionfs.store")
 
 # M2: Session ID validation at store layer — imported from canonical module
-from sessionfs.session_id import SESSION_ID_RE, validate_session_id
+from sessionfs.session_id import validate_session_id
 
 
 def _validate_session_id(session_id: str) -> None:

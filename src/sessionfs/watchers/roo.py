@@ -15,7 +15,6 @@ Capture-only — no write-back support.
 from __future__ import annotations
 
 from sessionfs.daemon.config import RooCodeWatcherConfig
-from sessionfs.daemon.status import WatcherStatus
 from sessionfs.store.local import LocalStore
 from sessionfs.watchers.cline import ClineWatcher
 

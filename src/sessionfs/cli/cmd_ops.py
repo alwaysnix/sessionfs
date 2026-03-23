@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import uuid as uuid_mod
 from pathlib import Path
 
 import typer
@@ -14,7 +13,6 @@ from sessionfs.cli.common import (
     err_console,
     get_session_dir_or_exit,
     open_store,
-    read_sfs_messages,
     resolve_session_id,
 )
 from sessionfs.cli.sfs_to_cc import reverse_convert_session

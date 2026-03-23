@@ -12,7 +12,7 @@ from pathlib import Path
 
 import typer
 
-from sessionfs.cli.common import console, err_console, get_store_dir
+from sessionfs.cli.common import console, get_store_dir
 from sessionfs.daemon.config import ensure_config
 
 config_app = typer.Typer(name="config", help="Manage SessionFS configuration.", no_args_is_help=True)

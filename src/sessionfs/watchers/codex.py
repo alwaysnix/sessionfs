@@ -134,7 +134,7 @@ def parse_codex_session(jsonl_path: Path) -> CodexParsedSession:
 
                 elif evt_type == "agent_message":
                     text = payload.get("message", "")
-                    phase = payload.get("phase", "final_answer")
+                    payload.get("phase", "final_answer")
                     sfs_messages.append({
                         "msg_id": f"msg_{len(sfs_messages):04d}",
                         "role": "assistant",

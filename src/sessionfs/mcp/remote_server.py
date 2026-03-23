@@ -30,7 +30,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
-from starlette.routing import Mount, Route
+from starlette.routing import Route
 
 from sessionfs.mcp.cloud_client import CloudAPIClient
 

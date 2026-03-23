@@ -25,7 +25,6 @@ from sessionfs.watchers.claude_code import (
     ContentBlock as CCContentBlock,
     Message as CCMessage,
     ParsedSession,
-    SubAgent,
     discover_sessions,
     find_session_path,
     parse_session,

@@ -14,7 +14,6 @@ from sessionfs.cli.common import (
     console,
     err_console,
     get_session_dir_or_exit,
-    get_store_dir,
     open_store,
     resolve_session_id,
 )
@@ -39,9 +38,9 @@ def _save_sync_config(api_url: str, api_key: str) -> None:
     import sys
 
     if sys.version_info >= (3, 11):
-        import tomllib
+        pass
     else:
-        import tomli as tomllib
+        pass
 
     from sessionfs.daemon.config import DEFAULT_CONFIG_PATH, ensure_config
 
@@ -65,11 +64,11 @@ def _save_sync_config(api_url: str, api_key: str) -> None:
             in_sync_section = True
             sync_written = True
             new_lines.append("[sync]")
-            new_lines.append(f'enabled = true')
+            new_lines.append('enabled = true')
             new_lines.append(f'api_url = "{api_url}"')
             new_lines.append(f'api_key = "{api_key}"')
-            new_lines.append(f'push_interval = 30')
-            new_lines.append(f'retry_max = 5')
+            new_lines.append('push_interval = 30')
+            new_lines.append('retry_max = 5')
             continue
         if in_sync_section:
             if stripped.startswith("[") and stripped != "[sync]":
@@ -82,18 +81,18 @@ def _save_sync_config(api_url: str, api_key: str) -> None:
     if not sync_written:
         new_lines.append("")
         new_lines.append("[sync]")
-        new_lines.append(f'enabled = true')
+        new_lines.append('enabled = true')
         new_lines.append(f'api_url = "{api_url}"')
         new_lines.append(f'api_key = "{api_key}"')
-        new_lines.append(f'push_interval = 30')
-        new_lines.append(f'retry_max = 5')
+        new_lines.append('push_interval = 30')
+        new_lines.append('retry_max = 5')
 
     config_path.write_text("\n".join(new_lines))
 
 
 def _get_sync_client():
     """Create a SyncClient from stored config."""
-    from sessionfs.sync.client import SyncClient, SyncError
+    from sessionfs.sync.client import SyncClient
 
     cfg = _load_sync_config()
     if not cfg["api_key"]:
@@ -173,7 +172,7 @@ def auth_signup(
         raise SystemExit(1)
 
     if resp.status_code == 409:
-        err_console.print(f"[red]Email already registered. Use 'sfs auth login' instead.[/red]")
+        err_console.print("[red]Email already registered. Use 'sfs auth login' instead.[/red]")
         raise SystemExit(1)
 
     if resp.status_code != 201:
@@ -187,7 +186,7 @@ def auth_signup(
     _save_sync_config(api_url, raw_key)
     console.print(f"[green]Account created for {email}[/green]")
     console.print(f"  API key: {raw_key}")
-    console.print(f"  [bold]Save this key — it won't be shown again.[/bold]")
+    console.print("  [bold]Save this key — it won't be shown again.[/bold]")
     console.print("Cloud sync is now enabled.")
 
 
@@ -196,7 +195,7 @@ def auth_status() -> None:
     """Show current authentication status."""
     cfg = _load_sync_config()
     if cfg["api_key"]:
-        console.print(f"[green]Authenticated[/green]")
+        console.print("[green]Authenticated[/green]")
         console.print(f"  Server: {cfg['api_url']}")
         console.print(f"  Sync enabled: {cfg['enabled']}")
         console.print(f"  API key: {cfg['api_key'][:8]}...")
@@ -492,9 +491,9 @@ def handoff(
         _update_manifest_sync(session_dir, result.etag)
 
         cfg = _load_sync_config()
-        console.print(f"\n[green]Session ready for handoff.[/green]")
+        console.print("\n[green]Session ready for handoff.[/green]")
         console.print(f"\nSend these instructions to {to}:\n")
-        console.print(f"  1. Install sessionfs: pip install sessionfs")
+        console.print("  1. Install sessionfs: pip install sessionfs")
         console.print(f"  2. Authenticate:      sfs auth login --url {cfg['api_url']}")
         console.print(f"  3. Pull the session:  sfs pull {full_id}")
         console.print(f"  4. Resume:            sfs resume {full_id}")
