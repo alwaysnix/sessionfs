@@ -278,8 +278,18 @@ async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
 # HTTP/SSE App
 # ---------------------------------------------------------------------------
 
-# Persistent MCP sessions: session_id -> (transport, task_group, api_key)
-_mcp_sessions: dict[str, tuple[StreamableHTTPServerTransport, str]] = {}
+import asyncio as _asyncio
+
+# Persistent MCP sessions: session_id -> transport
+_mcp_sessions: dict[str, StreamableHTTPServerTransport] = {}
+# Track background tasks to prevent GC
+_session_tasks: dict[str, _asyncio.Task] = {}
+
+
+async def _run_mcp_session(transport: StreamableHTTPServerTransport) -> None:
+    """Background task that keeps the MCP server running for a session."""
+    async with transport.connect() as (read_stream, write_stream):
+        await mcp.run(read_stream, write_stream, mcp.create_initialization_options())
 
 
 async def handle_mcp(request: Request):
@@ -303,30 +313,26 @@ async def handle_mcp(request: Request):
     session_id = request.headers.get("mcp-session-id")
 
     if session_id and session_id in _mcp_sessions:
-        # Reuse existing transport
         transport = _mcp_sessions[session_id]
         await transport.handle_request(request.scope, request.receive, request._send)
         return
 
-    # New session — create transport and start MCP server
-    import anyio
-
+    # New session — create persistent transport
     transport = StreamableHTTPServerTransport(
         mcp_session_id=None,
         is_json_response_enabled=True,
     )
 
-    async with transport.connect() as (read_stream, write_stream):
-        async with anyio.create_task_group() as tg:
-            async def run_server():
-                await mcp.run(read_stream, write_stream, mcp.create_initialization_options())
+    # Start MCP server as a background task (persists across requests)
+    task = _asyncio.create_task(_run_mcp_session(transport))
 
-            tg.start_soon(run_server)
-            await transport.handle_request(request.scope, request.receive, request._send)
+    # Handle the initialize request
+    await transport.handle_request(request.scope, request.receive, request._send)
 
-            # Store session for reuse if the transport assigned a session ID
-            if transport.mcp_session_id:
-                _mcp_sessions[transport.mcp_session_id] = transport
+    # Store session for subsequent requests
+    if transport.mcp_session_id:
+        _mcp_sessions[transport.mcp_session_id] = transport
+        _session_tasks[transport.mcp_session_id] = task
 
 
 async def handle_health(request: Request):
