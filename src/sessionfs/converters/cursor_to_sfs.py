@@ -18,12 +18,11 @@ import logging
 import shutil
 import sqlite3
 import tempfile
-from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote
 
 from sessionfs.spec.version import SFS_FORMAT_VERSION, SFS_CONVERTER_VERSION
 

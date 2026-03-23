@@ -91,6 +91,15 @@ asyncio_mode = "auto"
 target-version = "py310"
 line-length = 100
 
+[tool.ruff.lint]
+ignore = ["E402"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/sessionfs/cli/main.py" = ["E402"]
+"src/sessionfs/mcp/remote_server.py" = ["E402"]
+"src/sessionfs/server/routes/sessions.py" = ["E402"]
+"src/sessionfs/store/local.py" = ["E402"]
+
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true

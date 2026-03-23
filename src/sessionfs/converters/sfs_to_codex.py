@@ -61,7 +61,7 @@ def convert_sfs_to_codex(
     # Determine output path
     if output_path is None:
         now = datetime.now(timezone.utc)
-        date_dir = now.strftime("%Y/%m/%d")
+        now.strftime("%Y/%m/%d")
         ts_str = now.strftime("%Y-%m-%dT%H-%M-%S")
         output_path = Path(f"/tmp/rollout-{ts_str}-{codex_session_id}.jsonl")
 
@@ -69,7 +69,7 @@ def convert_sfs_to_codex(
 
     # Build the Codex JSONL lines
     lines: list[dict[str, Any]] = []
-    source = manifest.get("source", {})
+    manifest.get("source", {})
     model_info = manifest.get("model") or {}
     git_info = workspace.get("git") or {}
     created_at = manifest.get("created_at", datetime.now(timezone.utc).isoformat())

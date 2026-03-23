@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 # Re-export core title functions from shared module
-from sessionfs.utils.title_utils import (
+from sessionfs.utils.title_utils import (  # noqa: F401
     extract_smart_title,
     is_usable_title,
     sanitize_secrets as sanitize_title_secrets,

@@ -14,7 +14,6 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from watchdog.observers import Observer
@@ -126,7 +125,7 @@ class AmpWatcher:
                 convert_amp_to_sfs,
             )
 
-            amp_session = parse_amp_session(native_path)
+            parse_amp_session(native_path)
 
             sfs_id = session_id_from_native(native_id)
             session_dir = self._store.allocate_session_dir(sfs_id)

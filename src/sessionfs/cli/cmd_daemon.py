@@ -9,10 +9,9 @@ import sys
 from pathlib import Path
 
 import typer
-from rich.panel import Panel
 from rich.table import Table
 
-from sessionfs.cli.common import console, err_console, get_store_dir
+from sessionfs.cli.common import console, get_store_dir
 from sessionfs.daemon.status import read_status
 
 daemon_app = typer.Typer(name="daemon", help="Manage the SessionFS daemon.", no_args_is_help=True)

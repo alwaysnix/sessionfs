@@ -12,7 +12,6 @@ from rich.table import Table
 
 from sessionfs.cli.common import (
     console,
-    err_console,
     get_session_dir_or_exit,
     open_store,
     read_sfs_messages,

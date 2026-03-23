@@ -19,7 +19,6 @@ import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from watchdog.observers import Observer
@@ -88,8 +87,6 @@ class ClineWatcher:
         try:
             from sessionfs.converters.cline_to_sfs import (
                 discover_cline_sessions,
-                parse_cline_session,
-                convert_cline_to_sfs,
             )
 
             sessions = discover_cline_sessions(self._storage_dir, tool=self._tool)

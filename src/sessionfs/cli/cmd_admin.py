@@ -24,7 +24,7 @@ def reindex() -> None:
     Backfills title, source_tool, model, stats, and tags for sessions
     that were pushed before metadata extraction was deployed.
     """
-    from sessionfs.sync.client import SyncClient, SyncAuthError, SyncError
+    from sessionfs.sync.client import SyncAuthError
 
     client = _get_sync_client()
 

@@ -14,8 +14,6 @@ import logging
 import threading
 import time
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any
 
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from watchdog.observers import Observer
