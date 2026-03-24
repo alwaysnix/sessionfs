@@ -54,6 +54,6 @@ A `.sfs` session is a directory containing: `manifest.json`, `messages.jsonl`, `
 
 ## Current Phase
 
-**Phase 2 in progress — Session Intelligence**
+**Phase 3 complete — Team Intelligence + Trust Verification**
 
-564 tests passing. Eight-tool capture (Claude Code, Codex, Gemini CLI, Cursor, Copilot CLI, Amp, Cline, Roo Code). Cross-tool resume (Claude Code, Codex, Gemini, Copilot CLI). MCP server with session search. Full-text search (PostgreSQL FTS cloud, SQLite FTS5 local). Dashboard search UI. v0.1.0 public on PyPI, v0.2.0 ready on develop.
+640 tests passing. Eight-tool capture + four-tool resume. Team handoff with email notifications and workspace resolution. LLM-as-a-Judge hallucination detection (BYOK). MCP server (local + remote). Full-text search. Dashboard with search, handoffs, and audit tabs.

@@ -5,7 +5,7 @@ const MODELS = [
   { value: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'anthropic' },
   { value: 'gpt-4o', label: 'GPT-4o', provider: 'openai' },
   { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'google' },
-] as const;
+];
 
 interface Props {
   sessionId: string;
