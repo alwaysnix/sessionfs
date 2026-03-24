@@ -122,7 +122,7 @@ export default function SessionList() {
       {!isLoading && sessions.length > 0 && (
         <>
           <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+            <table className="w-full text-[15px]">
               <thead>
                 <tr className="bg-bg-secondary text-text-secondary text-xs uppercase tracking-wider">
                   <th className="px-3 py-2 text-left w-20">ID</th>

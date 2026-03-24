@@ -24,16 +24,16 @@ export default function Layout() {
           </svg>
         </Link>
         <SearchBar />
-        <nav className="flex items-center gap-4 text-sm shrink-0">
+        <nav className="flex items-center gap-4 text-[15px] shrink-0">
           <Link
             to="/"
-            className={`hover:text-accent transition-colors ${location.pathname === '/' ? 'text-accent' : 'text-text-secondary'}`}
+            className={`hover:text-accent transition-colors ${location.pathname === '/' ? 'text-accent' : 'text-[#b1b8c1]'}`}
           >
             Sessions
           </Link>
           <Link
             to="/handoffs"
-            className={`hover:text-accent transition-colors ${location.pathname.startsWith('/handoffs') ? 'text-accent' : 'text-text-secondary'}`}
+            className={`hover:text-accent transition-colors ${location.pathname.startsWith('/handoffs') ? 'text-accent' : 'text-[#b1b8c1]'}`}
           >
             Handoffs
             {pendingCount > 0 && (
@@ -45,14 +45,14 @@ export default function Layout() {
           {isAdmin && (
             <Link
               to="/admin"
-              className={`hover:text-accent transition-colors ${location.pathname === '/admin' ? 'text-accent' : 'text-text-secondary'}`}
+              className={`hover:text-accent transition-colors ${location.pathname === '/admin' ? 'text-accent' : 'text-[#b1b8c1]'}`}
             >
               Admin
             </Link>
           )}
           <Link
             to="/settings"
-            className={`hover:text-accent transition-colors ${location.pathname === '/settings' ? 'text-accent' : 'text-text-secondary'}`}
+            className={`hover:text-accent transition-colors ${location.pathname === '/settings' ? 'text-accent' : 'text-[#b1b8c1]'}`}
           >
             Settings
           </Link>
