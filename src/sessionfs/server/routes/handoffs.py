@@ -6,7 +6,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sessionfs.server.auth.dependencies import get_current_user
@@ -139,7 +139,7 @@ async def inbox(
     db: AsyncSession = Depends(get_db),
 ):
     """List handoffs sent TO this user (matched by email)."""
-    now = datetime.now(timezone.utc)
+    datetime.now(timezone.utc)
     result = await db.execute(
         select(Handoff)
         .where(Handoff.recipient_email == user.email)
