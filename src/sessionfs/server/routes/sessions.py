@@ -42,7 +42,18 @@ from sessionfs.server.storage.base import BlobStore
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
 
-SFS_MAX_SYNC_BYTES = int(os.environ.get("SFS_MAX_SYNC_BYTES", str(10 * 1024 * 1024)))
+SFS_MAX_SYNC_BYTES_FREE = int(os.environ.get("SFS_MAX_SYNC_BYTES_FREE", str(50 * 1024 * 1024)))
+SFS_MAX_SYNC_BYTES_PAID = int(os.environ.get("SFS_MAX_SYNC_BYTES_PAID", str(300 * 1024 * 1024)))
+
+def _sync_limit_for_user(user) -> int:
+    """Return sync byte limit based on user tier."""
+    if user.tier in ("pro", "team", "enterprise", "admin"):
+        return SFS_MAX_SYNC_BYTES_PAID
+    return SFS_MAX_SYNC_BYTES_FREE
+
+def _sync_limit_human(limit: int) -> str:
+    """Format byte limit for error messages."""
+    return f"{limit // (1024 * 1024)}MB"
 
 # --- Validation helpers ---
 
@@ -737,32 +748,36 @@ async def sync_push(
     _validate_session_id(session_id)
     blob_store = _get_blob_store(request)
 
+    # Tier-based sync limit
+    sync_limit = _sync_limit_for_user(user)
+    limit_str = _sync_limit_human(sync_limit)
+
     # Check content-length against sync limit
     content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > SFS_MAX_SYNC_BYTES:
+    if content_length and int(content_length) > sync_limit:
         raise HTTPException(
             status_code=413,
             detail={
                 "code": "PAYLOAD_TOO_LARGE",
                 "message": (
-                    "Session exceeds 10MB cloud limit. Run sfs compact to reduce "
-                    "size, or keep this session local-only."
+                    f"Session exceeds {limit_str} cloud limit for your tier. "
+                    "Run sfs compact to reduce size, or upgrade your plan."
                 ),
             },
         )
 
     # M3: Upload size limit
-    data = await _read_upload(file)
+    data = await _read_upload(file, max_bytes=sync_limit)
 
     # Enforce sync byte limit on actual data
-    if len(data) > SFS_MAX_SYNC_BYTES:
+    if len(data) > sync_limit:
         raise HTTPException(
             status_code=413,
             detail={
                 "code": "PAYLOAD_TOO_LARGE",
                 "message": (
-                    "Session exceeds 10MB cloud limit. Run sfs compact to reduce "
-                    "size, or keep this session local-only."
+                    f"Session exceeds {limit_str} cloud limit for your tier. "
+                    "Run sfs compact to reduce size, or upgrade your plan."
                 ),
             },
         )
