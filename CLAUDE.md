@@ -56,4 +56,4 @@ A `.sfs` session is a directory containing: `manifest.json`, `messages.jsonl`, `
 
 **Phase 3 complete — Team Intelligence + Trust Verification**
 
-657 tests passing. Eight-tool capture + four-tool resume. Team handoff with email + workspace resolution. LLM-as-a-Judge (BYOK, OpenRouter, consensus mode, export, stored keys, trust indicators). MCP server (local + remote). Full-text search. Dashboard with search, handoffs, audit, and user profile.
+673 tests passing. Eight-tool capture + four-tool resume. Team handoff with email + workspace resolution. LLM-as-a-Judge (BYOK, OpenRouter, consensus, export, stored keys, trust indicators). MCP server (local + remote). Full-text search. Admin dashboard. Brand identity. Tier-based sync limits (50MB free, 300MB paid).
