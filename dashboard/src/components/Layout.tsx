@@ -37,7 +37,7 @@ export default function Layout() {
           >
             Handoffs
             {pendingCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs bg-yellow-500/20 text-yellow-400 rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 text-sm bg-yellow-500/20 text-yellow-400 rounded-full">
                 {pendingCount}
               </span>
             )}
