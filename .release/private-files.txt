@@ -22,6 +22,9 @@ DOGFOOD.md
 # Exported chat transcripts
 Claude-portablePortable chat agent sessions with network persistence.md
 
+# Brand assets (internal, served via CDN/README only)
+brand/
+
 # Landing page source (deployed to Vercel, exposes marketing strategy)
 landing/
 
