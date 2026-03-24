@@ -21,7 +21,7 @@
   <meta name="twitter:image" content="https://sessionfs.dev/og-image.png">
 
   <link rel="canonical" href="https://sessionfs.dev">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#128193;</text></svg>">
+  <link rel="icon" href="brand/favicon.svg" type="image/svg+xml">
 
   <!-- Monospace font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,13 +36,13 @@
         extend: {
           colors: {
             gh: {
-              bg: '#0d1117',
+              bg: '#0a0c10',
               card: '#161b22',
               border: '#30363d',
               text: '#e6edf3',
               muted: '#8b949e',
-              accent: '#58a6ff',
-              green: '#3fb950',
+              accent: '#4f9cf7',
+              green: '#3ddc84',
               purple: '#bc8cff',
               orange: '#d29922',
             }
@@ -55,7 +55,7 @@
     }
   </script>
   <style>
-    body { background: #0d1117; }
+    body { background: #0a0c10; }
     .terminal {
       background: #161b22;
       border: 1px solid #30363d;
@@ -71,10 +71,10 @@
     }
     .terminal-dot { width: 12px; height: 12px; border-radius: 50%; }
     .tool-card { transition: border-color 0.2s ease; }
-    .tool-card:hover { border-color: #58a6ff; }
+    .tool-card:hover { border-color: #4f9cf7; }
     .pricing-highlight {
-      border-color: #58a6ff !important;
-      box-shadow: 0 0 0 1px #58a6ff;
+      border-color: #4f9cf7 !important;
+      box-shadow: 0 0 0 1px #4f9cf7;
     }
   </style>
 </head>
@@ -83,7 +83,14 @@
   <!-- Nav -->
   <nav class="fixed top-0 w-full bg-gh-bg/80 backdrop-blur-sm border-b border-gh-border z-50">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-      <a href="/" class="font-bold text-lg">SessionFS</a>
+      <a href="/" class="flex items-center gap-2 shrink-0">
+        <svg viewBox="0 0 180 50" class="h-7" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22,8 Q14,8 14,16 L14,34 Q14,42 22,42" fill="none" stroke="#4f9cf7" stroke-width="3" stroke-linecap="round"/>
+          <path d="M42,8 Q50,8 50,16 L50,34 Q50,42 42,42" fill="none" stroke="#3ddc84" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="32" cy="25" r="5" fill="#4f9cf7"/>
+          <text x="60" y="31" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="19" font-weight="500" fill="#e6edf3" letter-spacing="-0.5">Session<tspan fill="#4f9cf7">FS</tspan></text>
+        </svg>
+      </a>
       <div class="flex items-center gap-4 sm:gap-6 text-sm">
         <a href="https://github.com/alwaysnix/sessionfs/blob/main/docs/quickstart.md" class="text-gh-muted hover:text-gh-text hidden sm:block">Docs</a>
         <a href="#pricing" class="text-gh-muted hover:text-gh-text hidden sm:block">Pricing</a>

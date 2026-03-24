@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="brand/logo-full.svg" alt="SessionFS" width="300">
+</p>
+
 # SessionFS
 
 **Stop re-prompting. Start resuming.**
