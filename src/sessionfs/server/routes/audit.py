@@ -94,7 +94,7 @@ async def _extract_messages_from_archive(
                 if member.name.endswith("messages.jsonl"):
                     f = tar.extractfile(member)
                     if f is not None:
-                        for line in f.read().decode("utf-8").splitlines():
+                        for line in f.read().decode("utf-8", errors="replace").splitlines():
                             line = line.strip()
                             if line:
                                 messages.append(json.loads(line))
