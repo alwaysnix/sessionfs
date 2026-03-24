@@ -819,23 +819,37 @@ async def sync_push(
             uploaded_at=now,
         )
         db.add(session)
-        await db.commit()
-        await db.refresh(session)
+        try:
+            await db.commit()
+        except Exception:
+            # Race condition: another request inserted first. Retry as update.
+            await db.rollback()
+            result2 = await db.execute(
+                select(Session).where(Session.id == session_id, Session.user_id == user.id)
+            )
+            existing = result2.scalar_one_or_none()
+            if existing is not None:
+                # Fall through to the update path below
+                pass
+            else:
+                raise HTTPException(status_code=409, detail="Session conflict")
 
-        return Response(
-            status_code=201,
-            content=SyncPushResponse(
-                session_id=session.id,
-                etag=session.etag,
-                blob_size_bytes=session.blob_size_bytes,
-                synced_at=now,
-            ).model_dump_json(),
-            media_type="application/json",
-        )
+        if existing is None:
+            await db.refresh(session)
+            return Response(
+                status_code=201,
+                content=SyncPushResponse(
+                    session_id=session.id,
+                    etag=session.etag,
+                    blob_size_bytes=session.blob_size_bytes,
+                    synced_at=now,
+                ).model_dump_json(),
+                media_type="application/json",
+            )
 
-    # Existing -> check If-Match
+    # Existing -> check If-Match (skip if no header — first-time overwrite)
     if_match = request.headers.get("If-Match", "").strip('"')
-    if not if_match or if_match != existing.etag:
+    if if_match and if_match != existing.etag:
         raise HTTPException(
             status_code=409,
             detail={
