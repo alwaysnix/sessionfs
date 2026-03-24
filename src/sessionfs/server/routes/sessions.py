@@ -792,50 +792,46 @@ async def sync_push(
     messages_text = _extract_messages_text(data)
 
     if existing is None:
-        # New session -> create with full metadata
-        await blob_store.put(key, data)
-        session = Session(
-            id=session_id,
-            user_id=user.id,
-            title=meta["title"],
-            tags=meta["tags"],
-            source_tool=meta["source_tool"],
-            source_tool_version=meta["source_tool_version"],
-            original_session_id=meta["original_session_id"],
-            model_provider=meta["model_provider"],
-            model_id=meta["model_id"],
-            message_count=meta["message_count"],
-            turn_count=meta["turn_count"],
-            tool_use_count=meta["tool_use_count"],
-            total_input_tokens=meta["total_input_tokens"],
-            total_output_tokens=meta["total_output_tokens"],
-            duration_ms=meta["duration_ms"],
-            messages_text=messages_text,
-            blob_key=key,
-            blob_size_bytes=len(data),
-            etag=new_etag,
-            created_at=now,
-            updated_at=now,
-            uploaded_at=now,
-        )
-        db.add(session)
-        try:
-            await db.commit()
-        except Exception:
-            # Race condition: another request inserted first. Retry as update.
-            await db.rollback()
-            result2 = await db.execute(
-                select(Session).where(Session.id == session_id, Session.user_id == user.id)
+        # Check if session exists for ANY user (different owner check)
+        any_result = await db.execute(select(Session).where(Session.id == session_id))
+        any_existing = any_result.scalar_one_or_none()
+        if any_existing is not None:
+            # Session exists but belongs to another user
+            if any_existing.user_id != user.id:
+                raise HTTPException(status_code=409, detail="Session ID already claimed by another user")
+            # Same user, different query didn't find it (deleted?) — treat as update
+            existing = any_existing
+        else:
+            # Truly new session -> create
+            await blob_store.put(key, data)
+            session = Session(
+                id=session_id,
+                user_id=user.id,
+                title=meta["title"],
+                tags=meta["tags"],
+                source_tool=meta["source_tool"],
+                source_tool_version=meta["source_tool_version"],
+                original_session_id=meta["original_session_id"],
+                model_provider=meta["model_provider"],
+                model_id=meta["model_id"],
+                message_count=meta["message_count"],
+                turn_count=meta["turn_count"],
+                tool_use_count=meta["tool_use_count"],
+                total_input_tokens=meta["total_input_tokens"],
+                total_output_tokens=meta["total_output_tokens"],
+                duration_ms=meta["duration_ms"],
+                messages_text=messages_text,
+                blob_key=key,
+                blob_size_bytes=len(data),
+                etag=new_etag,
+                created_at=now,
+                updated_at=now,
+                uploaded_at=now,
             )
-            existing = result2.scalar_one_or_none()
-            if existing is not None:
-                # Fall through to the update path below
-                pass
-            else:
-                raise HTTPException(status_code=409, detail="Session conflict")
-
-        if existing is None:
+            db.add(session)
+            await db.commit()
             await db.refresh(session)
+
             return Response(
                 status_code=201,
                 content=SyncPushResponse(
