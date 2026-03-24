@@ -541,7 +541,7 @@ def handoff(
             console.print(f"\n[green]Handoff created: {handoff_id}[/green]")
             console.print(f"  Recipient: {to}")
             console.print(f"  Expires: {data['expires_at']}")
-            console.print(f"\nRecipient can pull with:")
+            console.print("\nRecipient can pull with:")
             console.print(f"  sfs pull --handoff {handoff_id}")
         else:
             err_console.print(f"[red]Handoff failed: {resp.text}[/red]")
@@ -663,7 +663,7 @@ def pull_handoff(
             f"\n[green]Pulled handoff session {session_id}[/green]\n"
             f"  Size: {len(pull_result.data):,} bytes"
         )
-        console.print(f"\nResume with:")
+        console.print("\nResume with:")
         console.print(f"  sfs resume {session_id} --in {tool}")
 
     finally:

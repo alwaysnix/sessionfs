@@ -36,8 +36,8 @@ def export_markdown(
     # Summary
     lines.append("## Summary")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|--------|-------|")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
     lines.append(f"| Trust Score | {s.trust_score:.0%} |")
     lines.append(f"| Total Claims | {s.total_claims} |")
     lines.append(f"| Verified | {s.verified} |")

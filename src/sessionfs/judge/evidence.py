@@ -163,7 +163,6 @@ def gather_evidence(messages: list[dict]) -> list[Evidence]:
         if tool_id in tool_uses:
             use_idx, tool_name, inp = tool_uses[tool_id]
         else:
-            use_idx = idx
             tool_name = msg.get("name", "unknown")
             inp = {}
 
