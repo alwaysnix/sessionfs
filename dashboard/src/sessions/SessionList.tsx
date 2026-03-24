@@ -130,6 +130,7 @@ export default function SessionList() {
                   <th className="px-3 py-2 text-left w-24">Model</th>
                   <th className="px-3 py-2 text-right w-14">Msgs</th>
                   <th className="px-3 py-2 text-right w-16">Tokens</th>
+                  <th className="px-3 py-2 text-left w-20">Created</th>
                   <th className="px-3 py-2 text-left w-20">Updated</th>
                   <th className="px-3 py-2 text-left">Title</th>
                 </tr>
@@ -149,6 +150,9 @@ export default function SessionList() {
                     <td className="px-3 py-2 text-right text-text-secondary tabular-nums">{s.message_count}</td>
                     <td className="px-3 py-2 text-right text-text-secondary tabular-nums">
                       {formatTokens(s.total_input_tokens + s.total_output_tokens)}
+                    </td>
+                    <td className="px-3 py-2 text-text-muted text-sm">
+                      <RelativeDate iso={s.created_at} />
                     </td>
                     <td className="px-3 py-2 text-text-muted text-sm">
                       <RelativeDate iso={s.updated_at} />
