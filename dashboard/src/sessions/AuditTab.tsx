@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAudit } from '../hooks/useAudit';
 import AuditModal from './AuditModal';
-import type { AuditFinding } from '../api/client';
+import type { AuditFinding, AuditReport } from '../api/client';
 import {
   exportAuditJson,
   exportAuditMarkdown,
