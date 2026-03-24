@@ -130,7 +130,7 @@ docker build -t us-central1-docker.pkg.dev/sessionfs-prod/sessionfs/sessionfs-ap
 docker push us-central1-docker.pkg.dev/sessionfs-prod/sessionfs/sessionfs-api:latest
 gcloud run deploy sessionfs-api --image us-central1-docker.pkg.dev/sessionfs-prod/sessionfs/sessionfs-api:latest --region us-central1
 ```
-Or trigger via: `gh workflow run "Deploy API" --repo alwaysnix/sessionfs --ref main`
+Or trigger via: `gh workflow run "Deploy API" --repo SessionFS/sessionfs --ref main`
 
 ### 13. Run migrations (if new migration added)
 ```bash
@@ -152,7 +152,7 @@ curl -s -o /dev/null -w "%{http_code}" https://app.sessionfs.dev
 curl -s https://pypi.org/pypi/sessionfs/json | python3 -c "import sys,json; print(json.load(sys.stdin)['info']['version'])"
 
 # GitHub Release
-gh release view vX.Y.Z --repo alwaysnix/sessionfs
+gh release view vX.Y.Z --repo SessionFS/sessionfs
 ```
 
 ### 15. Update memory
