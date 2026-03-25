@@ -6,10 +6,18 @@ const PAGE_SIZE = 50;
 
 interface Props {
   sessionId: string;
+  initialPage?: number;
 }
 
-export default function ConversationView({ sessionId }: Props) {
-  const [page, setPage] = useState(1);
+export default function ConversationView({ sessionId, initialPage }: Props) {
+  const [page, setPage] = useState(initialPage || 1);
+
+  // Jump to page when initialPage changes (from audit "Jump to message")
+  useEffect(() => {
+    if (initialPage && initialPage !== page) {
+      setPage(initialPage);
+    }
+  }, [initialPage]);
   const { data, isLoading, error } = useMessages(sessionId, page, PAGE_SIZE);
   const prevSessionId = useRef(sessionId);
   const topRef = useRef<HTMLDivElement>(null);
