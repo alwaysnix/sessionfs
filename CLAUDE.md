@@ -65,4 +65,4 @@ A `.sfs` session is a directory containing: `manifest.json`, `messages.jsonl`, `
 
 **Phase 3 complete — Team Intelligence + Trust Verification**
 
-763 tests passing. Eight-tool capture + four-tool resume. Local storage management (pruning, retention, disk warnings). Multi-provider email (Resend, SMTP, none). Team handoff with email + workspace resolution. LLM-as-a-Judge (BYOK, OpenRouter, consensus, export, stored keys, trust indicators). MCP server (local + remote). Full-text search. GitHub PR App. Admin dashboard. Helm chart (EKS tested). Tier-based sync limits (50MB free, 300MB paid).
+784 tests passing. Eight-tool capture + four-tool resume. Local storage management (pruning, retention, disk warnings). Multi-provider email (Resend, SMTP, none). Team handoff with email + workspace resolution. LLM-as-a-Judge (BYOK, OpenRouter, consensus, export, stored keys, trust indicators). MCP server (local + remote). Full-text search. GitHub PR App. Admin dashboard. Helm chart (EKS validated — session ID format, SSL, MCP port, dashboard proxy, S3 prefix, rate limiter all fixed). Tier-based sync limits (50MB free, 300MB paid).
