@@ -68,18 +68,29 @@ Sessions are indexed locally for fast browsing via the CLI. Cloud sync is opt-in
 | `sfs resume <id> [--in TOOL]` | Resume a session in any supported tool (auto-launches) |
 | `sfs fork <id>` | Fork a session into a new independent session |
 | `sfs checkpoint <id>` | Create a named checkpoint of a session |
+| `sfs alias <id> <name>` | Set or clear a session alias |
 | `sfs export <id>` | Export as `.sfs`, markdown, or Claude Code format |
 | `sfs import` | Import sessions from any supported tool |
+| `sfs search "query"` | Full-text search across all sessions |
+| `sfs summary <id>` | Show session summary (files, tests, commands, packages) |
+| `sfs audit <id>` | Audit a session for hallucinations with LLM-as-a-Judge |
 | `sfs push <id>` | Push a session to the cloud |
 | `sfs pull <id>` | Pull a session from the cloud |
+| `sfs pull-handoff <hnd_id>` | Pull a session from a handoff link |
+| `sfs list-remote` | List sessions on the cloud server |
 | `sfs handoff <id> --to EMAIL` | Hand off a session to a teammate with email notification |
-| `sfs search "query"` | Full-text search across all sessions |
+| `sfs sync` | Bidirectional sync (push + pull) |
+| `sfs sync auto --mode MODE` | Set autosync mode: off, all, or selective |
+| `sfs sync watch\|unwatch <id>` | Add/remove sessions from autosync watchlist |
+| `sfs sync status` | Show autosync mode, counts, storage usage |
+| `sfs project init\|edit\|show` | Manage shared project context for your team |
+| `sfs project set-context FILE` | Set project context from a file |
+| `sfs project get-context` | Output raw project context to stdout |
 | `sfs storage` | Show local disk usage and retention policy |
 | `sfs storage prune` | Prune old sessions to free disk space |
 | `sfs daemon start\|stop\|restart\|status\|logs` | Manage the background daemon |
 | `sfs watcher list\|enable\|disable` | Manage tool watchers |
-| `sfs audit <id>` | Audit a session for hallucinations with LLM-as-a-Judge |
-| `sfs project init\|edit\|show` | Manage shared project context for your team |
+| `sfs auth login\|signup\|status` | Manage cloud authentication |
 | `sfs config show\|set` | Manage configuration |
 | `sfs mcp serve` | Start MCP server for AI tool integration |
 | `sfs mcp install --for TOOL` | Auto-configure MCP for Claude Code, Cursor, or Copilot |

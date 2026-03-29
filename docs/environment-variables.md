@@ -34,9 +34,8 @@ All SessionFS server environment variables use the `SFS_` prefix.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SFS_VERIFICATION_SECRET` | Secret for email verification JWT tokens | `dev-verification-secret` |
+| `SFS_VERIFICATION_SECRET` | Secret for email verification and API key encryption (Fernet derived via SHA256) | `dev-verification-secret` |
 | `SFS_REQUIRE_EMAIL_VERIFICATION` | Require email verification on signup | `true` |
-| `SFS_ENCRYPTION_KEY` | Fernet key for encrypting stored API keys | — |
 
 ## Blob Storage
 
@@ -78,3 +77,16 @@ All SessionFS server environment variables use the `SFS_` prefix.
 | `SFS_GITHUB_APP_ID` | GitHub App ID | — |
 | `SFS_GITHUB_PRIVATE_KEY` | GitHub App private key (PEM contents) | — |
 | `SFS_GITHUB_WEBHOOK_SECRET` | Webhook HMAC-SHA256 secret | — |
+
+## GitLab
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SFS_GITLAB_WEBHOOK_SECRET` | GitLab webhook token for MR events | — |
+
+## Defaults
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SFS_DEFAULT_SYNC_MODE` | Default autosync mode for new users: `off`, `all`, `selective` | `off` |
+| `SFS_DEFAULT_AUDIT_TRIGGER` | Default auto-audit trigger for new users: `manual`, `on_sync`, `on_pr` | `manual` |

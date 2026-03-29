@@ -118,3 +118,55 @@ SFS_RATE_LIMIT_PER_MINUTE=10000 # Effectively unlimited
 ```
 
 Changes require a pod restart to take effect.
+
+### Cursor sessions show 0 tool calls / audit returns 0 claims
+
+Cursor sessions captured before v0.9.4 may be missing tool calls. The Cursor converter now reads the `agentKv:blob:` layer which contains full tool call data. To fix existing sessions:
+
+1. Restart the daemon: `sfs daemon restart`
+2. The daemon re-scans and re-captures Cursor sessions with the updated converter
+3. Re-push affected sessions: `sfs sync`
+
+If the audit still returns 0 claims, the session may genuinely have no tool calls (e.g., a question-answer chat without code operations).
+
+### Codex resume fails
+
+If `sfs resume --in codex` fails with "Failed to resume session":
+
+1. Ensure you have Codex CLI installed: `codex --version`
+2. The resume command is `codex resume <uuid>` (a subcommand, not a flag)
+3. SessionFS auto-launches Codex after conversion
+
+If Codex shows the session picker but then errors, the rollout file format may be incompatible with your Codex version. Check `~/.codex/sessions/` for the generated `.jsonl` file.
+
+### Handoff recipient can't pull session
+
+The handoff claim now copies session data to the recipient's account. If the recipient gets "Session not found":
+
+1. Ensure the handoff was claimed: `sfs pull-handoff hnd_xxx`
+2. The correct command is `sfs pull-handoff` (not `sfs pull --handoff`)
+3. Check that the claim created a copy: the recipient should see the session in `sfs list-remote`
+
+### Resume fails with "path not found"
+
+When resuming a handoff session, the sender's working directory may not exist on the receiver's machine. SessionFS automatically falls back to the current working directory. Use `--project` to specify a different path:
+
+```bash
+sfs resume ses_abc --in claude-code --project ~/my-project
+```
+
+### SQLite "database locked" errors
+
+The daemon and CLI share a SQLite index. If you see "database is locked", it usually resolves within 5 seconds (busy_timeout is set to 5000ms). If persistent:
+
+1. Check if multiple daemon instances are running: `ps aux | grep sfsd`
+2. Stop all daemons: `sfs daemon stop`
+3. Restart: `sfs daemon start`
+
+### Autosync not working
+
+1. Check mode: `sfs sync status`
+2. Ensure authenticated: `sfs auth status`
+3. In selective mode, sessions must be watched: `sfs sync watch ses_abc`
+4. The daemon polls for settings changes every 60 seconds — wait after changing mode in the dashboard
+5. Check daemon logs: `sfs daemon logs`

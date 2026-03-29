@@ -368,3 +368,448 @@ $ sfs config set scan_interval_s 10
 
 Set scan_interval_s = 10
 ```
+
+---
+
+## `sfs alias`
+
+Set or clear a session alias for easy reference.
+
+```
+sfs alias SESSION_ID [ALIAS]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `SESSION_ID` | yes | Session ID or prefix |
+| `ALIAS` | no | Alias name (omit to clear) |
+
+**Example:**
+
+```bash
+$ sfs alias ses_a1b2 auth-debug
+Alias set: auth-debug -> ses_a1b2c3d4e5f6
+
+$ sfs show auth-debug   # Now works with alias
+```
+
+---
+
+## `sfs search`
+
+Full-text search across all local sessions.
+
+```
+sfs search QUERY [OPTIONS]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `QUERY` | yes | Search text |
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--tool` | string | — | Filter by source tool |
+| `--cloud` | flag | `false` | Search cloud sessions instead of local |
+| `--json` | flag | `false` | Output as JSON |
+
+**Example:**
+
+```bash
+$ sfs search "rate limiting middleware"
+
+2 results:
+  ses_a1b2  claude-code  "...added rate limiting middleware to..."
+  ses_c3d4  codex        "...the rate limiter should handle..."
+```
+
+---
+
+## `sfs summary`
+
+Show a session summary — files changed, tests run, commands executed.
+
+```
+sfs summary SESSION_ID [OPTIONS]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `SESSION_ID` | yes | Session ID or prefix |
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--format` | string | — | Export format: `md` for markdown |
+
+**Example:**
+
+```bash
+$ sfs summary ses_a1b2
+
+Debug auth middleware
+2.3h | 327 msgs | 28 tool calls | Claude Code
+Branch: feature/auth-fix @ a1b2c3d
+
+Files modified (3):
+  src/auth/middleware.py
+  src/auth/tokens.py
+  tests/test_auth.py
+
+Commands: 34
+Tests: 6 runs (5 passed, 1 failed)
+Packages: pyjwt, redis
+```
+
+---
+
+## `sfs audit`
+
+Audit a session for hallucinations using LLM-as-a-Judge.
+
+```
+sfs audit SESSION_ID [OPTIONS]
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `SESSION_ID` | yes | Session ID or prefix |
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--model` | string | `claude-sonnet-4` | Judge LLM model |
+| `--api-key` | string | — | LLM API key (or use config/env) |
+| `--provider` | string | auto-detect | Provider: anthropic, openai, google, openrouter |
+| `--base-url` | string | — | Custom OpenAI-compatible endpoint (LiteLLM, vLLM, Ollama) |
+| `--consensus` | flag | `false` | Run 3 passes, report where 2+ agree (3x cost) |
+| `--report` | flag | `false` | Show existing report only |
+| `--json` | flag | `false` | Output as JSON |
+| `--format` | string | — | Export: `json`, `markdown`, `csv` |
+
+**Example:**
+
+```bash
+$ sfs audit ses_a1b2 --model gpt-4o --base-url https://litellm.internal/v1
+
+Trust Score: 74%
+3 contradictions | 9 unverified | 42 verified
+
+CRITICAL  test_result   msg #34  "Test passes" -> exit code 1
+HIGH      file_existence msg #12  "Created validator.py" -> No Write call
+```
+
+---
+
+## `sfs push`
+
+Push a session to the cloud.
+
+```
+sfs push SESSION_ID
+```
+
+---
+
+## `sfs pull`
+
+Pull a session from the cloud.
+
+```
+sfs pull SESSION_ID
+```
+
+---
+
+## `sfs pull-handoff`
+
+Pull a session from a handoff link.
+
+```
+sfs pull-handoff HANDOFF_ID
+```
+
+**Example:**
+
+```bash
+$ sfs pull-handoff hnd_x7k9
+
+Session pulled. 47 messages.
+Run: sfs resume ses_abc --in claude-code
+```
+
+---
+
+## `sfs list-remote`
+
+List sessions stored on the cloud server.
+
+```
+sfs list-remote [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--page` | int | `1` | Page number |
+| `--page-size` | int | `20` | Results per page |
+
+---
+
+## `sfs handoff`
+
+Hand off a session to a teammate with email notification.
+
+```
+sfs handoff SESSION_ID --to EMAIL [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--to` | string | required | Recipient email |
+| `--message` | string | — | Message to include in the email |
+
+---
+
+## `sfs sync`
+
+Bidirectional sync and autosync management.
+
+### `sfs sync` (default)
+
+Run bidirectional sync — push local changes, pull remote-only sessions.
+
+```
+sfs sync
+```
+
+### `sfs sync auto`
+
+Set autosync mode.
+
+```
+sfs sync auto --mode MODE
+```
+
+| Mode | Behavior |
+|------|----------|
+| `off` | No autosync (default). Manual `sfs push` only. |
+| `all` | Every new or updated session auto-pushes to cloud. |
+| `selective` | Only sessions in the watchlist auto-push. |
+
+### `sfs sync watch`
+
+Add sessions to the autosync watchlist (selective mode).
+
+```
+sfs sync watch SESSION_ID [SESSION_ID...]
+```
+
+### `sfs sync unwatch`
+
+Remove sessions from the autosync watchlist.
+
+```
+sfs sync unwatch SESSION_ID [SESSION_ID...]
+```
+
+### `sfs sync watchlist`
+
+Show all sessions in the autosync watchlist.
+
+```
+sfs sync watchlist
+```
+
+### `sfs sync status`
+
+Show current autosync mode, counts, and storage usage.
+
+```
+sfs sync status
+```
+
+---
+
+## `sfs project`
+
+Manage shared project context — a single document shared across the team via MCP.
+
+### `sfs project init`
+
+Create a project context for the current repo (matched by git remote).
+
+```
+sfs project init
+```
+
+### `sfs project show`
+
+Display the current project context with metadata.
+
+```
+sfs project show
+```
+
+### `sfs project edit`
+
+Open the context document in `$EDITOR`. Changes upload on save.
+
+```
+sfs project edit
+```
+
+### `sfs project set-context`
+
+Set project context from a file.
+
+```
+sfs project set-context FILE
+```
+
+### `sfs project get-context`
+
+Output raw project context markdown to stdout.
+
+```
+sfs project get-context
+```
+
+---
+
+## `sfs storage`
+
+Manage local session storage.
+
+### `sfs storage` (default)
+
+Show local disk usage, session counts, and retention policy.
+
+```
+sfs storage
+```
+
+### `sfs storage prune`
+
+Prune old sessions to free disk space.
+
+```
+sfs storage prune [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--dry-run` | flag | `false` | Show what would be pruned without deleting |
+| `--force` | flag | `false` | Skip confirmation prompt |
+
+---
+
+## `sfs daemon restart`
+
+Restart the daemon (stop + start).
+
+```
+sfs daemon restart
+```
+
+---
+
+## `sfs watcher`
+
+Manage tool watchers.
+
+### `sfs watcher list`
+
+List all tool watchers and their status.
+
+```
+sfs watcher list
+```
+
+### `sfs watcher enable`
+
+Enable a tool watcher.
+
+```
+sfs watcher enable TOOL
+```
+
+### `sfs watcher disable`
+
+Disable a tool watcher.
+
+```
+sfs watcher disable TOOL
+```
+
+---
+
+## `sfs auth`
+
+Manage cloud authentication.
+
+### `sfs auth login`
+
+Authenticate with the cloud server.
+
+```
+sfs auth login [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--url` | string | `https://api.sessionfs.dev` | Server URL |
+| `--key` | string | — | API key |
+
+### `sfs auth signup`
+
+Create a new account.
+
+```
+sfs auth signup [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--url` | string | `https://api.sessionfs.dev` | Server URL |
+
+### `sfs auth status`
+
+Show current authentication status.
+
+```
+sfs auth status
+```
+
+---
+
+## `sfs mcp serve`
+
+Start the MCP server on stdio transport.
+
+```
+sfs mcp serve
+```
+
+Tools exposed: `search_sessions`, `get_session_context`, `list_recent_sessions`, `find_related_sessions`, `get_project_context`.
+
+---
+
+## `sfs mcp install`
+
+Auto-configure MCP for an AI tool.
+
+```
+sfs mcp install --for TOOL
+```
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `--for` | string | Target tool: `claude-code`, `cursor`, `copilot` |
+
+---
+
+## `sfs admin reindex`
+
+Re-extract metadata for all cloud sessions (admin only).
+
+```
+sfs admin reindex
+```
