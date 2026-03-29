@@ -192,3 +192,49 @@ def logs(
         all_lines = log_file.read_text().splitlines()
         for line in all_lines[-lines:]:
             console.print(line)
+
+
+@daemon_app.command("rebuild-index")
+def rebuild_index() -> None:
+    """Rebuild the local session index from .sfs files on disk."""
+    import json
+
+    from sessionfs.cli.common import open_store
+
+    store = open_store()
+    try:
+        sessions_dir = store._store_dir / "sessions"
+        if not sessions_dir.is_dir():
+            console.print("[yellow]No sessions directory found.[/yellow]")
+            return
+
+        count = 0
+        for sfs_dir in sorted(sessions_dir.iterdir()):
+            if not sfs_dir.is_dir() or not sfs_dir.name.endswith(".sfs"):
+                continue
+            manifest_path = sfs_dir / "manifest.json"
+            if not manifest_path.exists():
+                continue
+            try:
+                manifest = json.loads(manifest_path.read_text())
+                session_id = manifest.get("session_id", sfs_dir.name.replace(".sfs", ""))
+                # Backfill source_tool from tracked_sessions if missing
+                source = manifest.get("source", {})
+                if not source.get("tool"):
+                    tracked = store.index.conn.execute(
+                        "SELECT tool FROM tracked_sessions WHERE sfs_session_id = ?",
+                        (session_id,),
+                    ).fetchone()
+                    if tracked:
+                        if "source" not in manifest:
+                            manifest["source"] = {}
+                        manifest["source"]["tool"] = tracked[0]
+                        manifest_path.write_text(json.dumps(manifest, indent=2))
+                store.upsert_session_metadata(session_id, manifest, str(sfs_dir))
+                count += 1
+            except (json.JSONDecodeError, OSError) as e:
+                console.print(f"[dim]Skipped {sfs_dir.name}: {e}[/dim]")
+
+        console.print(f"[green]Rebuilt index: {count} sessions.[/green]")
+    finally:
+        store.close()

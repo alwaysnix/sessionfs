@@ -277,13 +277,7 @@ function AuditHistory({ sessionId }: { sessionId: string }) {
   const { auth } = useAuth();
   const { data } = useQuery({
     queryKey: ['auditHistory', sessionId],
-    queryFn: async () => {
-      const resp = await fetch(`${auth!.baseUrl}/api/v1/sessions/${sessionId}/audits`, {
-        headers: { Authorization: `Bearer ${auth!.apiKey}` },
-      });
-      if (!resp.ok) return [];
-      return resp.json();
-    },
+    queryFn: () => auth!.client.getAuditHistory(sessionId).catch(() => []),
     enabled: !!auth,
     staleTime: 60_000,
   });

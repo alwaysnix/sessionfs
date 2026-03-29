@@ -148,3 +148,34 @@ sfs daemon status
 ```
 
 If a watcher shows `degraded` or `broken`, check `sfs daemon logs --lines 100`.
+
+## What's Next
+
+Once you're capturing sessions, explore these features:
+
+```bash
+# Search across all sessions
+sfs search "rate limiting"
+
+# Get a quick summary of any session
+sfs summary ses_abc
+
+# Audit a session for hallucinations
+sfs audit ses_abc --model gpt-4o
+
+# Enable automatic cloud sync
+sfs auth login
+sfs sync auto --mode all
+
+# Share project context with your team
+sfs project init
+sfs project edit
+
+# Hand off a session to a teammate
+sfs handoff ses_abc --to colleague@company.com
+
+# Install MCP so AI agents remember past sessions
+sfs mcp install --for claude-code
+```
+
+See the full [CLI Reference](cli-reference.md) for all commands and options.

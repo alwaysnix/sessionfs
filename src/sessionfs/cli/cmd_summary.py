@@ -23,12 +23,18 @@ def summary_default(
     ctx: typer.Context,
     session_id: str = typer.Argument(None, help="Session ID or prefix"),
     fmt: str | None = typer.Option(None, "--format", help="Export format: md"),
+    today: bool = typer.Option(False, "--today", help="Summarize all sessions from today"),
 ) -> None:
     """Show a session summary."""
     if ctx.invoked_subcommand is not None:
         return
+
+    if today:
+        _summary_today(fmt)
+        return
+
     if not session_id:
-        err_console.print("[dim]Usage: sfs summary <session_id>[/dim]")
+        err_console.print("[dim]Usage: sfs summary <session_id> or sfs summary --today[/dim]")
         raise typer.Exit(0)
 
     store = open_store()
@@ -149,3 +155,52 @@ def _print_markdown(s) -> None:
         lines.append(f"- Errors: {len(s.errors_encountered)} unique")
 
     sys.stdout.write("\n".join(lines) + "\n")
+
+
+def _summary_today(fmt: str | None) -> None:
+    """Summarize all sessions captured today."""
+    from datetime import datetime, timezone
+
+    from rich.table import Table
+
+    from sessionfs.server.services.summarizer import summarize_session
+
+    store = open_store()
+    try:
+        sessions = store.list_sessions()
+    finally:
+        store.close()
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_sessions = []
+    for s in sessions:
+        created = s.get("created_at", "")
+        if isinstance(created, str) and created.startswith(today):
+            today_sessions.append(s)
+
+    if not today_sessions:
+        console.print("[dim]No sessions captured today.[/dim]")
+        return
+
+    table = Table(title=f"Today's Sessions ({len(today_sessions)})")
+    table.add_column("ID", style="cyan", width=14)
+    table.add_column("Tool")
+    table.add_column("Messages", justify="right")
+    table.add_column("Tools", justify="right")
+    table.add_column("Title", max_width=40)
+
+    for s in today_sessions:
+        sid = s.get("session_id", "")
+        sfs_dir = store._store_dir / "sessions" / f"{sid}.sfs"
+        msgs = _read_messages(sfs_dir / "messages.jsonl") if sfs_dir.exists() else []
+        summary = summarize_session(msgs, _read_json(sfs_dir / "manifest.json")) if msgs else None
+
+        table.add_row(
+            sid[:14],
+            s.get("source_tool", "?"),
+            str(s.get("message_count", 0)),
+            str(summary.tool_call_count if summary else 0),
+            (s.get("title") or "Untitled")[:40],
+        )
+
+    console.print(table)

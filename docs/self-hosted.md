@@ -451,6 +451,48 @@ api:
     SFS_RATE_LIMIT_PER_MINUTE: "0"   # Disable for internal deployments
 ```
 
+## Architecture
+
+SessionFS uses a reverse proxy architecture. All external traffic routes through the dashboard nginx, which proxies `/api/` and `/mcp/` to internal ClusterIP services:
+
+```
+Internet -> Ingress -> Dashboard Nginx -> API Service (ClusterIP)
+                                       -> MCP Service (ClusterIP)
+                                       -> Static Files
+```
+
+The ingress template routes everything to the dashboard service. Do NOT create separate ingress rules for `/api` or `/mcp` — this causes ALB target groups to stay in "unused" state.
+
+### Upload size limit
+
+The dashboard nginx has `client_max_body_size` configured (default 100MB). Override in values.yaml:
+
+```yaml
+dashboard:
+  clientMaxBodySize: "200m"
+```
+
+## GitLab Integration
+
+SessionFS supports GitLab merge request comments (cloud and self-hosted instances).
+
+### Setup
+
+1. Create a GitLab personal or project access token with `api` scope
+2. Add a webhook to your GitLab project:
+   - URL: `https://your-sessionfs-domain/webhooks/gitlab`
+   - Secret token: set in your Helm values or `SFS_GITLAB_WEBHOOK_SECRET` env var
+   - Events: "Merge request events"
+3. Configure in the dashboard Settings page or via Helm:
+
+```yaml
+api:
+  env:
+    SFS_GITLAB_WEBHOOK_SECRET: "your-webhook-secret"
+```
+
+GitLab MR comments include the same AI session context as GitHub PR comments, including audit findings when available.
+
 ## Environment Variables
 
 See [Environment Variables Reference](environment-variables.md) for the complete list of `SFS_*` configuration options.

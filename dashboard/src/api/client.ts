@@ -448,6 +448,11 @@ export function createApiClient(baseUrl: string, apiKey: string) {
     generateSessionSummary: (sessionId: string) =>
       request<Record<string, unknown>>(`/api/v1/sessions/${sessionId}/summary`, { method: 'POST' }),
 
+    getAuditHistory: (sessionId: string) =>
+      request<{ id: string; judge_model: string; trust_score: number; total_claims: number; contradiction_count: number; created_at: string }[]>(
+        `/api/v1/sessions/${sessionId}/audits`,
+      ),
+
     // Audit trigger settings
     getAuditTrigger: () =>
       request<{ trigger: string }>('/api/v1/settings/audit-trigger'),

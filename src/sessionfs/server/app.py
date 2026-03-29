@@ -102,6 +102,7 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     app.include_router(admin.router)
     app.include_router(projects.router)
     app.include_router(summaries.router)
+    app.include_router(summaries.batch_router)
     app.include_router(sync.router)
     app.include_router(webhooks.router)
 

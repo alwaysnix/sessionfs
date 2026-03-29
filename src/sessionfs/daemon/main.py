@@ -165,6 +165,9 @@ class DaemonSyncer:
                     result.blob_size_bytes,
                 )
 
+                # Auto-audit after sync if configured
+                await self._maybe_auto_audit(session_id, client)
+
             except SyncConflictError as exc:
                 logger.warning(
                     "Sync conflict for %s: remote etag=%s. Will retry next cycle.",
@@ -193,21 +196,49 @@ class DaemonSyncer:
         except Exception:
             pass
 
+    async def _maybe_auto_audit(self, session_id: str, client) -> None:
+        """Trigger audit after sync if user has audit_trigger=on_sync."""
+        if not hasattr(self, '_audit_trigger'):
+            self._audit_trigger = "manual"
+        if self._audit_trigger != "on_sync":
+            return
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=30) as http:
+                resp = await http.post(
+                    f"{client.api_url}/api/v1/sessions/{session_id}/audit",
+                    headers={"Authorization": f"Bearer {client.api_key}"},
+                    json={},
+                )
+                if resp.status_code in (200, 201, 202):
+                    logger.info("Auto-audit triggered for %s", session_id[:12])
+                else:
+                    logger.debug("Auto-audit skipped for %s: %d", session_id[:12], resp.status_code)
+        except Exception as e:
+            logger.debug("Auto-audit failed for %s: %s", session_id[:12], e)
+
     def _maybe_check_remote_settings(self) -> None:
-        """Poll API for settings changes every 60 seconds."""
+        """Poll API for settings changes every 60 seconds. Non-blocking."""
         now = time.monotonic()
         if now - self._last_settings_check < 60:
             return
         self._last_settings_check = now
 
         try:
-            import httpx
+            asyncio.run(self._fetch_remote_settings())
+        except Exception:
+            pass  # Offline — keep using local config
 
-            client = self._get_client()
-            resp = httpx.get(
+    async def _fetch_remote_settings(self) -> None:
+        """Async fetch of remote settings."""
+        import httpx
+
+        client = self._get_client()
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.get(
                 f"{client.api_url}/api/v1/sync/settings",
                 headers={"Authorization": f"Bearer {client.api_key}"},
-                timeout=10,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -215,10 +246,14 @@ class DaemonSyncer:
                 if new_mode != self.config.sync.auto:
                     logger.info("Autosync mode changed: %s -> %s", self.config.sync.auto, new_mode)
                     self.config.sync.auto = new_mode
-                new_debounce = data.get("debounce_seconds", 30)
-                self.config.sync.debounce = new_debounce
-        except Exception:
-            pass  # Offline — keep using local config
+                self.config.sync.debounce = data.get("debounce_seconds", 30)
+
+            resp2 = await http.get(
+                f"{client.api_url}/api/v1/settings/audit-trigger",
+                headers={"Authorization": f"Bearer {client.api_key}"},
+            )
+            if resp2.status_code == 200:
+                self._audit_trigger = resp2.json().get("trigger", "manual")
 
     def _get_local_etag(self, session_id: str) -> str | None:
         """Read the locally stored etag for a session."""
