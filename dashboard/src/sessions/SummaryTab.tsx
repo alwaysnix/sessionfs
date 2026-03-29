@@ -9,6 +9,8 @@ interface Props {
 export default function SummaryTab({ sessionId }: Props) {
   const { auth } = useAuth();
   const queryClient = useQueryClient();
+  const [showAllRead, setShowAllRead] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
 
   const { data: summary, isLoading, error } = useQuery({
     queryKey: ['summary', sessionId],
@@ -58,9 +60,6 @@ export default function SummaryTab({ sessionId }: Props) {
   const duration = summary.duration_minutes < 60
     ? `${summary.duration_minutes}m`
     : `${(summary.duration_minutes / 60).toFixed(1)}h`;
-
-  const [showAllRead, setShowAllRead] = useState(false);
-  const [showErrors, setShowErrors] = useState(false);
 
   return (
     <div className="p-4 max-w-3xl mx-auto">
