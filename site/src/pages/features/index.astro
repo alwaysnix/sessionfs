@@ -27,7 +27,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="text-3xl shrink-0">&#9878;</div>
             <div class="flex-1">
               <h3 class="font-heading font-semibold text-lg mb-2 group-hover:text-brand transition-colors">LLM Judge</h3>
-              <p class="text-muted text-sm mb-4 leading-relaxed">Cross-references every AI claim against actual tool outputs. When the AI says "test passes" but exit code is 1 — that's a critical contradiction, flagged with full evidence.</p>
+              <p class="text-muted text-base mb-4 leading-relaxed">Cross-references every AI claim against actual tool outputs. When the AI says "test passes" but exit code is 1 — that's a critical contradiction, flagged with full evidence.</p>
               <div class="font-mono text-sm px-3 py-2 rounded bg-bg/50">
                 <span class="bg-danger/15 text-danger text-[11px] font-bold px-1.5 py-0.5 rounded">CRITICAL</span>
                 <span class="text-muted ml-2">"Test passes"</span>
@@ -43,7 +43,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="text-3xl shrink-0">&#128101;</div>
             <div class="flex-1">
               <h3 class="font-heading font-semibold text-lg mb-2 group-hover:text-brand transition-colors">Team Handoff</h3>
-              <p class="text-muted text-sm mb-4 leading-relaxed">Hand off sessions to teammates with full context. Session data copies to recipient — full conversation, workspace state, git snapshot.</p>
+              <p class="text-muted text-base mb-4 leading-relaxed">Hand off sessions to teammates with full context. Session data copies to recipient — full conversation, workspace state, git snapshot.</p>
               <div class="font-mono text-sm text-accent bg-bg/50 rounded px-3 py-2">sfs handoff ses_abc --to sarah@co.dev</div>
             </div>
           </div>
@@ -54,7 +54,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="text-3xl shrink-0">&#128203;</div>
             <div class="flex-1">
               <h3 class="font-heading font-semibold text-lg mb-2 group-hover:text-brand transition-colors">Session Summary</h3>
-              <p class="text-muted text-sm mb-4 leading-relaxed">See what happened in 10 seconds. Files changed, tests run, commands executed — extracted automatically with no LLM cost.</p>
+              <p class="text-muted text-base mb-4 leading-relaxed">See what happened in 10 seconds. Files changed, tests run, commands executed — extracted automatically with no LLM cost.</p>
               <div class="font-mono text-sm bg-bg/50 rounded px-3 py-2">
                 <span class="text-accent">3 modified</span>
                 <span class="text-muted-dim"> &middot; </span>
@@ -71,7 +71,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="text-3xl shrink-0">&#9881;</div>
             <div class="flex-1">
               <h3 class="font-heading font-semibold text-lg mb-2 group-hover:text-brand transition-colors">MCP Server</h3>
-              <p class="text-muted text-sm mb-4 leading-relaxed">AI agents search your past sessions and read project context during conversations. One command to install for any supported tool.</p>
+              <p class="text-muted text-base mb-4 leading-relaxed">AI agents search your past sessions and read project context during conversations. One command to install for any supported tool.</p>
               <div class="font-mono text-sm text-accent bg-bg/50 rounded px-3 py-2">sfs mcp install --for claude-code</div>
             </div>
           </div>
@@ -82,7 +82,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="text-3xl shrink-0">&#9729;</div>
             <div class="flex-1">
               <h3 class="font-heading font-semibold text-lg mb-2 group-hover:text-brand transition-colors">Cloud Sync &amp; Autosync</h3>
-              <p class="text-muted text-sm mb-4 leading-relaxed">Push sessions to the cloud, pull on any machine. Three modes: off, all, or selective per-session watchlist. Tier-based storage limits.</p>
+              <p class="text-muted text-base mb-4 leading-relaxed">Push sessions to the cloud, pull on any machine. Three modes: off, all, or selective per-session watchlist. Tier-based storage limits.</p>
               <div class="font-mono text-sm text-accent bg-bg/50 rounded px-3 py-2">sfs sync auto --mode all</div>
             </div>
           </div>
@@ -93,7 +93,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="text-3xl shrink-0">&#128279;</div>
             <div class="flex-1">
               <h3 class="font-heading font-semibold text-lg mb-2 group-hover:text-brand transition-colors">GitHub &amp; GitLab</h3>
-              <p class="text-muted text-sm mb-4 leading-relaxed">AI session context on every PR and MR. Trust scores and contradictions surfaced directly in code review, where decisions actually happen.</p>
+              <p class="text-muted text-base mb-4 leading-relaxed">AI session context on every PR and MR. Trust scores and contradictions surfaced directly in code review, where decisions actually happen.</p>
               <div class="font-mono text-sm text-muted-dim bg-bg/50 rounded px-3 py-2">Cloud + self-hosted GitLab</div>
             </div>
           </div>
@@ -104,7 +104,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="text-3xl shrink-0">&#128269;</div>
             <div class="flex-1">
               <h3 class="font-heading font-semibold text-lg mb-2 group-hover:text-brand transition-colors">Full-Text Search</h3>
-              <p class="text-muted text-sm mb-4 leading-relaxed">Search across all sessions by keyword, error message, or file path. Find that fix from last week in any tool session.</p>
+              <p class="text-muted text-base mb-4 leading-relaxed">Search across all sessions by keyword, error message, or file path. Find that fix from last week in any tool session.</p>
               <div class="font-mono text-sm text-accent bg-bg/50 rounded px-3 py-2">sfs search "rate limiting"</div>
             </div>
           </div>
@@ -115,7 +115,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <div class="text-3xl shrink-0">&#128194;</div>
             <div class="flex-1">
               <h3 class="font-heading font-semibold text-lg mb-2 group-hover:text-brand transition-colors">Workspace Aware</h3>
-              <p class="text-muted text-sm mb-4 leading-relaxed">Git state captured automatically — branch, commit SHA, remote URL, and dirty files. Every session knows exactly where it happened.</p>
+              <p class="text-muted text-base mb-4 leading-relaxed">Git state captured automatically — branch, commit SHA, remote URL, and dirty files. Every session knows exactly where it happened.</p>
               <div class="font-mono text-sm bg-bg/50 rounded px-3 py-2">
                 <span class="text-brand">feature/auth-fix</span>
                 <span class="text-muted-dim"> @ </span>

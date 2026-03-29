@@ -49,8 +49,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           </div>
           <div class="p-4 sm:p-5 font-mono text-sm leading-relaxed overflow-x-auto">
             <div class="text-muted-dim">$ <span class="text-accent">sfs list</span></div>
-            <div class="mt-3 text-muted-dim text-[13px] uppercase tracking-wider">Sessions (8)</div>
-            <table class="w-full mt-2 text-[13px] sm:text-sm">
+            <div class="mt-3 text-muted-dim text-sm uppercase tracking-wider">Sessions (8)</div>
+            <table class="w-full mt-2 text-sm sm:text-sm">
               <thead><tr class="text-muted-dim text-left border-b border-border">
                 <th class="pr-2 pb-1.5 font-medium">ID</th>
                 <th class="pr-2 pb-1.5 font-medium">Tool</th>
@@ -214,56 +214,56 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <div class="glass p-6 fade-up">
           <div class="text-2xl mb-3">&#9729;</div>
           <h3 class="font-heading font-semibold text-base mb-2">Cloud Sync</h3>
-          <p class="text-muted text-sm mb-3 leading-relaxed">Push to the cloud, pull on any machine. Auto-sync available.</p>
+          <p class="text-muted text-base mb-3 leading-relaxed">Push to the cloud, pull on any machine. Auto-sync available.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">sfs sync auto --mode all</div>
         </div>
         <!-- Team Handoff -->
         <div class="glass p-6 fade-up">
           <div class="text-2xl mb-3">&#128101;</div>
           <h3 class="font-heading font-semibold text-base mb-2">Team Handoff</h3>
-          <p class="text-muted text-sm mb-3 leading-relaxed">Hand off sessions with full context. Session data copies to recipient.</p>
+          <p class="text-muted text-base mb-3 leading-relaxed">Hand off sessions with full context. Session data copies to recipient.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">sfs handoff --to sarah@co.dev</div>
         </div>
         <!-- Session Search -->
         <div class="glass p-6 fade-up">
           <div class="text-2xl mb-3">&#128269;</div>
           <h3 class="font-heading font-semibold text-base mb-2">Session Search</h3>
-          <p class="text-muted text-sm mb-3 leading-relaxed">Full-text search across all sessions. Find that fix from last week.</p>
+          <p class="text-muted text-base mb-3 leading-relaxed">Full-text search across all sessions. Find that fix from last week.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">sfs search "auth error"</div>
         </div>
         <!-- MCP Server -->
         <div class="glass p-6 fade-up">
           <div class="text-2xl mb-3">&#9881;</div>
           <h3 class="font-heading font-semibold text-base mb-2">MCP Server</h3>
-          <p class="text-muted text-sm mb-3 leading-relaxed">Your AI agent remembers past sessions and project context via MCP.</p>
+          <p class="text-muted text-base mb-3 leading-relaxed">Your AI agent remembers past sessions and project context via MCP.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">sfs mcp install --for claude-code</div>
         </div>
         <!-- LLM Judge -->
         <div class="glass p-6 fade-up">
           <div class="text-2xl mb-3">&#9878;</div>
           <h3 class="font-heading font-semibold text-base mb-2">LLM Judge</h3>
-          <p class="text-muted text-sm mb-3 leading-relaxed">Catch what the AI got wrong. Severity-classified findings with evidence.</p>
+          <p class="text-muted text-base mb-3 leading-relaxed">Catch what the AI got wrong. Severity-classified findings with evidence.</p>
           <div class="bg-bg/50 rounded-md p-2.5 text-sm"><span class="bg-danger/15 text-danger text-[11px] px-1.5 py-0.5 rounded font-bold">CRITICAL</span> <span class="text-muted">"Test passes"</span> <span class="text-muted-dim">&#8594;</span> <span class="text-danger">exit code 1</span></div>
         </div>
         <!-- Session Summary -->
         <div class="glass p-6 fade-up">
           <div class="text-2xl mb-3">&#128203;</div>
           <h3 class="font-heading font-semibold text-base mb-2">Session Summary</h3>
-          <p class="text-muted text-sm mb-3 leading-relaxed">See what happened in 10 seconds. Files, tests, commands — extracted automatically.</p>
+          <p class="text-muted text-base mb-3 leading-relaxed">See what happened in 10 seconds. Files, tests, commands — extracted automatically.</p>
           <div class="text-sm bg-bg/50 rounded-md p-2.5 font-mono"><span class="text-accent">3 modified</span> <span class="text-muted-dim">&middot;</span> <span class="text-accent">5/6 tests</span> <span class="text-muted-dim">&middot;</span> <span class="text-muted">34 cmds</span></div>
         </div>
         <!-- Git Integration -->
         <div class="glass p-6 fade-up">
           <div class="text-2xl mb-3">&#128279;</div>
           <h3 class="font-heading font-semibold text-base mb-2">GitHub &amp; GitLab</h3>
-          <p class="text-muted text-sm mb-3 leading-relaxed">AI session context on every PR and MR. Contradictions surfaced for reviewers.</p>
+          <p class="text-muted text-base mb-3 leading-relaxed">AI session context on every PR and MR. Contradictions surfaced for reviewers.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">PR comment with findings</div>
         </div>
         <!-- Workspace Aware -->
         <div class="glass p-6 fade-up">
           <div class="text-2xl mb-3">&#128194;</div>
           <h3 class="font-heading font-semibold text-base mb-2">Workspace Aware</h3>
-          <p class="text-muted text-sm mb-3 leading-relaxed">Git state captured automatically. Branch, commit, dirty files — all recorded.</p>
+          <p class="text-muted text-base mb-3 leading-relaxed">Git state captured automatically. Branch, commit, dirty files — all recorded.</p>
           <div class="font-mono text-sm bg-bg/50 rounded-md p-2.5"><span class="text-brand">main</span> <span class="text-muted-dim">@</span> <span class="text-accent">a1b2c3d</span></div>
         </div>
       </div>
@@ -287,12 +287,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <div class="term-bar"><div class="term-dot bg-[#ff5f57]"></div><div class="term-dot bg-[#febc2e]"></div><div class="term-dot bg-[#28c840]"></div><span class="ml-3 text-muted-dim text-[13px] font-mono">audit report</span></div>
           <div class="p-5 font-mono text-sm space-y-4">
             <div>
-              <div class="text-muted-dim uppercase tracking-wider text-[13px] mb-2">Trust Score</div>
+              <div class="text-muted-dim uppercase tracking-wider text-sm mb-2">Trust Score</div>
               <div class="flex items-center gap-3 mb-2">
                 <span class="text-xl font-bold text-warning">74%</span>
                 <div class="flex-1 h-2 bg-border rounded-full overflow-hidden"><div class="h-full bg-warning rounded-full w-[74%]"></div></div>
               </div>
-              <div class="text-[13px]"><span class="text-danger">3 contradictions</span> <span class="text-muted-dim">&middot;</span> <span class="text-warning">9 unverified</span> <span class="text-muted-dim">&middot;</span> <span class="text-accent">42 verified</span></div>
+              <div class="text-sm"><span class="text-danger">3 contradictions</span> <span class="text-muted-dim">&middot;</span> <span class="text-warning">9 unverified</span> <span class="text-muted-dim">&middot;</span> <span class="text-accent">42 verified</span></div>
             </div>
             <div class="border-t border-border pt-4 space-y-3">
               <div class="bg-danger/5 rounded-lg p-3 border border-danger/20">
@@ -300,7 +300,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
                   <span class="bg-danger/15 text-danger text-[11px] font-bold px-1.5 py-0.5 rounded">CRITICAL</span>
                   <span class="bg-bg/50 text-muted-dim text-[11px] px-1.5 py-0.5 rounded">test_result</span>
                 </div>
-                <div class="text-muted text-[13px] mb-1">AI: "The test passes successfully"</div>
+                <div class="text-muted text-sm mb-1">AI: "The test passes successfully"</div>
                 <div class="bg-bg/60 rounded px-2 py-1.5 text-[12px] text-danger/80 mt-1">FAILED tests/test_auth.py<br>assert status_code == 200, got 401<br>exit code: 1</div>
               </div>
               <div class="bg-warning/5 rounded-lg p-3 border border-warning/20">
@@ -308,7 +308,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
                   <span class="bg-warning/15 text-warning text-[11px] font-bold px-1.5 py-0.5 rounded">HIGH</span>
                   <span class="bg-bg/50 text-muted-dim text-[11px] px-1.5 py-0.5 rounded">file_existence</span>
                 </div>
-                <div class="text-muted text-[13px]">AI: "I've created validator.py"</div>
+                <div class="text-muted text-sm">AI: "I've created validator.py"</div>
                 <div class="text-muted-dim text-[12px] mt-1">Reality: No Write call to that path</div>
               </div>
             </div>
@@ -328,7 +328,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <div class="grid md:grid-cols-2 gap-5">
         <!-- Developer A -->
         <div class="fade-up">
-          <div class="text-[13px] text-muted-dim mb-2 font-mono uppercase tracking-wider">Developer A</div>
+          <div class="text-sm text-muted-dim mb-2 font-mono uppercase tracking-wider">Developer A</div>
           <div class="term">
             <div class="term-bar"><div class="term-dot bg-[#ff5f57]"></div><div class="term-dot bg-[#febc2e]"></div><div class="term-dot bg-[#28c840]"></div></div>
             <div class="p-4 font-mono text-sm">
@@ -342,7 +342,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </div>
         <!-- Developer B -->
         <div class="fade-up">
-          <div class="text-[13px] text-muted-dim mb-2 font-mono uppercase tracking-wider">Developer B (Sarah)</div>
+          <div class="text-sm text-muted-dim mb-2 font-mono uppercase tracking-wider">Developer B (Sarah)</div>
           <div class="term">
             <div class="term-bar"><div class="term-dot bg-[#ff5f57]"></div><div class="term-dot bg-[#febc2e]"></div><div class="term-dot bg-[#28c840]"></div></div>
             <div class="p-4 font-mono text-sm">
@@ -380,17 +380,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             </div>
             <div class="border-t border-border pt-3">
               <div class="text-muted-dim uppercase text-[11px] tracking-wider mb-1">Files</div>
-              <div class="text-muted text-[13px]">Modified: <span class="text-txt">middleware.py, tokens.py, test_auth.py</span></div>
-              <div class="text-muted text-[13px]">Read: <span class="text-muted-dim">config.py, user.py + 3 more</span></div>
+              <div class="text-muted text-sm">Modified: <span class="text-txt">middleware.py, tokens.py, test_auth.py</span></div>
+              <div class="text-muted text-sm">Read: <span class="text-muted-dim">config.py, user.py + 3 more</span></div>
             </div>
             <div class="border-t border-border pt-3">
               <div class="text-muted-dim uppercase text-[11px] tracking-wider mb-1">Activity</div>
-              <div class="text-muted text-[13px]">Tests: <span class="text-accent">5 passed</span>, <span class="text-danger">1 failed</span></div>
-              <div class="text-muted text-[13px]">Commands: 34 &middot; Packages: pyjwt, redis</div>
+              <div class="text-muted text-sm">Tests: <span class="text-accent">5 passed</span>, <span class="text-danger">1 failed</span></div>
+              <div class="text-muted text-sm">Commands: 34 &middot; Packages: pyjwt, redis</div>
             </div>
             <div class="border-t border-border pt-3">
               <div class="text-muted-dim uppercase text-[11px] tracking-wider mb-1">Outcome</div>
-              <div class="text-accent text-[13px]">Fix applied. 5/6 tests passing.</div>
+              <div class="text-accent text-sm">Fix applied. 5/6 tests passing.</div>
             </div>
           </div>
         </div>
@@ -408,17 +408,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <div class="grid md:grid-cols-3 gap-5">
         <div class="glass p-6 fade-up text-left">
           <h3 class="font-heading font-semibold text-base mb-2">Self-hosted</h3>
-          <p class="text-muted text-sm mb-4 leading-relaxed">Deploy to any Kubernetes cluster — AWS EKS, GCP GKE, or on-prem. Helm chart, enterprise-tested.</p>
+          <p class="text-muted text-base mb-4 leading-relaxed">Deploy to any Kubernetes cluster — AWS EKS, GCP GKE, or on-prem. Helm chart, enterprise-tested.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">helm install sessionfs ./charts</div>
         </div>
         <div class="glass p-6 fade-up text-left">
           <h3 class="font-heading font-semibold text-base mb-2">Git integration</h3>
-          <p class="text-muted text-sm mb-4 leading-relaxed">AI session context on every PR (GitHub) and MR (GitLab). Audit findings surfaced inline for reviewers.</p>
+          <p class="text-muted text-base mb-4 leading-relaxed">AI session context on every PR (GitHub) and MR (GitLab). Audit findings surfaced inline for reviewers.</p>
           <div class="text-sm text-muted-dim">Cloud and self-hosted GitLab supported.</div>
         </div>
         <div class="glass p-6 fade-up text-left">
           <h3 class="font-heading font-semibold text-base mb-2">Your LLM gateway</h3>
-          <p class="text-muted text-sm mb-4 leading-relaxed">Bring your own LLM — Anthropic, OpenAI, Google, or any OpenAI-compatible endpoint.</p>
+          <p class="text-muted text-base mb-4 leading-relaxed">Bring your own LLM — Anthropic, OpenAI, Google, or any OpenAI-compatible endpoint.</p>
           <div class="text-sm text-muted-dim">LiteLLM, vLLM, Ollama, Azure OpenAI.</div>
         </div>
       </div>

@@ -30,7 +30,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <!-- Pricing Tiers -->
   <section class="relative py-16 sm:py-20 px-5 noise">
     <div class="max-w-5xl mx-auto">
-      <p class="fade-up text-center text-sm text-muted-dim mb-8 border border-border rounded-lg px-5 py-3 max-w-xl mx-auto">
+      <p class="fade-up text-center text-base text-muted-dim mb-8 border border-border rounded-lg px-5 py-3 max-w-xl mx-auto">
         All tiers are free during beta — this shows what's coming at v1.0.
       </p>
       <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -42,7 +42,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <div class="font-heading text-3xl font-extrabold mb-1">$0</div>
             <div class="text-sm text-muted-dim">forever</div>
           </div>
-          <ul class="space-y-2.5 text-sm text-muted flex-1 mb-6">
+          <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Capture 8 tools</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Resume 4 tools</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Local full-text search</li>
@@ -59,7 +59,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <div class="font-heading text-3xl font-extrabold mb-1">$4.99<span class="text-base font-normal text-muted-dim">/mo</span></div>
             <div class="text-sm text-muted-dim">~500MB storage</div>
           </div>
-          <ul class="space-y-2.5 text-sm text-muted flex-1 mb-6">
+          <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Everything in Free</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>500MB cloud sync</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Web dashboard</li>
@@ -79,7 +79,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <div class="font-heading text-3xl font-extrabold mb-1">$9.99<span class="text-base font-normal text-muted-dim">/mo</span></div>
             <div class="text-sm text-muted-dim">~1GB storage</div>
           </div>
-          <ul class="space-y-2.5 text-sm text-muted flex-1 mb-6">
+          <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Everything in Starter</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Auto-audit + auto-sync</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Team handoff</li>
@@ -97,7 +97,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <div class="font-heading text-3xl font-extrabold mb-1">$19.99<span class="text-base font-normal text-muted-dim">/user/mo</span></div>
             <div class="text-sm text-muted-dim">1GB per user</div>
           </div>
-          <ul class="space-y-2.5 text-sm text-muted flex-1 mb-6">
+          <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Everything in Pro</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>1GB/user storage</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Team management</li>
@@ -120,7 +120,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <div class="text-3xl mb-4">&#127970;</div>
         <h2 class="font-heading text-2xl sm:text-3xl font-bold mb-3">Enterprise</h2>
         <p class="text-muted mb-2 leading-relaxed">Self-hosted Kubernetes deployment on your infrastructure. Your data never leaves your network.</p>
-        <p class="text-muted-dim text-sm mb-8 leading-relaxed">HIPAA-ready, SAML SSO, SLA, dedicated support, and air-gapped deployment options.</p>
+        <p class="text-muted-dim text-base mb-8 leading-relaxed">HIPAA-ready, SAML SSO, SLA, dedicated support, and air-gapped deployment options.</p>
         <div class="flex flex-col sm:flex-row gap-3 justify-center">
           <a href="/enterprise/" class="inline-flex items-center justify-center gap-2 bg-brand text-white font-semibold rounded-lg px-7 py-3 hover:brightness-110 transition">
             Learn about Enterprise
@@ -145,22 +145,22 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
         <div class="glass fade-up p-6">
           <h3 class="font-heading font-semibold text-base mb-2">When does pricing take effect?</h3>
-          <p class="text-muted text-sm leading-relaxed">Pricing takes effect at v1.0, which we have not yet shipped. During the beta period — everything you see today — all features are completely free with no credit card required. We will give advance notice before any billing starts.</p>
+          <p class="text-muted text-base leading-relaxed">Pricing takes effect at v1.0, which we have not yet shipped. During the beta period — everything you see today — all features are completely free with no credit card required. We will give advance notice before any billing starts.</p>
         </div>
 
         <div class="glass fade-up p-6">
           <h3 class="font-heading font-semibold text-base mb-2">Why storage-based pricing instead of per seat?</h3>
-          <p class="text-muted text-sm leading-relaxed">Session data is the actual cost driver — not headcount. A solo developer running intensive sessions can generate more storage than a large team of occasional users. Storage pricing is honest: you pay proportional to what you actually use and what it costs us to store and serve.</p>
+          <p class="text-muted text-base leading-relaxed">Session data is the actual cost driver — not headcount. A solo developer running intensive sessions can generate more storage than a large team of occasional users. Storage pricing is honest: you pay proportional to what you actually use and what it costs us to store and serve.</p>
         </div>
 
         <div class="glass fade-up p-6">
           <h3 class="font-heading font-semibold text-base mb-2">Do I need to provide an LLM API key?</h3>
-          <p class="text-muted text-sm leading-relaxed">Only for LLM-powered features like the Judge and narrative summaries. Bring your own key (BYOK) — it is never stored on our servers. Works with any OpenAI-compatible endpoint including OpenRouter, LiteLLM, vLLM, Ollama, and Azure OpenAI. Deterministic features like session capture, resume, search, and basic summaries require no API key at all.</p>
+          <p class="text-muted text-base leading-relaxed">Only for LLM-powered features like the Judge and narrative summaries. Bring your own key (BYOK) — it is never stored on our servers. Works with any OpenAI-compatible endpoint including OpenRouter, LiteLLM, vLLM, Ollama, and Azure OpenAI. Deterministic features like session capture, resume, search, and basic summaries require no API key at all.</p>
         </div>
 
         <div class="glass fade-up p-6">
           <h3 class="font-heading font-semibold text-base mb-2">What is the difference between cloud sync and local mode?</h3>
-          <p class="text-muted text-sm leading-relaxed">The daemon defaults to local-only — sessions stay on your machine. Cloud sync is an explicit opt-in. You can push individual sessions or enable auto-sync. Enterprise users can self-host the entire backend so nothing ever leaves their network.</p>
+          <p class="text-muted text-base leading-relaxed">The daemon defaults to local-only — sessions stay on your machine. Cloud sync is an explicit opt-in. You can push individual sessions or enable auto-sync. Enterprise users can self-host the entire backend so nothing ever leaves their network.</p>
         </div>
 
       </div>

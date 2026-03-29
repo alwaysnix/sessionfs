@@ -61,19 +61,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         <div class="glass fade-up p-6">
           <div class="text-2xl mb-3">&#9889;</div>
           <h3 class="font-heading font-semibold mb-2">One-command install</h3>
-          <p class="text-muted text-sm leading-relaxed">Works with Claude Code, Cursor, and Copilot. Adds SessionFS to your tool's MCP config file automatically — no manual JSON editing.</p>
+          <p class="text-muted text-base leading-relaxed">Works with Claude Code, Cursor, and Copilot. Adds SessionFS to your tool's MCP config file automatically — no manual JSON editing.</p>
         </div>
 
         <div class="glass fade-up p-6">
           <div class="text-2xl mb-3">&#128196;</div>
           <h3 class="font-heading font-semibold mb-2">Project context</h3>
-          <p class="text-muted text-sm leading-relaxed">Share architecture decisions, coding conventions, and API contracts with every AI agent on your team. One document per repo, always current.</p>
+          <p class="text-muted text-base leading-relaxed">Share architecture decisions, coding conventions, and API contracts with every AI agent on your team. One document per repo, always current.</p>
         </div>
 
         <div class="glass fade-up p-6">
           <div class="text-2xl mb-3">&#127760;</div>
           <h3 class="font-heading font-semibold mb-2">Local + Remote</h3>
-          <p class="text-muted text-sm leading-relaxed">Local MCP server on stdio for desktop tools — no network required. Remote HTTP/SSE server for cloud-connected AI tools and team sharing.</p>
+          <p class="text-muted text-base leading-relaxed">Local MCP server on stdio for desktop tools — no network required. Remote HTTP/SSE server for cloud-connected AI tools and team sharing.</p>
         </div>
 
       </div>
@@ -105,19 +105,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <div class="p-5 font-mono text-sm space-y-3">
             <div>
               <div class="text-muted-dim text-[11px] uppercase tracking-wider mb-1">Agent calls MCP tool</div>
-              <div class="bg-bg/60 rounded p-2.5 text-[13px]">
+              <div class="bg-bg/60 rounded p-2.5 text-sm">
                 <span class="text-brand">find_related_sessions</span>
                 <span class="text-muted-dim">(</span><span class="text-accent">"tokens.py"</span><span class="text-muted-dim">)</span>
               </div>
             </div>
             <div class="border-t border-border pt-3">
               <div class="text-muted-dim text-[11px] uppercase tracking-wider mb-1">SessionFS returns</div>
-              <div class="text-muted text-[13px]">ses_abc — Debug auth middleware (2 days ago)</div>
-              <div class="text-muted text-[13px]">ses_d2e — JWT token refresh fix (5 days ago)</div>
+              <div class="text-muted text-sm">ses_abc — Debug auth middleware (2 days ago)</div>
+              <div class="text-muted text-sm">ses_d2e — JWT token refresh fix (5 days ago)</div>
             </div>
             <div class="border-t border-border pt-3">
               <div class="text-muted-dim text-[11px] uppercase tracking-wider mb-1">Agent says</div>
-              <div class="text-muted text-[13px] leading-relaxed">"I found 2 related sessions. The last time you worked on tokens.py, you extended the expiry window and added redis for caching..."</div>
+              <div class="text-muted text-sm leading-relaxed">"I found 2 related sessions. The last time you worked on tokens.py, you extended the expiry window and added redis for caching..."</div>
             </div>
           </div>
         </div>

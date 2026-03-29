@@ -35,12 +35,12 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             </div>
             <div class="p-5 font-mono text-sm space-y-4">
               <div>
-                <div class="text-muted-dim uppercase tracking-wider text-[13px] mb-2">Trust Score</div>
+                <div class="text-muted-dim uppercase tracking-wider text-sm mb-2">Trust Score</div>
                 <div class="flex items-center gap-3 mb-2">
                   <span class="text-xl font-bold text-warning">74%</span>
                   <div class="flex-1 h-2 bg-border rounded-full overflow-hidden"><div class="h-full bg-warning rounded-full w-[74%]"></div></div>
                 </div>
-                <div class="text-[13px]">
+                <div class="text-sm">
                   <span class="text-danger">3 contradictions</span>
                   <span class="text-muted-dim"> &middot; </span>
                   <span class="text-warning">9 unverified</span>
@@ -54,7 +54,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                     <span class="bg-danger/15 text-danger text-[11px] font-bold px-1.5 py-0.5 rounded">CRITICAL</span>
                     <span class="bg-bg/50 text-muted-dim text-[11px] px-1.5 py-0.5 rounded">test_result</span>
                   </div>
-                  <div class="text-muted text-[13px] mb-1">AI: "The test passes successfully"</div>
+                  <div class="text-muted text-sm mb-1">AI: "The test passes successfully"</div>
                   <div class="bg-bg/60 rounded px-2 py-1.5 text-[12px] text-danger/80 mt-1">FAILED tests/test_auth.py<br>assert status_code == 200, got 401<br>exit code: 1</div>
                 </div>
                 <div class="bg-warning/5 rounded-lg p-3 border border-warning/20">
@@ -62,7 +62,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
                     <span class="bg-warning/15 text-warning text-[11px] font-bold px-1.5 py-0.5 rounded">HIGH</span>
                     <span class="bg-bg/50 text-muted-dim text-[11px] px-1.5 py-0.5 rounded">file_existence</span>
                   </div>
-                  <div class="text-muted text-[13px]">AI: "I've created validator.py"</div>
+                  <div class="text-muted text-sm">AI: "I've created validator.py"</div>
                   <div class="text-muted-dim text-[12px] mt-1">Reality: No Write call to that path</div>
                 </div>
               </div>
@@ -84,19 +84,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         <div class="glass fade-up p-6">
           <div class="text-2xl mb-3">&#128290;</div>
           <h3 class="font-heading font-semibold mb-2">Severity classification</h3>
-          <p class="text-muted text-sm leading-relaxed">CRITICAL for test failures and failed commands. HIGH for file mismatches. LOW for ambiguous claims. Auto-assigned from category — no LLM judgment on severity, fully deterministic.</p>
+          <p class="text-muted text-base leading-relaxed">CRITICAL for test failures and failed commands. HIGH for file mismatches. LOW for ambiguous claims. Auto-assigned from category — no LLM judgment on severity, fully deterministic.</p>
         </div>
 
         <div class="glass fade-up p-6">
           <div class="text-2xl mb-3">&#9654;</div>
           <h3 class="font-heading font-semibold mb-2">Auto-audit</h3>
-          <p class="text-muted text-sm leading-relaxed">Trigger audits automatically: on every sync push, when a PR/MR is opened, or manual only. Configure the trigger mode in dashboard Settings.</p>
+          <p class="text-muted text-base leading-relaxed">Trigger audits automatically: on every sync push, when a PR/MR is opened, or manual only. Configure the trigger mode in dashboard Settings.</p>
         </div>
 
         <div class="glass fade-up p-6">
           <div class="text-2xl mb-3">&#128202;</div>
           <h3 class="font-heading font-semibold mb-2">Audit history</h3>
-          <p class="text-muted text-sm leading-relaxed">Every audit stored in the database. Compare runs over time, track trust score trends, and see which models produce better results.</p>
+          <p class="text-muted text-base leading-relaxed">Every audit stored in the database. Compare runs over time, track trust score trends, and see which models produce better results.</p>
         </div>
 
       </div>
