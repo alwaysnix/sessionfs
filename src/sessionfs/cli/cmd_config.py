@@ -71,7 +71,11 @@ def config_show() -> None:
 
     console.print(f"[bold]Config:[/bold] {path}")
     console.print()
-    console.print(path.read_text())
+
+    # Print raw TOML — escape Rich markup so [section] headers aren't swallowed
+    text = path.read_text()
+    from rich.text import Text
+    console.print(Text(text))
 
 
 @config_app.command("set")
