@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
-body { background: #0a0c10; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #e6edf3; }
+/* Apply dark background/color only to non-Starlight pages (landing, marketing).
+   Starlight manages its own background/color via its light/dark theme system. */
+body:not(:has(.sl-container)) {
+  background: #0a0c10;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: #e6edf3;
+}
 .noise::before { content: ''; position: absolute; inset: 0; opacity: 0.03; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 .grad-divider { height: 1px; background: linear-gradient(90deg, transparent, #4f9cf7, #3ddc84, transparent); }
 .term { background: #161b22; border: 1px solid #30363d; border-radius: 10px; overflow-x: auto; }
