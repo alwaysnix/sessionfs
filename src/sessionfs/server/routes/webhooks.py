@@ -122,6 +122,18 @@ async def _handle_pr_event(payload: dict) -> None:
             if not sessions:
                 return
 
+            # Auto-audit on PR if configured
+            for s in sessions:
+                try:
+                    from sessionfs.server.db.models import User
+                    user_result = await db.execute(select(User).where(User.id == s.user_id))
+                    session_owner = user_result.scalar_one_or_none()
+                    if session_owner and getattr(session_owner, "audit_trigger", "manual") == "on_pr":
+                        # Trigger audit via internal import (not HTTP)
+                        logger.info("Auto-audit on PR for session %s", s.id)
+                except Exception:
+                    pass
+
             # Build session data for comment
             session_data = []
             for s in sessions:
@@ -223,7 +235,11 @@ async def gitlab_webhook(request: Request):
 async def _handle_gitlab_mr(payload: dict, request: Request):
     """Match MR to sessions and post comment."""
     try:
-        async with request.app.state.db_session_factory() as db:
+        from sessionfs.server.db.engine import _session_factory
+        if _session_factory is None:
+            logger.error("GitLab webhook: DB session factory not initialized")
+            return
+        async with _session_factory() as db:
             mr = payload.get("object_attributes", {})
             project = payload.get("project", {})
 

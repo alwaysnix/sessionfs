@@ -8,6 +8,11 @@ from datetime import datetime, timedelta, timezone
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from sessionfs.server.auth.rate_limit import SlidingWindowRateLimiter
+
+# Rate limit signups: 5 per IP per hour
+_signup_limiter = SlidingWindowRateLimiter(max_requests=5, window_seconds=3600)
 from fastapi.responses import HTMLResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,6 +58,11 @@ async def signup(
     This is the only unauthenticated endpoint. It creates a user and
     generates the initial API key needed for all other operations.
     """
+    # Rate limit by IP
+    client_ip = request.client.host if request.client else "unknown"
+    if not _signup_limiter.is_allowed(client_ip):
+        raise HTTPException(429, "Too many signup attempts. Try again later.")
+
     # Check if email already exists
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none() is not None:

@@ -8,7 +8,7 @@ import logging
 import tarfile
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -120,6 +120,60 @@ async def generate_summary(
     await db.commit()
 
     return _summary_to_response(summary, session)
+
+
+# ---- Batch endpoint for reporting ----
+
+batch_router = APIRouter(prefix="/api/v1/summaries", tags=["summaries"])
+
+
+@batch_router.get("")
+async def get_batch_summaries(
+    since: str = Query(None, description="ISO date (YYYY-MM-DD)"),
+    until: str = Query(None, description="ISO date (YYYY-MM-DD)"),
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[dict]:
+    """Get summaries for sessions in a date range."""
+    from sqlalchemy import and_
+
+    conditions = [Session.user_id == user.id, Session.is_deleted == False]  # noqa: E712
+    if since:
+        conditions.append(Session.created_at >= since)
+    if until:
+        conditions.append(Session.created_at <= until + "T23:59:59")
+
+    stmt = (
+        select(Session, SessionSummaryRecord)
+        .outerjoin(SessionSummaryRecord, SessionSummaryRecord.session_id == Session.id)
+        .where(and_(*conditions))
+        .order_by(Session.created_at.desc())
+        .limit(100)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    summaries = []
+    for session, record in rows:
+        entry = {
+            "session_id": session.id,
+            "title": session.title,
+            "tool": session.source_tool,
+            "message_count": session.message_count,
+            "created_at": session.created_at.isoformat() if session.created_at else "",
+        }
+        if record:
+            entry.update({
+                "tool_call_count": record.tool_call_count,
+                "files_modified": json.loads(record.files_modified),
+                "commands_executed": record.commands_executed,
+                "tests_run": record.tests_run,
+                "tests_passed": record.tests_passed,
+                "tests_failed": record.tests_failed,
+            })
+        summaries.append(entry)
+
+    return summaries
 
 
 async def _generate_summary(session: Session, request: Request):

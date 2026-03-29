@@ -34,7 +34,7 @@ All SessionFS server environment variables use the `SFS_` prefix.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SFS_VERIFICATION_SECRET` | Secret for email verification and API key encryption (Fernet derived via SHA256) | `dev-verification-secret` |
+| `SFS_VERIFICATION_SECRET` | Secret for email verification JWTs AND Fernet encryption of stored API keys/tokens. **Rotating this invalidates all stored judge keys and GitLab tokens.** | `dev-verification-secret` |
 | `SFS_REQUIRE_EMAIL_VERIFICATION` | Require email verification on signup | `true` |
 
 ## Blob Storage

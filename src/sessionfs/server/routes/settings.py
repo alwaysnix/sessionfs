@@ -141,6 +141,32 @@ async def update_audit_trigger(
     return {"trigger": body.trigger}
 
 
+# ---- Summarize Trigger Settings ----
+
+
+@router.get("/summarize-trigger")
+async def get_summarize_trigger(
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Get user's auto-summarize trigger setting."""
+    return {"trigger": getattr(user, "summarize_trigger", "manual") or "manual"}
+
+
+@router.put("/summarize-trigger")
+async def update_summarize_trigger(
+    body: AuditTriggerRequest,  # Same schema: {trigger: str}
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Update auto-summarize trigger."""
+    if body.trigger not in ("manual", "on_sync", "on_pr"):
+        from fastapi import HTTPException
+        raise HTTPException(400, "Trigger must be 'manual', 'on_sync', or 'on_pr'")
+    user.summarize_trigger = body.trigger
+    await db.commit()
+    return {"trigger": body.trigger}
+
+
 @router.get("/judge/models")
 async def discover_models(
     base_url: str = Query(..., description="OpenAI-compatible endpoint URL"),
