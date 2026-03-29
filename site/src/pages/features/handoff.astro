@@ -73,19 +73,19 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <div class="grid md:grid-cols-3 gap-5">
 
         <div class="glass fade-up p-6">
-          <div class="text-2xl mb-3">&#128260;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#4f9cf7" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg></div>
           <h3 class="font-heading font-semibold mb-2">Session copy on claim</h3>
           <p class="text-muted text-base leading-relaxed">When the recipient claims a handoff, the session blob is duplicated. Changes by the recipient don't affect the sender's original. Both sides remain independent.</p>
         </div>
 
         <div class="glass fade-up p-6">
-          <div class="text-2xl mb-3">&#128736;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#3ddc84" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.007-3.13a2.3 2.3 0 010-3.91l5.007-3.13a2.3 2.3 0 013.15.82l2.1 4.65a2.3 2.3 0 010 2.1l-2.1 4.65a2.3 2.3 0 01-3.15.82z"/></svg></div>
           <h3 class="font-heading font-semibold mb-2">Cross-environment</h3>
           <p class="text-muted text-base leading-relaxed">Paths auto-resolve by git remote URL. If the sender's path doesn't exist on the recipient's machine, SessionFS falls back to the current directory gracefully.</p>
         </div>
 
         <div class="glass fade-up p-6">
-          <div class="text-2xl mb-3">&#128140;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#3ddc84" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg></div>
           <h3 class="font-heading font-semibold mb-2">Email notification</h3>
           <p class="text-muted text-base leading-relaxed">Recipients get an email with session details and the pull command. Supports Resend, SMTP, or no email for air-gapped enterprise deployments.</p>
         </div>

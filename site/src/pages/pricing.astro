@@ -43,11 +43,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <div class="text-sm text-muted-dim">forever</div>
           </div>
           <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
-            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Capture 8 tools</li>
-            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Resume 4 tools</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Capture from 8 tools</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Resume across 4 tools</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Local full-text search</li>
-            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Session summaries</li>
-            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>50MB cloud sync</li>
           </ul>
           <a href="/quickstart/" class="block text-center border border-border text-txt font-semibold rounded-lg px-5 py-2.5 hover:border-muted transition text-sm">Get started</a>
         </div>
@@ -63,8 +61,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Everything in Free</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>500MB cloud sync</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Web dashboard</li>
-            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Manual LLM Judge</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Manual LLM Judge (BYOK)</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>MCP server (local)</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Deterministic session summaries</li>
           </ul>
           <a href="/quickstart/" class="block text-center border border-border text-txt font-semibold rounded-lg px-5 py-2.5 hover:border-muted transition text-sm">Get started</a>
         </div>
@@ -76,16 +75,19 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           </div>
           <div class="mb-5">
             <div class="text-sm font-medium text-brand mb-1">Pro</div>
-            <div class="font-heading text-3xl font-extrabold mb-1">$9.99<span class="text-base font-normal text-muted-dim">/mo</span></div>
-            <div class="text-sm text-muted-dim">~1GB storage</div>
+            <div class="font-heading text-3xl font-extrabold mb-1">$14.99<span class="text-base font-normal text-muted-dim">/mo</span></div>
+            <div class="text-sm text-muted-dim">~2GB storage</div>
           </div>
           <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Everything in Starter</li>
-            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Auto-audit + auto-sync</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Autosync (all modes)</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Auto-audit (on sync, on PR)</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Team handoff</li>
-            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>GitHub + GitLab PRs</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>GitHub + GitLab PR/MR</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>MCP server (local + remote)</li>
             <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>LLM narrative summaries</li>
-            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Project context (MCP)</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Project context</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Custom LLM gateway</li>
           </ul>
           <a href="/quickstart/" class="block text-center bg-brand text-white font-semibold rounded-lg px-5 py-2.5 hover:brightness-110 transition text-sm">Get started</a>
         </div>
@@ -94,7 +96,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <div class="glass price-card p-6 fade-up flex flex-col">
           <div class="mb-5">
             <div class="text-sm font-medium text-muted-dim mb-1">Team</div>
-            <div class="font-heading text-3xl font-extrabold mb-1">$19.99<span class="text-base font-normal text-muted-dim">/user/mo</span></div>
+            <div class="font-heading text-3xl font-extrabold mb-1">$14.99<span class="text-base font-normal text-muted-dim">/user/mo</span></div>
             <div class="text-sm text-muted-dim">1GB per user</div>
           </div>
           <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
@@ -117,7 +119,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <section class="relative py-16 px-5 noise">
     <div class="max-w-2xl mx-auto">
       <div class="glass fade-up p-8 sm:p-10 text-center" style="border-color: rgba(79,156,247,0.3);">
-        <div class="text-3xl mb-4">&#127970;</div>
+        <div class="text-3xl mb-4"><svg class="w-6 h-6" fill="none" stroke="#4f9cf7" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg></div>
         <h2 class="font-heading text-2xl sm:text-3xl font-bold mb-3">Enterprise</h2>
         <p class="text-muted mb-2 leading-relaxed">Self-hosted Kubernetes deployment on your infrastructure. Your data never leaves your network.</p>
         <p class="text-muted-dim text-base mb-8 leading-relaxed">HIPAA-ready, SAML SSO, SLA, dedicated support, and air-gapped deployment options.</p>

@@ -212,56 +212,56 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <!-- Cloud Sync -->
         <div class="glass p-6 fade-up">
-          <div class="text-2xl mb-3">&#9729;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#3ddc84" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z"/></svg></div>
           <h3 class="font-heading font-semibold text-base mb-2">Cloud Sync</h3>
           <p class="text-muted text-base mb-3 leading-relaxed">Push to the cloud, pull on any machine. Auto-sync available.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">sfs sync auto --mode all</div>
         </div>
         <!-- Team Handoff -->
         <div class="glass p-6 fade-up">
-          <div class="text-2xl mb-3">&#128101;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#4f9cf7" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg></div>
           <h3 class="font-heading font-semibold text-base mb-2">Team Handoff</h3>
           <p class="text-muted text-base mb-3 leading-relaxed">Hand off sessions with full context. Session data copies to recipient.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">sfs handoff --to sarah@co.dev</div>
         </div>
         <!-- Session Search -->
         <div class="glass p-6 fade-up">
-          <div class="text-2xl mb-3">&#128269;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#3ddc84" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg></div>
           <h3 class="font-heading font-semibold text-base mb-2">Session Search</h3>
           <p class="text-muted text-base mb-3 leading-relaxed">Full-text search across all sessions. Find that fix from last week.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">sfs search "auth error"</div>
         </div>
         <!-- MCP Server -->
         <div class="glass p-6 fade-up">
-          <div class="text-2xl mb-3">&#9881;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#4f9cf7" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
           <h3 class="font-heading font-semibold text-base mb-2">MCP Server</h3>
           <p class="text-muted text-base mb-3 leading-relaxed">Your AI agent remembers past sessions and project context via MCP.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">sfs mcp install --for claude-code</div>
         </div>
         <!-- LLM Judge -->
         <div class="glass p-6 fade-up">
-          <div class="text-2xl mb-3">&#9878;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#4f9cf7" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg></div>
           <h3 class="font-heading font-semibold text-base mb-2">LLM Judge</h3>
           <p class="text-muted text-base mb-3 leading-relaxed">Catch what the AI got wrong. Severity-classified findings with evidence.</p>
           <div class="bg-bg/50 rounded-md p-2.5 text-sm"><span class="bg-danger/15 text-danger text-[11px] px-1.5 py-0.5 rounded font-bold">CRITICAL</span> <span class="text-muted">"Test passes"</span> <span class="text-muted-dim">&#8594;</span> <span class="text-danger">exit code 1</span></div>
         </div>
         <!-- Session Summary -->
         <div class="glass p-6 fade-up">
-          <div class="text-2xl mb-3">&#128203;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#4f9cf7" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/></svg></div>
           <h3 class="font-heading font-semibold text-base mb-2">Session Summary</h3>
           <p class="text-muted text-base mb-3 leading-relaxed">See what happened in 10 seconds. Files, tests, commands — extracted automatically.</p>
           <div class="text-sm bg-bg/50 rounded-md p-2.5 font-mono"><span class="text-accent">3 modified</span> <span class="text-muted-dim">&middot;</span> <span class="text-accent">5/6 tests</span> <span class="text-muted-dim">&middot;</span> <span class="text-muted">34 cmds</span></div>
         </div>
         <!-- Git Integration -->
         <div class="glass p-6 fade-up">
-          <div class="text-2xl mb-3">&#128279;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#3ddc84" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg></div>
           <h3 class="font-heading font-semibold text-base mb-2">GitHub &amp; GitLab</h3>
           <p class="text-muted text-base mb-3 leading-relaxed">AI session context on every PR and MR. Contradictions surfaced for reviewers.</p>
           <div class="font-mono text-sm text-accent bg-bg/50 rounded-md p-2.5">PR comment with findings</div>
         </div>
         <!-- Workspace Aware -->
         <div class="glass p-6 fade-up">
-          <div class="text-2xl mb-3">&#128194;</div>
+          <div class="mb-3"><svg class="w-7 h-7" fill="none" stroke="#3ddc84" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/></svg></div>
           <h3 class="font-heading font-semibold text-base mb-2">Workspace Aware</h3>
           <p class="text-muted text-base mb-3 leading-relaxed">Git state captured automatically. Branch, commit, dirty files — all recorded.</p>
           <div class="font-mono text-sm bg-bg/50 rounded-md p-2.5"><span class="text-brand">main</span> <span class="text-muted-dim">@</span> <span class="text-accent">a1b2c3d</span></div>
