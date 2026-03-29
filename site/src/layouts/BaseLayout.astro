@@ -45,9 +45,45 @@ const { title, description = 'Capture, sync, and resume AI coding sessions acros
         <a href="https://github.com/SessionFS/sessionfs" class="flex items-center gap-2 text-[#b1b8c1] hover:text-white transition-colors" aria-label="GitHub">
           <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
         </a>
+        <button id="mobile-menu-btn" class="sm:hidden flex items-center justify-center w-9 h-9 text-[#b1b8c1] hover:text-white transition-colors" aria-label="Open navigation menu" aria-expanded="false" aria-controls="mobile-menu">
+          <svg id="hamburger-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
       </div>
     </div>
+
+    <div id="mobile-menu" class="sm:hidden" style="display: none; background: #161b22; border-top: 1px solid #30363d;">
+      <nav class="max-w-6xl mx-auto px-5 py-3 flex flex-col" aria-label="Mobile navigation">
+        <a href="/features/" class={`mobile-menu-link py-3 text-[15px] font-medium transition-colors border-b ${activeNav === 'features' ? 'text-white' : 'text-[#b1b8c1] hover:text-white'}`} style="border-color: #30363d;">Features</a>
+        <a href="/docs/" class={`mobile-menu-link py-3 text-[15px] font-medium transition-colors border-b ${activeNav === 'docs' ? 'text-white' : 'text-[#b1b8c1] hover:text-white'}`} style="border-color: #30363d;">Docs</a>
+        <a href="/pricing/" class={`mobile-menu-link py-3 text-[15px] font-medium transition-colors border-b ${activeNav === 'pricing' ? 'text-white' : 'text-[#b1b8c1] hover:text-white'}`} style="border-color: #30363d;">Pricing</a>
+        <a href="/enterprise/" class={`mobile-menu-link py-3 text-[15px] font-medium transition-colors border-b ${activeNav === 'enterprise' ? 'text-white' : 'text-[#b1b8c1] hover:text-white'}`} style="border-color: #30363d;">Enterprise</a>
+        <a href="/changelog/" class={`mobile-menu-link py-3 text-[15px] font-medium transition-colors ${activeNav === 'changelog' ? 'text-white' : 'text-[#b1b8c1] hover:text-white'}`}>Changelog</a>
+      </nav>
+    </div>
   </nav>
+
+  <script>
+    const btn = document.getElementById('mobile-menu-btn');
+    const menu = document.getElementById('mobile-menu');
+    const links = document.querySelectorAll('.mobile-menu-link');
+
+    if (btn && menu) {
+      btn.addEventListener('click', () => {
+        const isOpen = menu.style.display !== 'none';
+        menu.style.display = isOpen ? 'none' : 'block';
+        btn.setAttribute('aria-expanded', String(!isOpen));
+      });
+
+      links.forEach(link => {
+        link.addEventListener('click', () => {
+          menu.style.display = 'none';
+          btn.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
+  </script>
 
   <slot />
 
