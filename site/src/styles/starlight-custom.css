@@ -1,0 +1,9 @@
+/* SessionFS accent + font overrides for Starlight.
+   All other colors are intentionally left to Starlight's built-in light/dark theme. */
+:root {
+  --sl-color-accent-low: #1a2744;
+  --sl-color-accent: #4f9cf7;
+  --sl-color-accent-high: #a8d0ff;
+  --sl-font: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --sl-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}

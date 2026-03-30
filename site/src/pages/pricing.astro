@@ -1,0 +1,181 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Pricing — SessionFS" activeNav="pricing" description="SessionFS pricing: free during beta. Storage-based pricing at v1.0.">
+
+  <!-- Beta Banner -->
+  <div class="bg-brand/10 border-b border-brand/20 py-3 px-5 text-center">
+    <span class="pulse-badge inline-flex items-center gap-2 bg-surface border border-brand/30 rounded-full px-5 py-2 text-sm font-mono">
+      <span class="w-2 h-2 rounded-full bg-brand inline-block"></span>
+      <span class="text-brand font-medium">Free during beta</span>
+      <span class="text-muted-dim">— all features available, pricing at v1.0</span>
+    </span>
+  </div>
+
+  <!-- Hero -->
+  <section class="relative pt-24 sm:pt-32 pb-16 px-5 noise">
+    <div class="max-w-3xl mx-auto text-center">
+      <h1 class="fade-up font-heading text-4xl sm:text-5xl font-extrabold tracking-tight mb-5">
+        Simple, storage-based pricing.
+      </h1>
+      <p class="fade-up text-lg text-muted leading-relaxed max-w-xl mx-auto mb-3">
+        Pay for what you store — not per seat. All features are free during beta.
+      </p>
+      <p class="fade-up text-base text-muted-dim">Pricing takes effect at v1.0. No credit card required today.</p>
+    </div>
+  </section>
+
+  <div class="grad-divider"></div>
+
+  <!-- Pricing Tiers -->
+  <section class="relative py-16 sm:py-20 px-5 noise">
+    <div class="max-w-5xl mx-auto">
+      <p class="fade-up text-center text-base text-muted-dim mb-8 border border-border rounded-lg px-5 py-3 max-w-xl mx-auto">
+        All tiers are free during beta — this shows what's coming at v1.0.
+      </p>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <!-- Free -->
+        <div class="glass price-card p-6 fade-up flex flex-col">
+          <div class="mb-5">
+            <div class="text-sm font-medium text-muted-dim mb-1">Free</div>
+            <div class="font-heading text-3xl font-extrabold mb-1">$0</div>
+            <div class="text-sm text-muted-dim">forever</div>
+          </div>
+          <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Capture from 8 tools</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Resume across 4 tools</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Local full-text search</li>
+          </ul>
+          <a href="/quickstart/" class="block text-center border border-border text-txt font-semibold rounded-lg px-5 py-2.5 hover:border-muted transition text-sm">Get started</a>
+        </div>
+
+        <!-- Starter -->
+        <div class="glass price-card p-6 fade-up flex flex-col">
+          <div class="mb-5">
+            <div class="text-sm font-medium text-muted-dim mb-1">Starter</div>
+            <div class="font-heading text-3xl font-extrabold mb-1">$4.99<span class="text-base font-normal text-muted-dim">/mo</span></div>
+            <div class="text-sm text-muted-dim">~500MB storage</div>
+          </div>
+          <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Everything in Free</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>500MB cloud sync</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Web dashboard</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Manual LLM Judge (BYOK)</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>MCP server (local)</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Deterministic session summaries</li>
+          </ul>
+          <a href="/quickstart/" class="block text-center border border-border text-txt font-semibold rounded-lg px-5 py-2.5 hover:border-muted transition text-sm">Get started</a>
+        </div>
+
+        <!-- Pro (highlighted) -->
+        <div class="relative glass price-card p-6 fade-up flex flex-col" style="border-color: rgba(79,156,247,0.45); background: rgba(79,156,247,0.05);">
+          <div class="absolute -top-3 left-1/2 -translate-x-1/2">
+            <span class="bg-brand text-white text-[11px] font-bold px-3 py-1 rounded-full tracking-wide uppercase">Most popular</span>
+          </div>
+          <div class="mb-5">
+            <div class="text-sm font-medium text-brand mb-1">Pro</div>
+            <div class="font-heading text-3xl font-extrabold mb-1">$14.99<span class="text-base font-normal text-muted-dim">/mo</span></div>
+            <div class="text-sm text-muted-dim">~2GB storage</div>
+          </div>
+          <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Everything in Starter</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Autosync (all modes)</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Auto-audit (on sync, on PR)</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Team handoff</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>GitHub + GitLab PR/MR</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>MCP server (local + remote)</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>LLM narrative summaries</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Project context</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Custom LLM gateway</li>
+          </ul>
+          <a href="/quickstart/" class="block text-center bg-brand text-white font-semibold rounded-lg px-5 py-2.5 hover:brightness-110 transition text-sm">Get started</a>
+        </div>
+
+        <!-- Team -->
+        <div class="glass price-card p-6 fade-up flex flex-col">
+          <div class="mb-5">
+            <div class="text-sm font-medium text-muted-dim mb-1">Team</div>
+            <div class="font-heading text-3xl font-extrabold mb-1">$14.99<span class="text-base font-normal text-muted-dim">/user/mo</span></div>
+            <div class="text-sm text-muted-dim">1GB per user</div>
+          </div>
+          <ul class="space-y-2.5 text-base text-muted flex-1 mb-6">
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Everything in Pro</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>1GB/user storage</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Team management</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Audit history + trends</li>
+            <li class="flex items-start gap-2"><span class="text-accent mt-0.5">&#10003;</span>Priority support</li>
+          </ul>
+          <a href="/quickstart/" class="block text-center border border-border text-txt font-semibold rounded-lg px-5 py-2.5 hover:border-muted transition text-sm">Get started</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="grad-divider"></div>
+
+  <!-- Enterprise CTA -->
+  <section class="relative py-16 px-5 noise">
+    <div class="max-w-2xl mx-auto">
+      <div class="glass fade-up p-8 sm:p-10 text-center" style="border-color: rgba(79,156,247,0.3);">
+        <div class="text-3xl mb-4"><svg class="w-6 h-6" fill="none" stroke="#4f9cf7" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg></div>
+        <h2 class="font-heading text-2xl sm:text-3xl font-bold mb-3">Enterprise</h2>
+        <p class="text-muted mb-2 leading-relaxed">Self-hosted Kubernetes deployment on your infrastructure. Your data never leaves your network.</p>
+        <p class="text-muted-dim text-base mb-8 leading-relaxed">HIPAA-ready, SAML SSO, SLA, dedicated support, and air-gapped deployment options.</p>
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+          <a href="/enterprise/" class="inline-flex items-center justify-center gap-2 bg-brand text-white font-semibold rounded-lg px-7 py-3 hover:brightness-110 transition">
+            Learn about Enterprise
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          </a>
+          <a href="mailto:enterprise@sessionfs.dev?subject=SessionFS%20Enterprise" class="inline-flex items-center justify-center gap-2 border border-border text-txt font-semibold rounded-lg px-7 py-3 hover:border-muted transition">
+            Contact sales
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grad-divider"></div>
+
+  <!-- FAQ -->
+  <section class="relative py-16 sm:py-20 px-5 noise">
+    <div class="max-w-3xl mx-auto">
+      <h2 class="fade-up font-heading text-3xl font-bold text-center mb-12">Frequently asked questions</h2>
+
+      <div class="space-y-5">
+
+        <div class="glass fade-up p-6">
+          <h3 class="font-heading font-semibold text-base mb-2">When does pricing take effect?</h3>
+          <p class="text-muted text-base leading-relaxed">Pricing takes effect at v1.0, which we have not yet shipped. During the beta period — everything you see today — all features are completely free with no credit card required. We will give advance notice before any billing starts.</p>
+        </div>
+
+        <div class="glass fade-up p-6">
+          <h3 class="font-heading font-semibold text-base mb-2">Why storage-based pricing instead of per seat?</h3>
+          <p class="text-muted text-base leading-relaxed">Session data is the actual cost driver — not headcount. A solo developer running intensive sessions can generate more storage than a large team of occasional users. Storage pricing is honest: you pay proportional to what you actually use and what it costs us to store and serve.</p>
+        </div>
+
+        <div class="glass fade-up p-6">
+          <h3 class="font-heading font-semibold text-base mb-2">Do I need to provide an LLM API key?</h3>
+          <p class="text-muted text-base leading-relaxed">Only for LLM-powered features like the Judge and narrative summaries. Bring your own key (BYOK) — it is never stored on our servers. Works with any OpenAI-compatible endpoint including OpenRouter, LiteLLM, vLLM, Ollama, and Azure OpenAI. Deterministic features like session capture, resume, search, and basic summaries require no API key at all.</p>
+        </div>
+
+        <div class="glass fade-up p-6">
+          <h3 class="font-heading font-semibold text-base mb-2">What is the difference between cloud sync and local mode?</h3>
+          <p class="text-muted text-base leading-relaxed">The daemon defaults to local-only — sessions stay on your machine. Cloud sync is an explicit opt-in. You can push individual sessions or enable auto-sync. Enterprise users can self-host the entire backend so nothing ever leaves their network.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="grad-divider"></div>
+
+</BaseLayout>
+
+<script>
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+</script>
