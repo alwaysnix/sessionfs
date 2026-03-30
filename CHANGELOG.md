@@ -15,6 +15,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Re-audit page shows hardcoded models** — AuditModal now loads `base_url` from saved settings and runs model discovery with dropdown
 - Added "Test Connection" button to AuditModal for custom base URLs
 
+## [0.9.4] - 2026-03-30
+
+### Added
+- **Session lineage** — `parent_session_id` tracked through resume, sync push, and API. `sfs show` displays parent/children. `sfs list --tree` groups by lineage. Dashboard shows fork banner and "↩ fork" badges.
+- **Cursor tool call extraction** — reads `agentKv:blob:` layer from Cursor's SQLite DB. Sessions go from 0 to 900+ tool calls, making audit functional for Cursor.
+- **Deploy pipelines** — GitHub Actions for Dashboard (Vercel) and Site (Vercel), triggered on push to main when respective dirs change.
+- **Product site** — Astro + Starlight site with 26 pages: home, features (4 deep-dives), pricing, enterprise, changelog, blog placeholder, and 16 Starlight docs.
+- `sfs daemon rebuild-index` — rebuilds local SQLite index from .sfs files, backfills `source_tool`.
+- `sfs summary --today` — shows table of all sessions captured today.
+- `GET /api/v1/summaries?since=&until=` — batch summary API for date range reporting.
+- Auto-summarize trigger settings API (`GET/PUT /settings/summarize-trigger`).
+- Signup rate limit (5 per IP per hour).
+
+### Fixed
+- **Claim extractor for Claude Code** — two-strategy extraction (tool-context + standalone regex). 0 claims → 54+.
+- **Auto-audit wiring** — `on_sync` trigger now calls audit API after push. `on_pr` checks user setting in webhook handler.
+- **GitLab webhook DB session** — uses `_session_factory` instead of non-existent `app.state.db_session_factory`.
+- **Daemon settings poll** — async `httpx.AsyncClient` instead of blocking sync `httpx.get`.
+- **SummaryTab crash** — moved `useState` hooks before conditional returns (React hooks rules).
+- **Audit modal ignores base URL** — `runAudit` now passes `base_url` through full chain.
+- **Model discovery with saved key** — server falls back to user's encrypted key when no explicit key provided.
+- **Handoff resume path** — falls back to CWD when sender's path doesn't exist on receiver's machine.
+- **SQLite "database locked"** — `busy_timeout=5000ms` on session index and MCP search index.
+- **`sfs config show`** — Rich markup no longer swallows TOML `[section]` headers.
+- **`sfs summary --today`** — checks both local and UTC dates, checks `updated_at` too.
+- Evidence truncation raised from 200 to 2000 chars.
+- Proper error responses: 422 for 0 claims with tool calls, 502 for LLM errors, 504 for timeouts.
+
+### Security
+- **Config file permissions** — `config.toml` and `daemon.json` now `chmod 600` after write (was world-readable).
+- **pip-audit in CI** — Python dependency vulnerability scanning on every push.
+- **Trivy on GHCR images** — all 3 published images (API, MCP, Dashboard) scanned for CRITICAL/HIGH CVEs.
+- **Signup rate limit** — 5 signups per IP per hour prevents account enumeration.
+
+### Changed
+- Landing page replaced with Astro + Starlight product site (26 pages).
+- README commands table expanded to 34 entries.
+- CLI reference expanded to 37+ command sections.
+- 848 tests passing.
+
 ## [0.9.3] - 2026-03-28
 
 ### Added
