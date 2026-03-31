@@ -32,7 +32,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     <div class="max-w-5xl mx-auto flex flex-col lg:flex-row items-center gap-12">
       <div class="lg:w-1/2 fade-up">
         <h2 class="font-heading text-3xl sm:text-4xl font-bold mb-5">One Helm chart. Any cluster.</h2>
-        <p class="text-muted text-lg mb-4 leading-relaxed">Deploy to AWS EKS, GCP GKE, Azure AKS, or on-prem Kubernetes with a single command. The Helm chart handles API, dashboard, daemon config, ingress, and PostgreSQL.</p>
+        <p class="text-muted text-lg mb-4 leading-relaxed">Deploy to AWS EKS, GCP GKE, Azure AKS, or on-prem Kubernetes with a single command. The Helm chart handles API, dashboard, daemon config, ingress, PostgreSQL, and license validation.</p>
         <p class="text-muted text-lg mb-6 leading-relaxed">Bring your own object store — S3, GCS, or local PVC. Connect to an existing PostgreSQL (RDS, Cloud SQL, or the bundled instance).</p>
         <div class="flex flex-wrap gap-3">
           <span class="font-mono text-sm bg-surface border border-border rounded px-3 py-1.5 text-muted-dim">AWS EKS</span>
@@ -56,7 +56,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
                 <span class="text-muted-dim">$</span>
                 <span class="text-accent"> helm install sessionfs ./charts/sessionfs \</span>
               </div>
-              <div class="pl-4 text-accent">--set api.image=ghcr.io/sessionfs/api:v0.9.3 \</div>
+              <div class="pl-4 text-accent">--set api.image=ghcr.io/sessionfs/api:v0.9.5 \</div>
               <div class="pl-4 text-accent">--set storage.backend=s3 \</div>
               <div class="pl-4 text-accent">--set storage.bucket=my-sessions-bucket \</div>
               <div class="pl-4 text-accent">--values values.prod.yaml</div>
@@ -151,8 +151,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <div class="border-t border-border pt-4 flex items-start gap-3">
               <span class="text-accent text-lg mt-0.5">&#10003;</span>
               <div>
-                <div class="font-semibold text-sm mb-1">Role-based access</div>
-                <div class="text-muted text-base">Admin, member, and read-only roles. Team-scoped session visibility with per-repo isolation.</div>
+                <div class="font-semibold text-sm mb-1">Organizations + RBAC</div>
+                <div class="text-muted text-base">Admin and member roles with organization management. Team-scoped session visibility with per-repo isolation and tier-based feature gating.</div>
               </div>
             </div>
             <div class="border-t border-border pt-4 flex items-start gap-3">
