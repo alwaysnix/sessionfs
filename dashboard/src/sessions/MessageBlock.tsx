@@ -6,11 +6,11 @@ interface MessageProps {
 }
 
 const ROLE_BADGE_STYLES: Record<string, string> = {
-  user: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  assistant: 'bg-green-500/10 text-green-400 border-green-500/20',
-  tool: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
-  system: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  developer: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+  user: 'border border-[var(--brand)] text-[var(--brand)] bg-transparent',
+  assistant: 'border border-[var(--accent)] text-[var(--accent)] bg-transparent',
+  tool: 'border border-[var(--text-tertiary)] text-[var(--text-tertiary)] bg-transparent',
+  system: 'border border-[var(--text-tertiary)] text-[var(--text-tertiary)] bg-transparent',
+  developer: 'border border-[var(--text-tertiary)] text-[var(--text-tertiary)] bg-transparent',
 };
 
 export default function MessageBlock({ message }: MessageProps) {
@@ -30,14 +30,14 @@ export default function MessageBlock({ message }: MessageProps) {
   }
 
   const isUser = role === 'user';
-  const badgeStyle = ROLE_BADGE_STYLES[role] || 'bg-gray-500/10 text-gray-400 border-gray-500/20';
-  const borderClass = isUser ? 'border-l-2 border-l-[var(--brand)]' : '';
+  const badgeStyle = ROLE_BADGE_STYLES[role] || 'border border-[var(--text-tertiary)] text-[var(--text-tertiary)] bg-transparent';
+  const borderClass = isUser ? 'border-l-[3px] border-l-[var(--brand)] pl-4' : '';
 
   return (
-    <div className={`${borderClass} pl-4 py-2`}>
+    <div className={`${borderClass} py-2`}>
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium px-1.5 py-0.5 rounded border ${badgeStyle}`}>
+          <span className={`text-xs font-medium rounded-full px-2 py-0.5 ${badgeStyle}`}>
             {role === 'assistant' ? 'Assistant' : role === 'user' ? 'User' : role === 'system' ? 'System' : role.charAt(0).toUpperCase() + role.slice(1)}
           </span>
           {model && <span className="text-[var(--text-tertiary)] text-xs font-mono">{model}</span>}

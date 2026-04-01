@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthContext';
 import CopyButton from '../components/CopyButton';
 import { useJudgeSettings, useSaveJudgeSettings, useClearJudgeSettings } from '../hooks/useJudgeSettings';
+import { useToast } from '../hooks/useToast';
 
 const PROVIDERS = [
   { value: 'openrouter', label: 'OpenRouter' },
@@ -247,6 +248,7 @@ function ConnectionTab() {
 
 function JudgeTab() {
   const { auth } = useAuth();
+  const { addToast } = useToast();
   const { data: judgeSettings, isLoading: judgeLoading } = useJudgeSettings();
   const saveJudge = useSaveJudgeSettings();
   const clearJudge = useClearJudgeSettings();
@@ -313,6 +315,7 @@ function JudgeTab() {
         onSuccess: () => {
           setJudgeSaved(true);
           setJudgeApiKey('');
+          addToast('success', 'Settings saved');
         },
       },
     );

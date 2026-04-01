@@ -41,6 +41,19 @@ export default function SessionList() {
   const [sortBy, setSortBy] = useState<SortKey>('date');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const mod = navigator.platform.includes('Mac') ? e.metaKey : e.ctrlKey;
+      if (mod && e.key === 'k') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const PAGE_SIZE = 20;
 
@@ -138,12 +151,19 @@ export default function SessionList() {
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <input
+            ref={searchRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search sessions...  \u2318K"
-            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--brand)] transition-colors"
+            placeholder="Search sessions..."
+            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-16 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--brand)] transition-colors"
           />
+          <span className="absolute right-8 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pointer-events-none">
+            <kbd className="font-mono text-[11px] px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]">
+              {typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '\u2318' : 'Ctrl'}
+            </kbd>
+            <kbd className="font-mono text-[11px] px-1.5 py-0.5 rounded border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]">K</kbd>
+          </span>
           <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -206,7 +226,23 @@ export default function SessionList() {
 
       {/* Loading */}
       {isLoading && (
-        <div className="text-center py-12 text-[var(--text-tertiary)]">Loading sessions...</div>
+        <div className="space-y-3">
+          {Array.from({length: 6}).map((_, i) => (
+            <div key={i} className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-4 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-[var(--bg-tertiary)]" />
+                <div className="h-4 w-24 rounded bg-[var(--bg-tertiary)]" />
+                <div className="h-3 w-32 rounded bg-[var(--bg-tertiary)]" />
+                <div className="flex-1" />
+                <div className="h-3 w-16 rounded bg-[var(--bg-tertiary)]" />
+              </div>
+              <div className="mt-2 flex items-center gap-3 pl-6">
+                <div className="h-3 w-16 rounded bg-[var(--bg-tertiary)]" />
+                <div className="h-3 w-64 rounded bg-[var(--bg-tertiary)]" />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Session rows */}
@@ -219,7 +255,7 @@ export default function SessionList() {
                 onClick={() => handleRowClick(s.id)}
                 onKeyDown={(e) => handleRowKeyDown(e, s.id)}
                 tabIndex={0}
-                className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-4 py-3 cursor-pointer hover:bg-[var(--surface-hover)] transition-colors duration-150 focus:bg-[var(--surface-hover)] outline-none focus:ring-1 focus:ring-[var(--brand)]"
+                className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-4 py-3 cursor-pointer hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] transition-all duration-150 focus:bg-[var(--surface-hover)] outline-none focus:ring-1 focus:ring-[var(--brand)]"
               >
                 {/* Line 1: Tool, ID, message count, tokens, date */}
                 <div className="flex items-center gap-3 mb-1">
@@ -321,6 +357,8 @@ export default function SessionList() {
 
 function BookmarkDropdown({ sessionId }: { sessionId: string }) {
   const [open, setOpen] = useState(false);
+  const [popping, setPopping] = useState(false);
+  const [bookmarked, setBookmarked] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { data: foldersData } = useFolders();
   const addBookmark = useAddBookmark();
@@ -335,14 +373,20 @@ function BookmarkDropdown({ sessionId }: { sessionId: string }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
+  function handleIconClick() {
+    setPopping(true);
+    setTimeout(() => setPopping(false), 200);
+    setOpen(!open);
+  }
+
   return (
     <div className="relative" ref={ref}>
       <button
-        onClick={() => setOpen(!open)}
-        className="text-[var(--text-tertiary)] hover:text-[var(--brand)] transition-colors text-sm p-1 rounded hover:bg-[var(--surface-hover)]"
+        onClick={handleIconClick}
+        className={`transition-colors text-sm p-1 rounded hover:bg-[var(--surface-hover)] ${bookmarked ? 'text-[var(--brand)]' : 'text-[var(--text-tertiary)] hover:text-[var(--brand)]'} ${popping ? 'animate-[bookmark-pop_200ms_ease-out]' : ''}`}
         title="Bookmark"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={bookmarked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
         </svg>
       </button>
@@ -356,7 +400,7 @@ function BookmarkDropdown({ sessionId }: { sessionId: string }) {
               key={f.id}
               onClick={() => {
                 addBookmark.mutate({ folderId: f.id, sessionId }, {
-                  onSuccess: () => setOpen(false),
+                  onSuccess: () => { setOpen(false); setBookmarked(true); },
                   onError: () => setOpen(false),
                 });
               }}
@@ -459,9 +503,9 @@ function AnalyticsCards({ sessions }: { sessions: SessionSummary[] }) {
   }, [sessions]);
 
   return (
-    <div className="grid grid-cols-4 gap-3 mb-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
       {/* Sessions Today */}
-      <div className="bg-[var(--bg-elevated)] rounded-xl p-4 border border-[var(--border)] shadow-[var(--shadow-sm)]">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-150">
         <div className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{stats.sessionsToday}</div>
         <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mt-1">Sessions Today</div>
         {stats.sessionsYesterday > 0 && (
@@ -472,7 +516,7 @@ function AnalyticsCards({ sessions }: { sessions: SessionSummary[] }) {
       </div>
 
       {/* Tool Breakdown */}
-      <div className="bg-[var(--bg-elevated)] rounded-xl p-4 border border-[var(--border)] shadow-[var(--shadow-sm)]">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-150">
         <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Tool Breakdown</div>
         {stats.totalForBar > 0 && (
           <>
@@ -508,7 +552,7 @@ function AnalyticsCards({ sessions }: { sessions: SessionSummary[] }) {
       </div>
 
       {/* Total Tokens */}
-      <div className="bg-[var(--bg-elevated)] rounded-xl p-4 border border-[var(--border)] shadow-[var(--shadow-sm)]">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-150">
         <div className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">
           {formatTokens(stats.totalTokens)}
         </div>
@@ -516,7 +560,7 @@ function AnalyticsCards({ sessions }: { sessions: SessionSummary[] }) {
       </div>
 
       {/* Active Hours */}
-      <div className="bg-[var(--bg-elevated)] rounded-xl p-4 border border-[var(--border)] shadow-[var(--shadow-sm)]">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-150">
         <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.peakLabel}</div>
         <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mt-1">Peak Hours</div>
       </div>
