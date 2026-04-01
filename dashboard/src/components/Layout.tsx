@@ -51,32 +51,26 @@ export default function Layout() {
       >
         {/* Left: Logo */}
         <Link to="/" className="flex items-center shrink-0 hover:opacity-90 transition-opacity">
-          <span
-            className="text-[17px] font-semibold tracking-tight"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Session<span style={{ color: 'var(--brand)' }}>FS</span>
+          <span className="text-[17px] tracking-tight">
+            <span className="text-[var(--text-primary)] font-bold">Session</span>
+            <span className="text-[var(--brand)] font-bold">FS</span>
           </span>
         </Link>
 
         {/* Center: Nav links */}
-        <nav className="flex items-center gap-1 text-[14px]">
+        <nav className="flex items-center gap-1 text-[14px] overflow-x-auto whitespace-nowrap">
           {NAV_LINKS.map(({ to, label, match }) => {
             const active = match(location.pathname);
+            const hiddenOnMobile = label === 'Billing';
             return (
               <Link
                 key={to}
                 to={to}
-                className="relative px-3 py-1.5 rounded-[var(--radius-sm)] transition-colors"
-                style={{
-                  color: active ? 'var(--brand)' : 'var(--text-secondary)',
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) e.currentTarget.style.color = 'var(--text-primary)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) e.currentTarget.style.color = 'var(--text-secondary)';
-                }}
+                className={`px-3 pb-[14px] pt-[16px] border-b-2 transition-colors ${
+                  active
+                    ? 'border-[var(--brand)] text-[var(--brand)]'
+                    : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }${hiddenOnMobile ? ' hidden sm:inline-flex' : ''}`}
               >
                 {label}
                 {label === 'Handoffs' && pendingCount > 0 && (
@@ -90,36 +84,19 @@ export default function Layout() {
                     {pendingCount}
                   </span>
                 )}
-                {active && (
-                  <span
-                    className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full"
-                    style={{ backgroundColor: 'var(--brand)' }}
-                  />
-                )}
               </Link>
             );
           })}
           {isAdmin && (
             <Link
               to="/admin"
-              className="relative px-3 py-1.5 rounded-[var(--radius-sm)] transition-colors"
-              style={{
-                color: location.pathname === '/admin' ? 'var(--brand)' : 'var(--text-secondary)',
-              }}
-              onMouseEnter={(e) => {
-                if (location.pathname !== '/admin') e.currentTarget.style.color = 'var(--text-primary)';
-              }}
-              onMouseLeave={(e) => {
-                if (location.pathname !== '/admin') e.currentTarget.style.color = 'var(--text-secondary)';
-              }}
+              className={`hidden sm:inline-flex px-3 pb-[14px] pt-[16px] border-b-2 transition-colors ${
+                location.pathname === '/admin'
+                  ? 'border-[var(--brand)] text-[var(--brand)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
             >
               Admin
-              {location.pathname === '/admin' && (
-                <span
-                  className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full"
-                  style={{ backgroundColor: 'var(--brand)' }}
-                />
-              )}
             </Link>
           )}
           <SearchBar />
@@ -169,8 +146,16 @@ export default function Layout() {
         </div>
       </header>
       <main className="flex-1">
-        <Outlet />
+        <div key={location.pathname} className="page-enter flex flex-col flex-1 min-h-0">
+          <Outlet />
+        </div>
       </main>
+      <footer className="text-center py-8 text-[11px] text-[var(--text-tertiary)] border-t border-[var(--border)]">
+        SessionFS v0.9.6 &middot;{' '}
+        <a href="https://sessionfs.dev/quickstart/" className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">Docs</a> &middot;{' '}
+        <a href="https://sessionfs.dev" className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">Status</a> &middot;{' '}
+        <a href="mailto:support@sessionfs.dev" className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">Support</a>
+      </footer>
     </div>
   );
 }

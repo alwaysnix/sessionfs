@@ -14,6 +14,7 @@ import AdminDashboard from './admin/AdminDashboard';
 import BillingPage from './billing/BillingPage';
 import OrgPage from './org/OrgPage';
 import { BackgroundTasksProvider } from './components/BackgroundTasks';
+import { ToastProvider } from './components/Toast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +44,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <ToastProvider>
         <BackgroundTasksProvider>
         <BrowserRouter>
           <Routes>
@@ -75,6 +77,7 @@ export default function App() {
           </Routes>
         </BrowserRouter>
         </BackgroundTasksProvider>
+        </ToastProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

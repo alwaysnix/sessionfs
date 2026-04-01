@@ -62,25 +62,18 @@ function ToolUseBlock({ block }: BlockProps) {
   const name = String(block.name || 'tool');
   const input = block.input as Record<string, unknown> | undefined;
   const inputStr = input ? JSON.stringify(input, null, 2) : '';
-  const isLong = inputStr.length > 200;
 
   return (
-    <div className="ml-2 border border-[var(--border)] rounded-lg bg-[var(--bg-secondary)] text-sm">
+    <div className="ml-2">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-[var(--surface-hover)] transition-colors rounded-t-lg"
+        className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
       >
-        <svg className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-        </svg>
-        <span className="text-[var(--text-secondary)] font-mono font-medium">{name}</span>
-        {typeof block.tool_use_id === 'string' && (
-          <span className="text-[var(--text-tertiary)] font-mono text-xs">{block.tool_use_id.slice(0, 8)}</span>
-        )}
-        <span className="ml-auto text-[var(--text-tertiary)] text-xs">{open ? '\u25B2' : '\u25BC'}</span>
+        <span className="text-[var(--text-tertiary)] text-xs">{open ? '\u25BC' : '\u25B6'}</span>
+        <span className="font-mono text-sm text-[var(--text-secondary)]">Tool: {name}</span>
       </button>
-      {(open || !isLong) && inputStr && (
-        <pre className="px-3 py-2 border-t border-[var(--border)] overflow-x-auto text-[var(--text-secondary)] whitespace-pre-wrap font-mono text-xs">
+      {open && inputStr && (
+        <pre className="mt-1 bg-[var(--bg-tertiary)] rounded-lg p-3 font-mono text-xs text-[var(--text-secondary)] overflow-x-auto whitespace-pre-wrap">
           {inputStr}
         </pre>
       )}
@@ -94,17 +87,16 @@ function ToolResultBlock({ block }: BlockProps) {
   const lines = content.split('\n');
 
   return (
-    <div className="ml-4 border border-[var(--border)] rounded-lg bg-[var(--bg-secondary)] text-sm opacity-70">
+    <div className="ml-4 opacity-80">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-[var(--surface-hover)] transition-colors rounded-t-lg"
+        className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
       >
-        <span className="text-[var(--text-tertiary)] text-xs">result</span>
-        <span className="text-[var(--text-tertiary)] text-xs">({String(lines.length)} lines)</span>
-        <span className="ml-auto text-[var(--text-tertiary)] text-xs">{open ? '\u25B2' : '\u25BC'}</span>
+        <span className="text-[var(--text-tertiary)] text-xs">{open ? '\u25BC' : '\u25B6'}</span>
+        <span className="font-mono text-xs text-[var(--text-tertiary)]">Result ({String(lines.length)} lines)</span>
       </button>
       {open && (
-        <pre className="px-3 py-2 border-t border-[var(--border)] overflow-x-auto text-[var(--text-tertiary)] whitespace-pre-wrap max-h-96 overflow-y-auto font-mono text-xs">
+        <pre className="mt-1 bg-[var(--bg-tertiary)] rounded-lg p-3 font-mono text-xs text-[var(--text-tertiary)] overflow-x-auto whitespace-pre-wrap max-h-96 overflow-y-auto">
           {content}
         </pre>
       )}

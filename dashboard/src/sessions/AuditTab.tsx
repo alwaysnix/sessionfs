@@ -10,6 +10,7 @@ import {
   exportAuditCsv,
   downloadFile,
 } from '../utils/auditExport';
+import { useToast } from '../hooks/useToast';
 
 interface Props {
   sessionId: string;
@@ -53,6 +54,7 @@ export default function AuditTab({ sessionId, messageCount, sessionTitle, onJump
   const { data: report, isLoading, error } = useAudit(sessionId);
   const [showModal, setShowModal] = useState(false);
   const queryClient = useQueryClient();
+  const { addToast } = useToast();
 
   const is404 = error && 'status' in error && (error as { status: number }).status === 404;
 
@@ -95,7 +97,7 @@ export default function AuditTab({ sessionId, messageCount, sessionTitle, onJump
         </button>
         {showModal && (
           <AuditModal sessionTitle={sessionTitle} sessionId={sessionId} messageCount={messageCount}
-            onClose={() => setShowModal(false)} onComplete={() => setShowModal(false)} />
+            onClose={() => setShowModal(false)} onComplete={() => { setShowModal(false); addToast('info', 'Audit started'); }} />
         )}
       </div>
     );
@@ -150,6 +152,7 @@ function AuditReportView({
   setShowModal: (v: boolean) => void;
 }) {
   const { dismissed, dismiss, restore, isDismissed } = useDismissState();
+  const { addToast } = useToast();
   const [minConfidence, setMinConfidence] = useState(0);
 
   const contradictions = report.findings.filter(f => f.verdict === 'hallucination');
@@ -337,7 +340,7 @@ function AuditReportView({
 
       {showModal && (
         <AuditModal sessionTitle={sessionTitle} sessionId={sessionId} messageCount={messageCount}
-          onClose={() => setShowModal(false)} onComplete={() => setShowModal(false)} />
+          onClose={() => setShowModal(false)} onComplete={() => { setShowModal(false); addToast('info', 'Audit started'); }} />
       )}
     </div>
   );
