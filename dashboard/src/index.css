@@ -1,27 +1,112 @@
 @import "tailwindcss";
 
+/* === Design System Tokens === */
+
+:root, [data-theme="light"] {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-tertiary: #f0f1f3;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-hover: #f5f6f8;
+  --surface-active: #eef0f3;
+  --border: #e2e5e9;
+  --border-strong: #cdd1d6;
+  --text-primary: #1a1d21;
+  --text-secondary: #5a6069;
+  --text-tertiary: #8b929a;
+  --text-inverse: #ffffff;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #1c2128;
+  --bg-elevated: #1c2128;
+  --surface: #161b22;
+  --surface-hover: #1c2128;
+  --surface-active: #262c36;
+  --border: #30363d;
+  --border-strong: #484f58;
+  --text-primary: #e6edf3;
+  --text-secondary: #b1bac4;
+  --text-tertiary: #7d8590;
+  --text-inverse: #0d1117;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+:root {
+  --brand: #4f9cf7;
+  --brand-hover: #3d8ce6;
+  --accent: #3ddc84;
+  --danger: #f04060;
+  --warning: #f0c040;
+  --info: #4f9cf7;
+  --tool-claude: #d97706;
+  --tool-codex: #10b981;
+  --tool-gemini: #6366f1;
+  --tool-copilot: #3b82f6;
+  --tool-cursor: #8b5cf6;
+  --tool-amp: #ec4899;
+  --tool-cline: #14b8a6;
+  --tool-roo: #f97316;
+  --severity-critical: #ef4444;
+  --severity-high: #f59e0b;
+  --severity-low: #6b7280;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* === Tailwind v4 theme: map old color classes so existing code keeps working === */
+
 @theme {
-  --color-bg-primary: #0d1117;
-  --color-bg-secondary: #161b22;
-  --color-bg-tertiary: #21262d;
-  --color-border: #30363d;
-  --color-text-primary: #f0f3f6;
-  --color-text-secondary: #d0d7de;
-  --color-text-muted: #7d8590;
-  --color-accent: #4f9cf7;
-  --color-accent-hover: #6db3f9;
+  /* Legacy color mappings (bg-bg-primary, text-text-primary, etc.) */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-border: var(--border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-tertiary);
+  --color-accent: var(--brand);
+  --color-accent-hover: var(--brand-hover);
+
+  /* Role colors (kept for ConversationView/MessageBlock) */
   --color-role-user: #4f9cf7;
   --color-role-assistant: #3ddc84;
   --color-role-tool: #b1b8c1;
   --color-role-system: #d29922;
-  --color-code-bg: #161b22;
-  --color-thinking-bg: #1c1e24;
+
+  /* Code/thinking backgrounds */
+  --color-code-bg: var(--bg-secondary);
+  --color-thinking-bg: var(--bg-tertiary);
+
+  /* New design-system colors exposed as Tailwind classes */
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-border-strong: var(--border-strong);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-text-inverse: var(--text-inverse);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
 }
 
 body {
   margin: 0;
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 1.6;
@@ -36,6 +121,15 @@ body {
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: var(--color-bg-primary); }
-::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+/* Skeleton pulse animation */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.7; }
+}
+.animate-skeleton-pulse {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}

@@ -5,20 +5,12 @@ interface MessageProps {
   message: Record<string, unknown>;
 }
 
-const ROLE_STYLES: Record<string, string> = {
-  user: 'border-role-user/30 bg-role-user/5',
-  assistant: 'border-role-assistant/30 bg-role-assistant/5',
-  tool: 'border-role-tool/30 bg-role-tool/5',
-  system: 'border-role-system/30 bg-role-system/5',
-  developer: 'border-role-system/30 bg-role-system/5',
-};
-
-const ROLE_LABEL_STYLES: Record<string, string> = {
-  user: 'text-role-user',
-  assistant: 'text-role-assistant',
-  tool: 'text-role-tool',
-  system: 'text-role-system',
-  developer: 'text-role-system',
+const ROLE_BADGE_STYLES: Record<string, string> = {
+  user: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  assistant: 'bg-green-500/10 text-green-400 border-green-500/20',
+  tool: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+  system: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+  developer: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
 };
 
 export default function MessageBlock({ message }: MessageProps) {
@@ -37,21 +29,24 @@ export default function MessageBlock({ message }: MessageProps) {
     blocks.push(...content);
   }
 
-  const style = ROLE_STYLES[role] || 'border-border';
-  const labelStyle = ROLE_LABEL_STYLES[role] || 'text-text-secondary';
+  const isUser = role === 'user';
+  const badgeStyle = ROLE_BADGE_STYLES[role] || 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+  const borderClass = isUser ? 'border-l-2 border-l-[var(--brand)]' : '';
 
   return (
-    <div className={`border-l-2 ${style} pl-4 py-2`}>
-      <div className="flex items-center gap-2 mb-1">
-        <span className={`text-sm font-medium uppercase tracking-wide ${labelStyle}`}>
-          {role}
-        </span>
+    <div className={`${borderClass} pl-4 py-2`}>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-medium px-1.5 py-0.5 rounded border ${badgeStyle}`}>
+            {role === 'assistant' ? 'Assistant' : role === 'user' ? 'User' : role === 'system' ? 'System' : role.charAt(0).toUpperCase() + role.slice(1)}
+          </span>
+          {model && <span className="text-[var(--text-tertiary)] text-xs font-mono">{model}</span>}
+        </div>
         {timestamp && (
-          <span className="text-text-muted text-sm">
+          <span className="text-xs text-[var(--text-tertiary)]">
             <RelativeDate iso={timestamp} />
           </span>
         )}
-        {model && <span className="text-text-muted text-sm font-mono">{model}</span>}
       </div>
       <div className="flex flex-col gap-2">
         {blocks.map((block, i) => (

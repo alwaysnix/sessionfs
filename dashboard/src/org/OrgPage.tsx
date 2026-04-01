@@ -2,6 +2,23 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthContext';
 
+const AVATAR_COLORS = [
+  'bg-blue-500/20 text-blue-500',
+  'bg-green-500/20 text-green-500',
+  'bg-purple-500/20 text-purple-500',
+  'bg-orange-500/20 text-orange-500',
+  'bg-pink-500/20 text-pink-500',
+  'bg-teal-500/20 text-teal-500',
+];
+
+function getAvatarColor(email: string): string {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = email.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
 export default function OrgPage() {
   const { auth } = useAuth();
   const queryClient = useQueryClient();
@@ -75,7 +92,7 @@ export default function OrgPage() {
   });
 
   if (isLoading) {
-    return <div className="text-center py-12 text-text-muted">Loading...</div>;
+    return <div className="text-center py-12 text-[var(--text-tertiary)]">Loading...</div>;
   }
 
   const org = data?.org;
@@ -86,12 +103,12 @@ export default function OrgPage() {
   if (!org) {
     return (
       <div className="max-w-2xl mx-auto px-4 py-12 text-center">
-        <h2 className="text-xl font-semibold mb-4">No Organization</h2>
-        <p className="text-text-muted mb-6">
+        <h2 className="text-xl font-semibold text-[var(--text-primary)] mb-4">No Organization</h2>
+        <p className="text-[var(--text-tertiary)] mb-6">
           You're not part of an organization. Organizations are available on Team tier and above.
         </p>
-        <p className="text-sm text-text-muted">
-          Create one via CLI: <code className="bg-bg-secondary px-2 py-1 rounded">sfs org create "My Team" my-team</code>
+        <p className="text-sm text-[var(--text-tertiary)]">
+          Create one via CLI: <code className="bg-[var(--surface)] border border-[var(--border)] px-2 py-1 rounded-md text-[var(--text-secondary)]">sfs org create "My Team" my-team</code>
         </p>
       </div>
     );
@@ -101,15 +118,15 @@ export default function OrgPage() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">{org.name}</h1>
-          <p className="text-text-muted text-sm">
+          <h1 className="text-lg font-semibold text-[var(--text-primary)]">{org.name}</h1>
+          <p className="text-[var(--text-tertiary)] text-sm">
             {org.slug} &middot; {org.tier} tier &middot; {org.seats_used}/{org.seats_limit} seats
           </p>
         </div>
         {isAdmin && (
           <button
             onClick={() => setShowInviteForm(!showInviteForm)}
-            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 text-sm"
+            className="bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors"
           >
             Invite Member
           </button>
@@ -118,24 +135,25 @@ export default function OrgPage() {
 
       {/* Invite form */}
       {showInviteForm && isAdmin && (
-        <div className="bg-bg-secondary rounded-lg p-4 mb-6">
+        <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5 mb-6">
+          <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">Invite a teammate</h3>
           <div className="flex gap-3 items-end">
             <div className="flex-1">
-              <label className="block text-sm text-text-muted mb-1">Email</label>
+              <label className="block text-sm text-[var(--text-tertiary)] mb-1">Email</label>
               <input
                 type="email"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="colleague@company.com"
-                className="w-full px-3 py-2 bg-bg-primary border border-border rounded-lg text-sm"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--brand)]"
               />
             </div>
             <div>
-              <label className="block text-sm text-text-muted mb-1">Role</label>
+              <label className="block text-sm text-[var(--text-tertiary)] mb-1">Role</label>
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value)}
-                className="px-3 py-2 bg-bg-primary border border-border rounded-lg text-sm"
+                className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
               >
                 <option value="member">Member</option>
                 <option value="admin">Admin</option>
@@ -144,102 +162,109 @@ export default function OrgPage() {
             <button
               onClick={() => inviteMutation.mutate()}
               disabled={!inviteEmail || inviteMutation.isPending}
-              className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 text-sm"
+              className="bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
             >
               {inviteMutation.isPending ? 'Sending...' : 'Send Invite'}
             </button>
           </div>
           {inviteMutation.isError && (
-            <p className="text-red-400 text-sm mt-2">{(inviteMutation.error as Error).message}</p>
+            <p className="text-red-500 text-sm mt-2">{(inviteMutation.error as Error).message}</p>
           )}
         </div>
       )}
 
-      {/* Members table */}
-      <div className="bg-bg-secondary rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-text-muted">
-              <th className="px-4 py-3">Email</th>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Joined</th>
-              {isAdmin && <th className="px-4 py-3">Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {members.map((m: any) => (
-              <tr key={m.user_id} className="border-b border-border/50">
-                <td className="px-4 py-3">{m.email}</td>
-                <td className="px-4 py-3 text-text-muted">{m.display_name || '-'}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      m.role === 'admin' ? 'bg-accent/20 text-accent' : 'bg-border text-text-muted'
-                    }`}
+      {/* Members */}
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl overflow-hidden mb-6">
+        <div className="px-5 py-3 border-b border-[var(--border)]">
+          <h3 className="text-sm font-medium text-[var(--text-primary)]">Members</h3>
+        </div>
+        <div className="divide-y divide-[var(--border)]">
+          {members.map((m: any) => (
+            <div key={m.user_id} className="px-5 py-3 flex items-center gap-3 hover:bg-[var(--surface-hover)] transition-colors">
+              {/* Avatar */}
+              <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${getAvatarColor(m.email)}`}>
+                {m.email.charAt(0).toUpperCase()}
+              </span>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-[var(--text-primary)] truncate">{m.email}</div>
+                <div className="text-xs text-[var(--text-tertiary)]">{m.display_name || 'No display name'}</div>
+              </div>
+
+              {/* Role badge */}
+              <span
+                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  m.role === 'admin'
+                    ? 'bg-[var(--brand)]/15 text-[var(--brand)]'
+                    : 'bg-[var(--border)] text-[var(--text-tertiary)]'
+                }`}
+              >
+                {m.role}
+              </span>
+
+              {/* Joined */}
+              <span className="text-xs text-[var(--text-tertiary)] w-20 text-right flex-shrink-0">
+                {m.joined_at?.slice(0, 10) || '-'}
+              </span>
+
+              {/* Actions */}
+              {isAdmin && (
+                <div className="flex gap-2 ml-2 flex-shrink-0">
+                  <button
+                    onClick={() =>
+                      changeRoleMutation.mutate({
+                        userId: m.user_id,
+                        role: m.role === 'admin' ? 'member' : 'admin',
+                      })
+                    }
+                    className="text-xs text-[var(--brand)] hover:underline"
                   >
-                    {m.role}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-text-muted">{m.joined_at?.slice(0, 10) || '-'}</td>
-                {isAdmin && (
-                  <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() =>
-                          changeRoleMutation.mutate({
-                            userId: m.user_id,
-                            role: m.role === 'admin' ? 'member' : 'admin',
-                          })
-                        }
-                        className="text-xs text-accent hover:underline"
-                      >
-                        {m.role === 'admin' ? 'Make Member' : 'Make Admin'}
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (confirm(`Remove ${m.email} from the organization?`)) {
-                            removeMutation.mutate(m.user_id);
-                          }
-                        }}
-                        className="text-xs text-red-400 hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    {m.role === 'admin' ? 'Make Member' : 'Make Admin'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Remove ${m.email} from the organization?`)) {
+                        removeMutation.mutate(m.user_id);
+                      }
+                    }}
+                    className="text-xs text-red-500 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Pending invites */}
       {isAdmin && pendingInvites.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-3">Pending Invites</h2>
-          <div className="bg-bg-secondary rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border text-left text-text-muted">
-                  <th className="px-4 py-3">Email</th>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">Sent</th>
-                  <th className="px-4 py-3">Expires</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingInvites.map((inv: any) => (
-                  <tr key={inv.id} className="border-b border-border/50">
-                    <td className="px-4 py-3">{inv.email}</td>
-                    <td className="px-4 py-3">{inv.role}</td>
-                    <td className="px-4 py-3 text-text-muted">{inv.created_at?.slice(0, 10)}</td>
-                    <td className="px-4 py-3 text-text-muted">{inv.expires_at?.slice(0, 10)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-[var(--border)]">
+            <h3 className="text-sm font-medium text-[var(--text-primary)]">Pending Invites</h3>
+          </div>
+          <div className="divide-y divide-[var(--border)]">
+            {pendingInvites.map((inv: any) => (
+              <div key={inv.id} className="px-5 py-3 flex items-center gap-3">
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${getAvatarColor(inv.email)}`}>
+                  {inv.email.charAt(0).toUpperCase()}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-[var(--text-primary)] truncate">{inv.email}</div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-500">
+                  {inv.role}
+                </span>
+                <span className="text-xs text-[var(--text-tertiary)]">
+                  Sent {inv.created_at?.slice(0, 10)}
+                </span>
+                <span className="text-xs text-[var(--text-tertiary)]">
+                  Expires {inv.expires_at?.slice(0, 10)}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}

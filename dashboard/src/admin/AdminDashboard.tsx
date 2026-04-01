@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   useAdminUsers,
   useAdminStats,
@@ -12,16 +12,33 @@ import RelativeDate from '../components/RelativeDate';
 import ConfirmModal from './ConfirmModal';
 import LicensesTab from './LicensesTab';
 
-type AdminTab = 'users' | 'licenses';
+type AdminTab = 'users' | 'licenses' | 'activity';
 
 const TIER_COLORS: Record<string, string> = {
-  free: 'bg-gray-500/20 text-gray-400',
-  pro: 'bg-blue-500/20 text-blue-400',
-  team: 'bg-purple-500/20 text-purple-400',
-  admin: 'bg-red-500/20 text-red-400',
+  free: 'bg-gray-500/15 text-gray-500',
+  pro: 'bg-blue-500/15 text-blue-500',
+  team: 'bg-purple-500/15 text-purple-500',
+  admin: 'bg-red-500/15 text-red-500',
 };
 
 const TIERS = ['free', 'pro', 'team', 'admin'] as const;
+
+const AVATAR_COLORS = [
+  'bg-blue-500/20 text-blue-500',
+  'bg-green-500/20 text-green-500',
+  'bg-purple-500/20 text-purple-500',
+  'bg-orange-500/20 text-orange-500',
+  'bg-pink-500/20 text-pink-500',
+  'bg-teal-500/20 text-teal-500',
+];
+
+function getAvatarColor(email: string): string {
+  let hash = 0;
+  for (let i = 0; i < email.length; i++) {
+    hash = email.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -75,213 +92,226 @@ export default function AdminDashboard() {
     setExpandedUserId(null);
   }, [confirmDelete, deleteUser]);
 
+  const tabs: { key: AdminTab; label: string }[] = [
+    { key: 'users', label: 'Users' },
+    { key: 'licenses', label: 'Licenses' },
+    { key: 'activity', label: 'Activity' },
+  ];
+
+  // Compute storage percentage for progress bar
+  const storageUsed = stats?.sessions?.total_size_bytes ?? 0;
+  const storageLimit = stats?.storage_limit_bytes ?? 0;
+  const storagePct = storageLimit > 0 ? Math.min(100, (storageUsed / storageLimit) * 100) : 0;
+
+  // Compute active tools count
+  const activeTools = stats ? Object.keys(stats.sessions?.by_tool ?? {}).length : 0;
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-4">
-      <h1 className="text-xl font-semibold text-text-primary mb-6">Admin Dashboard</h1>
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      <h1 className="text-lg font-semibold text-[var(--text-primary)] mb-6">Admin Dashboard</h1>
 
-      {/* Stats Overview */}
-      <section className="mb-8">
-        <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider mb-3">
-          Overview
-        </h2>
-        {statsLoading && (
-          <div className="text-text-muted text-sm">Loading stats...</div>
-        )}
-        {stats && (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-              <StatCard label="Total Users" value={stats.users.total} />
-              <StatCard label="Verified Users" value={stats.users.verified} />
-              <StatCard label="Total Sessions" value={stats.sessions.total} />
-              <StatCard label="Storage Used" value={formatBytes(stats.sessions.total_size_bytes)} />
-              <StatCard label="Pending Handoffs" value={stats.handoffs.pending} />
+      {/* Overview Cards */}
+      {statsLoading && (
+        <div className="text-[var(--text-tertiary)] text-sm mb-6">Loading stats...</div>
+      )}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {/* Users card */}
+          <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-tertiary)] mb-1">Users</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{stats.users.total}</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                  {stats.users.verified} verified, {stats.users.total - stats.users.verified} pending
+                </p>
+              </div>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Tier breakdown */}
-              <div className="border border-border rounded-lg p-4 bg-bg-secondary">
-                <h3 className="text-sm font-medium text-text-secondary uppercase tracking-wider mb-3">
-                  Users by Tier
-                </h3>
-                <div className="space-y-2">
-                  {Object.entries(stats.users.by_tier).map(([tier, count]) => (
-                    <div key={tier} className="flex items-center justify-between text-sm">
-                      <span className="text-text-secondary capitalize">{tier}</span>
-                      <span className={`px-2 py-0.5 rounded text-sm font-medium ${TIER_COLORS[tier] || 'bg-gray-500/20 text-gray-400'}`}>
-                        {count}
-                      </span>
+          {/* Sessions card */}
+          <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center flex-shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-xs text-[var(--text-tertiary)] mb-1">Sessions</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{stats.sessions.total}</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                  {activeTools} active tool{activeTools !== 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Storage card */}
+          <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <ellipse cx="12" cy="5" rx="9" ry="3" />
+                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-[var(--text-tertiary)] mb-1">Storage</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{formatBytes(storageUsed)}</p>
+                {storageLimit > 0 && (
+                  <>
+                    <div className="w-full h-1.5 bg-[var(--border)] rounded-full mt-2 overflow-hidden">
+                      <div
+                        className="h-full bg-purple-500 rounded-full transition-all"
+                        style={{ width: `${storagePct}%` }}
+                      />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tool breakdown */}
-              <div className="border border-border rounded-lg p-4 bg-bg-secondary">
-                <h3 className="text-sm font-medium text-text-secondary uppercase tracking-wider mb-3">
-                  Sessions by Tool
-                </h3>
-                <div className="space-y-2">
-                  {Object.entries(stats.sessions.by_tool)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([tool, count]) => {
-                      const maxCount = Math.max(...Object.values(stats.sessions.by_tool));
-                      const pct = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                      return (
-                        <div key={tool} className="text-sm">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-text-secondary">{tool}</span>
-                            <span className="text-text-muted tabular-nums">{count}</span>
-                          </div>
-                          <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-accent rounded-full transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  {Object.keys(stats.sessions.by_tool).length === 0 && (
-                    <div className="text-text-muted text-sm">No sessions yet</div>
-                  )}
-                </div>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                      {storagePct.toFixed(0)}% of {formatBytes(storageLimit)}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
-          </>
-        )}
-      </section>
+          </div>
+        </div>
+      )}
 
       {/* Tab Navigation */}
-      <div className="flex gap-0 border-b border-border mb-6">
-        <button
-          onClick={() => setActiveTab('users')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'users'
-              ? 'text-text-primary border-b-2 border-accent -mb-px'
-              : 'text-text-muted hover:text-text-secondary'
-          }`}
-        >
-          Users
-        </button>
-        <button
-          onClick={() => setActiveTab('licenses')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
-            activeTab === 'licenses'
-              ? 'text-text-primary border-b-2 border-accent -mb-px'
-              : 'text-text-muted hover:text-text-secondary'
-          }`}
-        >
-          Licenses
-        </button>
+      <div className="flex gap-0 border-b border-[var(--border)] mb-6">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === t.key
+                ? 'text-[var(--text-primary)] border-b-2 border-[var(--brand)] -mb-px'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'licenses' && <LicensesTab />}
 
-      {/* User Management */}
-      {activeTab === 'users' && <><section className="mb-8">
-        <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider mb-3">
-          User Management
-        </h2>
-        <div className="mb-3">
-          <input
-            type="text"
-            value={emailSearch}
-            onChange={(e) => setEmailSearch(e.target.value)}
-            placeholder="Search by email..."
-            className="w-full max-w-sm px-3 py-1.5 bg-bg-secondary border border-border rounded text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent"
-          />
-        </div>
-
-        {usersError && (
-          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm">
-            Failed to load users: {String(usersError)}
-          </div>
-        )}
-
-        {usersLoading && (
-          <div className="text-text-muted text-sm">Loading users...</div>
-        )}
-
-        {usersData && usersData.users.length > 0 && (
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-bg-secondary text-text-secondary text-sm uppercase tracking-wider">
-                  <th className="px-3 py-2 text-left">Email</th>
-                  <th className="px-3 py-2 text-left w-24">Tier</th>
-                  <th className="px-3 py-2 text-center w-20">Verified</th>
-                  <th className="px-3 py-2 text-right w-20">Sessions</th>
-                  <th className="px-3 py-2 text-left w-28">Created</th>
-                </tr>
-              </thead>
-              <tbody>
-                {usersData.users.map((user) => (
-                  <UserRow
-                    key={user.user_id}
-                    user={user}
-                    expanded={expandedUserId === user.user_id}
-                    pendingTier={pendingTier[user.user_id]}
-                    onToggle={() => handleToggleExpand(user.user_id)}
-                    onPendingTierChange={(tier) =>
-                      setPendingTier((prev) => ({ ...prev, [user.user_id]: tier }))
-                    }
-                    onSaveTier={() => handleChangeTier(user.user_id)}
-                    onVerify={() => handleVerify(user.user_id)}
-                    onDelete={() => setConfirmDelete(user)}
-                    isSavingTier={changeTier.isPending}
-                    isVerifying={verifyUser.isPending}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {usersData && usersData.users.length === 0 && !usersLoading && (
-          <div className="text-center py-8 text-text-muted text-sm">No users found</div>
-        )}
-
-        {usersData && (
-          <div className="mt-2 text-sm text-text-muted">
-            Showing {usersData.users.length} of {usersData.total} users
-          </div>
-        )}
-      </section>
-
-      {/* Recent Admin Actions */}
-      <section>
-        <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider mb-3">
-          Recent Admin Actions
-        </h2>
-        {actionsData && actionsData.actions.length > 0 ? (
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-bg-secondary text-text-secondary text-sm uppercase tracking-wider">
-                  <th className="px-3 py-2 text-left">Admin</th>
-                  <th className="px-3 py-2 text-left">Action</th>
-                  <th className="px-3 py-2 text-left">Target</th>
-                  <th className="px-3 py-2 text-left w-28">When</th>
-                </tr>
-              </thead>
-              <tbody>
-                {actionsData.actions.map((action) => (
-                  <tr key={action.id} className="border-t border-border">
-                    <td className="px-3 py-2 text-text-secondary">{action.admin_email}</td>
-                    <td className="px-3 py-2 text-text-primary">{action.action}</td>
-                    <td className="px-3 py-2 text-text-muted font-mono text-sm">{action.target}</td>
-                    <td className="px-3 py-2 text-text-muted text-sm">
-                      <RelativeDate iso={action.timestamp} />
-                    </td>
+      {/* Activity tab */}
+      {activeTab === 'activity' && (
+        <section>
+          {actionsData && actionsData.actions.length > 0 ? (
+            <div className="border border-[var(--border)] rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[var(--bg-elevated)] text-[var(--text-tertiary)] text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left">Admin</th>
+                    <th className="px-4 py-3 text-left">Action</th>
+                    <th className="px-4 py-3 text-left">Target</th>
+                    <th className="px-4 py-3 text-left w-28">When</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {actionsData.actions.map((action) => (
+                    <tr key={action.id} className="border-t border-[var(--border)] hover:bg-[var(--surface-hover)] transition-colors">
+                      <td className="px-4 py-3 text-[var(--text-secondary)]">{action.admin_email}</td>
+                      <td className="px-4 py-3 text-[var(--text-primary)]">{action.action}</td>
+                      <td className="px-4 py-3 text-[var(--text-tertiary)] font-mono text-xs">{action.target}</td>
+                      <td className="px-4 py-3 text-[var(--text-tertiary)] text-xs">
+                        <RelativeDate iso={action.timestamp} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-[var(--text-tertiary)] text-sm">No recent actions</div>
+          )}
+        </section>
+      )}
+
+      {/* User Management */}
+      {activeTab === 'users' && (
+        <section>
+          <div className="mb-4">
+            <input
+              type="text"
+              value={emailSearch}
+              onChange={(e) => setEmailSearch(e.target.value)}
+              placeholder="Search by email..."
+              className="w-full max-w-sm bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--brand)]"
+            />
           </div>
-        ) : (
-          <div className="text-center py-8 text-text-muted text-sm">No recent actions</div>
-        )}
-      </section></>}
+
+          {usersError && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-500 text-sm">
+              Failed to load users: {String(usersError)}
+            </div>
+          )}
+
+          {usersLoading && (
+            <div className="text-[var(--text-tertiary)] text-sm">Loading users...</div>
+          )}
+
+          {usersData && usersData.users.length > 0 && (
+            <div className="border border-[var(--border)] rounded-xl overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[var(--bg-elevated)] text-[var(--text-tertiary)] text-xs uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left">User</th>
+                    <th className="px-4 py-3 text-left w-24">Tier</th>
+                    <th className="px-4 py-3 text-center w-20">Verified</th>
+                    <th className="px-4 py-3 text-right w-20">Sessions</th>
+                    <th className="px-4 py-3 text-left w-28">Created</th>
+                    <th className="px-4 py-3 text-center w-12"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersData.users.map((user) => (
+                    <UserRow
+                      key={user.user_id}
+                      user={user}
+                      expanded={expandedUserId === user.user_id}
+                      pendingTier={pendingTier[user.user_id]}
+                      onToggle={() => handleToggleExpand(user.user_id)}
+                      onPendingTierChange={(tier) =>
+                        setPendingTier((prev) => ({ ...prev, [user.user_id]: tier }))
+                      }
+                      onSaveTier={() => handleChangeTier(user.user_id)}
+                      onVerify={() => handleVerify(user.user_id)}
+                      onDelete={() => setConfirmDelete(user)}
+                      isSavingTier={changeTier.isPending}
+                      isVerifying={verifyUser.isPending}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {usersData && usersData.users.length === 0 && !usersLoading && (
+            <div className="text-center py-12 text-[var(--text-tertiary)] text-sm">No users found</div>
+          )}
+
+          {usersData && (
+            <div className="mt-3 text-sm text-[var(--text-tertiary)]">
+              Showing {usersData.users.length} of {usersData.total} users
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Delete confirmation modal */}
       <ConfirmModal
@@ -301,14 +331,53 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+/* ------------------------------------------------------------------ */
+/*  Action Menu                                                        */
+/* ------------------------------------------------------------------ */
+
+function ActionMenu({ children, onToggle }: { children: React.ReactNode; onToggle: () => void }) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [open]);
+
   return (
-    <div className="border border-border rounded-lg p-3 bg-bg-secondary">
-      <div className="text-sm text-text-muted mb-1">{label}</div>
-      <div className="text-lg font-semibold text-text-primary tabular-nums">{value}</div>
+    <div ref={menuRef} className="relative">
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(!open);
+          onToggle();
+        }}
+        className="w-7 h-7 flex items-center justify-center rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-hover)] transition-colors"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <circle cx="8" cy="3" r="1.5" />
+          <circle cx="8" cy="8" r="1.5" />
+          <circle cx="8" cy="13" r="1.5" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-8 z-20 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg shadow-[var(--shadow-md)] py-1 min-w-[140px]">
+          {children}
+        </div>
+      )}
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  User Row                                                           */
+/* ------------------------------------------------------------------ */
 
 interface UserRowProps {
   user: AdminUser;
@@ -335,47 +404,79 @@ function UserRow({
   isSavingTier,
   isVerifying,
 }: UserRowProps) {
-  const tierColor = TIER_COLORS[user.tier] || 'bg-gray-500/20 text-gray-400';
+  const tierColor = TIER_COLORS[user.tier] || 'bg-gray-500/15 text-gray-500';
   const selectedTier = pendingTier ?? user.tier;
   const tierChanged = selectedTier !== user.tier;
+  const avatarColor = getAvatarColor(user.email);
 
   return (
     <>
       <tr
-        onClick={onToggle}
-        className="border-t border-border hover:bg-bg-tertiary cursor-pointer transition-colors"
+        className="border-t border-[var(--border)] hover:bg-[var(--surface-hover)] transition-colors"
       >
-        <td className="px-3 py-2 text-text-primary">{user.email}</td>
-        <td className="px-3 py-2">
-          <span className={`px-2 py-0.5 rounded text-sm font-medium ${tierColor}`}>
+        <td className="px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0 ${avatarColor}`}>
+              {user.email.charAt(0).toUpperCase()}
+            </span>
+            <span className="text-[var(--text-primary)] truncate">{user.email}</span>
+          </div>
+        </td>
+        <td className="px-4 py-3">
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${tierColor}`}>
             {user.tier}
           </span>
         </td>
-        <td className="px-3 py-2 text-center">
+        <td className="px-4 py-3 text-center">
           {user.email_verified ? (
-            <span className="text-green-400" title="Verified">&#10003;</span>
+            <span className="text-green-500" title="Verified">&#10003;</span>
           ) : (
-            <span className="text-red-400" title="Not verified">&#10007;</span>
+            <span className="text-red-500" title="Not verified">&#10007;</span>
           )}
         </td>
-        <td className="px-3 py-2 text-right text-text-secondary tabular-nums">
+        <td className="px-4 py-3 text-right text-[var(--text-secondary)] tabular-nums">
           {user.session_count}
         </td>
-        <td className="px-3 py-2 text-text-muted text-sm">
+        <td className="px-4 py-3 text-[var(--text-tertiary)] text-xs">
           <RelativeDate iso={user.created_at} />
+        </td>
+        <td className="px-4 py-3 text-center">
+          <ActionMenu onToggle={() => {}}>
+            <button
+              onClick={(e) => { e.stopPropagation(); onToggle(); }}
+              className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition-colors"
+            >
+              Manage
+            </button>
+            {!user.email_verified && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onVerify(); }}
+                disabled={isVerifying}
+                className="w-full text-left px-3 py-1.5 text-sm text-green-500 hover:bg-[var(--surface-hover)] transition-colors disabled:opacity-50"
+              >
+                {isVerifying ? 'Verifying...' : 'Verify Email'}
+              </button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="w-full text-left px-3 py-1.5 text-sm text-red-500 hover:bg-[var(--surface-hover)] transition-colors"
+            >
+              Delete User
+            </button>
+          </ActionMenu>
         </td>
       </tr>
       {expanded && (
-        <tr className="border-t border-border bg-bg-tertiary">
-          <td colSpan={5} className="px-4 py-3">
+        <tr className="border-t border-[var(--border)] bg-[var(--surface-hover)]">
+          <td colSpan={6} className="px-4 py-4">
             <div className="flex flex-wrap items-center gap-4">
               {/* Change Tier */}
               <div className="flex items-center gap-2">
-                <label className="text-sm text-text-muted">Tier:</label>
+                <label className="text-sm text-[var(--text-tertiary)]">Tier:</label>
                 <select
                   value={selectedTier}
                   onChange={(e) => onPendingTierChange(e.target.value)}
-                  className="px-2 py-1 bg-bg-secondary border border-border rounded text-sm text-text-secondary focus:outline-none"
+                  className="bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-1.5 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
                 >
                   {TIERS.map((t) => (
                     <option key={t} value={t}>{t}</option>
@@ -385,34 +486,15 @@ function UserRow({
                   <button
                     onClick={(e) => { e.stopPropagation(); onSaveTier(); }}
                     disabled={isSavingTier}
-                    className="px-3 py-1 text-sm bg-accent hover:bg-accent/90 text-white rounded transition-colors disabled:opacity-50"
+                    className="bg-[var(--brand)] text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
                   >
                     {isSavingTier ? 'Saving...' : 'Save'}
                   </button>
                 )}
               </div>
 
-              {/* Verify Email */}
-              {!user.email_verified && (
-                <button
-                  onClick={(e) => { e.stopPropagation(); onVerify(); }}
-                  disabled={isVerifying}
-                  className="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:opacity-50"
-                >
-                  {isVerifying ? 'Verifying...' : 'Verify Email'}
-                </button>
-              )}
-
-              {/* Delete User */}
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded transition-colors"
-              >
-                Delete User
-              </button>
-
-              <span className="text-sm text-text-muted ml-auto">
-                ID: <span className="font-mono">{user.user_id}</span>
+              <span className="text-xs text-[var(--text-tertiary)] ml-auto font-mono">
+                ID: {user.user_id}
               </span>
             </div>
           </td>

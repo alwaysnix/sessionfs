@@ -3,20 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { useSessions } from '../hooks/useSessions';
 import { useFolders, useAddBookmark, useFolderSessions } from '../hooks/useBookmarks';
 import type { SessionSummary } from '../api/client';
-import { abbreviateModel, abbreviateTool } from '../utils/models';
+import { abbreviateModel, fullToolName } from '../utils/models';
 import { formatTokens } from '../utils/tokens';
 import RelativeDate from '../components/RelativeDate';
 import BookmarkSidebar from '../components/BookmarkSidebar';
 
 const TOOL_COLORS: Record<string, string> = {
-  'claude-code': '#F97316',
-  'cursor': '#8B5CF6',
-  'codex': '#3B82F6',
-  'gemini': '#10B981',
-  'copilot': '#6366F1',
-  'amp': '#EC4899',
-  'cline': '#14B8A6',
-  'roo-code': '#F59E0B',
+  'claude-code': 'var(--tool-claude)',
+  'cursor': 'var(--tool-cursor)',
+  'codex': 'var(--tool-codex)',
+  'gemini': 'var(--tool-gemini)',
+  'copilot': 'var(--tool-copilot)',
+  'amp': 'var(--tool-amp)',
+  'cline': 'var(--tool-cline)',
+  'roo-code': 'var(--tool-roo)',
 };
 
 interface SessionSummaryWithAudit extends SessionSummary {
@@ -40,6 +40,7 @@ export default function SessionList() {
   const [dateRange, setDateRange] = useState('');
   const [sortBy, setSortBy] = useState<SortKey>('date');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const PAGE_SIZE = 20;
 
@@ -59,6 +60,15 @@ export default function SessionList() {
         const now = Date.now();
         const ms = dateRange === '24h' ? 86400000 : dateRange === '7d' ? 604800000 : 2592000000;
         list = list.filter((s) => now - new Date(s.updated_at).getTime() < ms);
+      }
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        list = list.filter(
+          (s) =>
+            (s.title || '').toLowerCase().includes(q) ||
+            s.id.toLowerCase().includes(q) ||
+            (s.alias || '').toLowerCase().includes(q),
+        );
       }
       const sorted = [...list];
       if (sortBy === 'messages') sorted.sort((a, b) => b.message_count - a.message_count);
@@ -83,7 +93,18 @@ export default function SessionList() {
       list = list.filter((s) => now - new Date(s.updated_at).getTime() < ms);
     }
 
-    // Sort (client-side on current page — server sorts by date by default)
+    // Search filter (client-side)
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(
+        (s) =>
+          (s.title || '').toLowerCase().includes(q) ||
+          s.id.toLowerCase().includes(q) ||
+          (s.alias || '').toLowerCase().includes(q),
+      );
+    }
+
+    // Sort (client-side on current page -- server sorts by date by default)
     const sorted = [...list];
     if (sortBy === 'messages') sorted.sort((a, b) => b.message_count - a.message_count);
     else if (sortBy === 'tokens')
@@ -96,7 +117,7 @@ export default function SessionList() {
       sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 
     return sorted;
-  }, [data, dateRange, sortBy, selectedFolderId, folderSessionsData]);
+  }, [data, dateRange, sortBy, selectedFolderId, folderSessionsData, searchQuery]);
 
   const hasMore = selectedFolderId ? false : (data?.has_more ?? false);
   const totalSessions = selectedFolderId ? (folderSessionsData?.total ?? 0) : (data?.total ?? 0);
@@ -113,41 +134,69 @@ export default function SessionList() {
     <div className="flex flex-1 min-h-0">
       <BookmarkSidebar selectedFolderId={selectedFolderId} onSelectFolder={(id) => { setSelectedFolderId(id); setPage(1); }} />
       <div className="flex-1 max-w-7xl mx-auto px-4 py-4">
-      {/* Toolbar */}
+      {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <select
-          value={toolFilter}
-          onChange={(e) => { setToolFilter(e.target.value); setPage(1); }}
-          className="px-2 py-1.5 bg-bg-secondary border border-border rounded text-sm text-text-secondary focus:outline-none"
-        >
-          {TOOLS.map((t) => (
-            <option key={t} value={t}>{t === 'all' ? 'All Tools' : t}</option>
-          ))}
-        </select>
-        <select
-          value={dateRange}
-          onChange={(e) => setDateRange(e.target.value)}
-          className="px-2 py-1.5 bg-bg-secondary border border-border rounded text-sm text-text-secondary focus:outline-none"
-        >
-          {DATE_RANGES.map((d) => (
-            <option key={d.value} value={d.value}>{d.label}</option>
-          ))}
-        </select>
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as SortKey)}
-          className="px-2 py-1.5 bg-bg-secondary border border-border rounded text-sm text-text-secondary focus:outline-none"
-        >
-          <option value="date">Sort: Date</option>
-          <option value="messages">Sort: Messages</option>
-          <option value="tokens">Sort: Tokens</option>
-          <option value="title">Sort: Title</option>
-        </select>
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search sessions...  \u2318K"
+            className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--brand)] transition-colors"
+          />
+          <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+        </div>
+        <div className="relative">
+          <select
+            value={toolFilter}
+            onChange={(e) => { setToolFilter(e.target.value); setPage(1); }}
+            className="appearance-none bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-8 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] cursor-pointer transition-colors"
+          >
+            {TOOLS.map((t) => (
+              <option key={t} value={t}>{t === 'all' ? 'All Tools' : fullToolName(t)}</option>
+            ))}
+          </select>
+          <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)] pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div className="relative">
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="appearance-none bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-8 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] cursor-pointer transition-colors"
+          >
+            {DATE_RANGES.map((d) => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </select>
+          <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)] pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortKey)}
+            className="appearance-none bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-8 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] cursor-pointer transition-colors"
+          >
+            <option value="date">Sort: Date</option>
+            <option value="messages">Sort: Messages</option>
+            <option value="tokens">Sort: Tokens</option>
+            <option value="title">Sort: Title</option>
+          </select>
+          <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)] pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded text-red-400 text-sm">
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
           Failed to load sessions: {String(error)}
         </div>
       )}
@@ -157,80 +206,85 @@ export default function SessionList() {
 
       {/* Loading */}
       {isLoading && (
-        <div className="text-center py-12 text-text-muted">Loading sessions...</div>
+        <div className="text-center py-12 text-[var(--text-tertiary)]">Loading sessions...</div>
       )}
 
-      {/* Table */}
+      {/* Session rows */}
       {!isLoading && sessions.length > 0 && (
         <>
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-[15px]">
-              <thead>
-                <tr className="bg-bg-secondary text-text-secondary text-sm uppercase tracking-wider">
-                  <th className="px-3 py-2 text-left w-20">ID</th>
-                  <th className="px-3 py-2 text-left w-24">Alias</th>
-                  <th className="px-3 py-2 text-left w-10">Src</th>
-                  <th className="px-3 py-2 text-left w-24">Model</th>
-                  <th className="px-3 py-2 text-right w-14">Msgs</th>
-                  <th className="px-3 py-2 text-right w-16">Tokens</th>
-                  <th className="px-3 py-2 text-left w-20">Created</th>
-                  <th className="px-3 py-2 text-left w-20">Updated</th>
-                  <th className="px-3 py-2 text-left">Title</th>
-                  <th className="px-3 py-2 w-8"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sessions.map((s) => (
-                  <tr
-                    key={s.id}
-                    onClick={() => handleRowClick(s.id)}
-                    onKeyDown={(e) => handleRowKeyDown(e, s.id)}
-                    tabIndex={0}
-                    className="border-t border-border hover:bg-bg-tertiary cursor-pointer transition-colors focus:bg-bg-tertiary outline-none"
-                  >
-                    <td className="px-3 py-2 font-mono text-accent text-sm">{s.id.slice(4, 12)}</td>
-                    <td className="px-3 py-2 text-purple-400 text-sm font-mono truncate max-w-[6rem]">
-                      {s.alias || ''}
-                    </td>
-                    <td className="px-3 py-2 text-text-muted text-sm">{abbreviateTool(s.source_tool)}</td>
-                    <td className="px-3 py-2 text-text-secondary text-sm">{abbreviateModel(s.model_id)}</td>
-                    <td className="px-3 py-2 text-right text-text-secondary tabular-nums">{s.message_count}</td>
-                    <td className="px-3 py-2 text-right text-text-secondary tabular-nums">
-                      {formatTokens(s.total_input_tokens + s.total_output_tokens)}
-                    </td>
-                    <td className="px-3 py-2 text-text-muted text-sm">
-                      <RelativeDate iso={s.created_at} />
-                    </td>
-                    <td className="px-3 py-2 text-text-muted text-sm">
+          <div className="flex flex-col gap-1.5">
+            {sessions.map((s) => (
+              <div
+                key={s.id}
+                onClick={() => handleRowClick(s.id)}
+                onKeyDown={(e) => handleRowKeyDown(e, s.id)}
+                tabIndex={0}
+                className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-4 py-3 cursor-pointer hover:bg-[var(--surface-hover)] transition-colors duration-150 focus:bg-[var(--surface-hover)] outline-none focus:ring-1 focus:ring-[var(--brand)]"
+              >
+                {/* Line 1: Tool, ID, message count, tokens, date */}
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: TOOL_COLORS[s.source_tool] || '#6B7280' }}
+                    />
+                    <span className="text-sm font-medium text-[var(--text-primary)] whitespace-nowrap">
+                      {fullToolName(s.source_tool)}
+                    </span>
+                  </div>
+                  <span className="text-xs font-mono text-[var(--text-tertiary)]">
+                    {s.id.slice(0, 12)}
+                  </span>
+                  <div className="flex items-center gap-1 text-xs text-[var(--text-tertiary)]">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span className="tabular-nums">{s.message_count}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-[var(--text-tertiary)]">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 6v6l4 2" />
+                    </svg>
+                    <span className="tabular-nums">{formatTokens(s.total_input_tokens + s.total_output_tokens)}</span>
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <TrustBadge score={(s as SessionSummaryWithAudit).audit_trust_score} />
+                    <span className="text-xs text-[var(--text-tertiary)]">
                       <RelativeDate iso={s.updated_at} />
-                    </td>
-                    <td className="px-3 py-2 text-text-primary truncate max-w-xs">
-                      <span className="inline-flex items-center gap-1.5">
-                        {s.title || <span className="text-text-muted italic">Untitled</span>}
-                        {s.parent_session_id && <span className="text-text-muted text-xs ml-1">↩ fork</span>}
-                        <TrustBadge score={(s as SessionSummaryWithAudit).audit_trust_score} />
-                      </span>
-                    </td>
-                    <td className="px-1 py-2" onClick={(e) => e.stopPropagation()}>
-                      <BookmarkDropdown sessionId={s.id} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </span>
+                  </div>
+                </div>
+                {/* Line 2: Model, title, bookmark */}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-[var(--text-tertiary)] shrink-0">
+                    {abbreviateModel(s.model_id)}
+                  </span>
+                  <span className="text-sm text-[var(--text-primary)] truncate flex-1">
+                    {s.title || <span className="text-[var(--text-tertiary)] italic">Untitled</span>}
+                    {s.parent_session_id && (
+                      <span className="text-[var(--text-tertiary)] text-xs ml-1.5">&crarr; fork</span>
+                    )}
+                  </span>
+                  <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+                    <BookmarkDropdown sessionId={s.id} />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between mt-3 text-sm text-text-muted">
+          <div className="flex items-center justify-between mt-4 text-sm text-[var(--text-tertiary)]">
             <span>
-              Page {page} — {sessions.length} sessions
+              Page {page} -- {sessions.length} sessions
               {totalSessions > 0 && ` (${totalSessions} total)`}
             </span>
             <div className="flex gap-2">
               {page > 1 && (
                 <button
                   onClick={() => setPage((p) => p - 1)}
-                  className="px-3 py-1 bg-bg-secondary border border-border rounded hover:border-text-muted transition-colors"
+                  className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--border-strong)] transition-colors text-[var(--text-secondary)]"
                 >
                   Previous
                 </button>
@@ -238,7 +292,7 @@ export default function SessionList() {
               {hasMore && (
                 <button
                   onClick={() => setPage((p) => p + 1)}
-                  className="px-3 py-1 bg-bg-secondary border border-border rounded hover:border-text-muted transition-colors"
+                  className="px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-lg hover:border-[var(--border-strong)] transition-colors text-[var(--text-secondary)]"
                 >
                   Next
                 </button>
@@ -251,11 +305,11 @@ export default function SessionList() {
       {/* Empty state */}
       {!isLoading && sessions.length === 0 && !error && (
         <div className="text-center py-16">
-          <p className="text-text-secondary mb-2">No sessions found</p>
-          <p className="text-text-muted text-sm">
+          <p className="text-[var(--text-secondary)] mb-2">No sessions found</p>
+          <p className="text-[var(--text-tertiary)] text-sm">
             {selectedFolderId
               ? 'No sessions bookmarked in this folder yet.'
-              : <>Push sessions from the CLI: <code className="bg-bg-secondary px-1.5 py-0.5 rounded">sfs push &lt;id&gt;</code></>
+              : <>Push sessions from the CLI: <code className="bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded">sfs push &lt;id&gt;</code></>
             }
           </p>
         </div>
@@ -281,13 +335,11 @@ function BookmarkDropdown({ sessionId }: { sessionId: string }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  // We don't have per-session bookmark info from the list endpoint,
-  // so the dropdown just shows add options for each folder.
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="text-text-muted hover:text-accent transition-colors text-sm"
+        className="text-[var(--text-tertiary)] hover:text-[var(--brand)] transition-colors text-sm p-1 rounded hover:bg-[var(--surface-hover)]"
         title="Bookmark"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -295,9 +347,9 @@ function BookmarkDropdown({ sessionId }: { sessionId: string }) {
         </svg>
       </button>
       {open && (
-        <div className="absolute right-0 top-6 z-20 bg-bg-primary border border-border rounded shadow-lg py-1 min-w-[140px]">
+        <div className="absolute right-0 top-8 z-20 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg shadow-[var(--shadow-md)] py-1 min-w-[140px]">
           {folders.length === 0 && (
-            <div className="px-3 py-1 text-sm text-text-muted">No folders yet</div>
+            <div className="px-3 py-1.5 text-sm text-[var(--text-tertiary)]">No folders yet</div>
           )}
           {folders.map((f) => (
             <button
@@ -305,10 +357,10 @@ function BookmarkDropdown({ sessionId }: { sessionId: string }) {
               onClick={() => {
                 addBookmark.mutate({ folderId: f.id, sessionId }, {
                   onSuccess: () => setOpen(false),
-                  onError: () => setOpen(false), // likely duplicate, just close
+                  onError: () => setOpen(false),
                 });
               }}
-              className="w-full text-left px-3 py-1 text-sm text-text-secondary hover:bg-bg-tertiary flex items-center gap-2"
+              className="w-full text-left px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] flex items-center gap-2 transition-colors"
             >
               <span
                 className="w-2 h-2 rounded-full shrink-0"
@@ -372,7 +424,7 @@ function AnalyticsCards({ sessions }: { sessions: SessionSummary[] }) {
       0,
     );
 
-    // Active hours — find the peak hour
+    // Active hours -- find the peak hour
     const hourCounts = new Array(24).fill(0);
     for (const s of sessions) {
       const h = new Date(s.created_at).getHours();
@@ -381,7 +433,6 @@ function AnalyticsCards({ sessions }: { sessions: SessionSummary[] }) {
     let peakHour = 0;
     let peakCount = 0;
     for (let h = 0; h < 24; h++) {
-      // Use a 2-hour window for peak
       const windowCount = hourCounts[h] + hourCounts[(h + 1) % 24];
       if (windowCount > peakCount) {
         peakCount = windowCount;
@@ -410,19 +461,19 @@ function AnalyticsCards({ sessions }: { sessions: SessionSummary[] }) {
   return (
     <div className="grid grid-cols-4 gap-3 mb-4">
       {/* Sessions Today */}
-      <div className="bg-bg-secondary rounded-lg p-3 border border-border">
-        <div className="text-xl font-bold text-text-primary tabular-nums">{stats.sessionsToday}</div>
-        <div className="text-xs text-text-muted">Sessions Today</div>
+      <div className="bg-[var(--bg-elevated)] rounded-xl p-4 border border-[var(--border)] shadow-[var(--shadow-sm)]">
+        <div className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{stats.sessionsToday}</div>
+        <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mt-1">Sessions Today</div>
         {stats.sessionsYesterday > 0 && (
-          <div className="text-xs text-text-muted mt-1">
+          <div className="text-xs text-[var(--text-tertiary)] mt-1">
             +{stats.sessionsYesterday} yesterday
           </div>
         )}
       </div>
 
       {/* Tool Breakdown */}
-      <div className="bg-bg-secondary rounded-lg p-3 border border-border">
-        <div className="text-xs text-text-muted mb-1.5">Tool Breakdown</div>
+      <div className="bg-[var(--bg-elevated)] rounded-xl p-4 border border-[var(--border)] shadow-[var(--shadow-sm)]">
+        <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Tool Breakdown</div>
         {stats.totalForBar > 0 && (
           <>
             <div className="flex h-2 rounded-full overflow-hidden mb-2">
@@ -433,7 +484,7 @@ function AnalyticsCards({ sessions }: { sessions: SessionSummary[] }) {
                     width: `${(count / stats.totalForBar) * 100}%`,
                     backgroundColor: TOOL_COLORS[tool] || '#6B7280',
                   }}
-                  title={`${tool}: ${count}`}
+                  title={`${fullToolName(tool)}: ${count}`}
                 />
               ))}
             </div>
@@ -444,30 +495,30 @@ function AnalyticsCards({ sessions }: { sessions: SessionSummary[] }) {
                     className="w-2 h-2 rounded-full shrink-0"
                     style={{ backgroundColor: TOOL_COLORS[tool] || '#6B7280' }}
                   />
-                  <span className="text-text-secondary truncate">{tool}</span>
-                  <span className="text-text-muted ml-auto tabular-nums">{count}</span>
+                  <span className="text-[var(--text-secondary)] truncate">{fullToolName(tool)}</span>
+                  <span className="text-[var(--text-tertiary)] ml-auto tabular-nums">{count}</span>
                 </div>
               ))}
             </div>
           </>
         )}
         {stats.totalForBar === 0 && (
-          <div className="text-sm text-text-muted">No data</div>
+          <div className="text-sm text-[var(--text-tertiary)]">No data</div>
         )}
       </div>
 
       {/* Total Tokens */}
-      <div className="bg-bg-secondary rounded-lg p-3 border border-border">
-        <div className="text-xl font-bold text-text-primary tabular-nums">
+      <div className="bg-[var(--bg-elevated)] rounded-xl p-4 border border-[var(--border)] shadow-[var(--shadow-sm)]">
+        <div className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">
           {formatTokens(stats.totalTokens)}
         </div>
-        <div className="text-xs text-text-muted">Total Tokens</div>
+        <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mt-1">Total Tokens</div>
       </div>
 
       {/* Active Hours */}
-      <div className="bg-bg-secondary rounded-lg p-3 border border-border">
-        <div className="text-xl font-bold text-text-primary">{stats.peakLabel}</div>
-        <div className="text-xs text-text-muted">Peak Hours</div>
+      <div className="bg-[var(--bg-elevated)] rounded-xl p-4 border border-[var(--border)] shadow-[var(--shadow-sm)]">
+        <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.peakLabel}</div>
+        <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mt-1">Peak Hours</div>
       </div>
     </div>
   );

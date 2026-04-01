@@ -40,6 +40,26 @@ const PROVIDER_MODELS: Record<string, { value: string; label: string }[]> = {
   ],
 };
 
+type SettingsTab = 'account' | 'judge' | 'connection' | 'preferences';
+
+function getInitialTheme(): 'light' | 'dark' | 'system' {
+  const stored = localStorage.getItem('sfs-theme');
+  if (stored === 'light' || stored === 'dark') return stored;
+  return 'system';
+}
+
+function applyTheme(choice: 'light' | 'dark' | 'system') {
+  let resolved: 'light' | 'dark';
+  if (choice === 'system') {
+    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    localStorage.removeItem('sfs-theme');
+  } else {
+    resolved = choice;
+    localStorage.setItem('sfs-theme', choice);
+  }
+  document.documentElement.setAttribute('data-theme', resolved);
+}
+
 export default function SettingsPage() {
   const { auth, logout } = useAuth();
   const { data: profile } = useQuery({
@@ -47,6 +67,186 @@ export default function SettingsPage() {
     queryFn: () => auth!.client.getMe(),
     enabled: !!auth,
   });
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>('account');
+
+  if (!auth) return null;
+
+  const tabs: { key: SettingsTab; label: string }[] = [
+    { key: 'account', label: 'Account' },
+    { key: 'judge', label: 'Judge' },
+    { key: 'connection', label: 'Connection' },
+    { key: 'preferences', label: 'Preferences' },
+  ];
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      <h1 className="text-lg font-semibold text-[var(--text-primary)] mb-6">Settings</h1>
+
+      {/* Tab navigation */}
+      <div className="flex gap-0 border-b border-[var(--border)] mb-6">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === t.key
+                ? 'text-[var(--text-primary)] border-b-2 border-[var(--brand)] -mb-px'
+                : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {activeTab === 'account' && (
+        <AccountTab profile={profile} logout={logout} />
+      )}
+      {activeTab === 'judge' && <JudgeTab />}
+      {activeTab === 'connection' && <ConnectionTab />}
+      {activeTab === 'preferences' && <PreferencesTab />}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Account Tab                                                        */
+/* ------------------------------------------------------------------ */
+
+function AccountTab({ profile, logout }: { profile: any; logout: () => void }) {
+  return (
+    <div className="space-y-5">
+      {profile && (
+        <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+          <h2 className="text-sm font-medium text-[var(--text-primary)] mb-4">Account</h2>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm text-[var(--text-tertiary)] block mb-1">Email</label>
+              <div className="text-sm text-[var(--text-primary)]">{profile.email}</div>
+            </div>
+            <div className="flex gap-4 text-sm text-[var(--text-secondary)]">
+              <span>Tier: <span className="text-[var(--text-primary)] font-medium capitalize">{profile.tier}</span></span>
+              <span>Verified: {profile.email_verified
+                ? <span className="text-green-500">yes</span>
+                : <span className="text-yellow-500">no</span>
+              }</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Last Sync card */}
+      {profile?.last_client_version && (
+        <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+            <h2 className="text-sm font-medium text-[var(--text-primary)]">Last Sync</h2>
+            {profile.latest_version && profile.last_client_version === profile.latest_version && (
+              <span className="ml-auto px-2.5 py-0.5 bg-green-500/10 text-green-500 rounded-full text-xs font-medium">
+                Up to date
+              </span>
+            )}
+            {profile.latest_version && profile.last_client_version !== profile.latest_version && (
+              <span className="ml-auto px-2.5 py-0.5 bg-yellow-500/10 text-yellow-500 rounded-full text-xs font-medium">
+                Update available
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-[var(--text-tertiary)] block mb-0.5">Package version</span>
+              <span className="text-[var(--text-primary)] font-mono">{profile.last_client_version}</span>
+            </div>
+            <div>
+              <span className="text-[var(--text-tertiary)] block mb-0.5">Platform</span>
+              <span className="text-[var(--text-primary)]">{profile.last_client_platform || '-'}</span>
+            </div>
+            <div>
+              <span className="text-[var(--text-tertiary)] block mb-0.5">Device</span>
+              <span className="text-[var(--text-primary)] font-mono">{profile.last_client_device || '-'}</span>
+            </div>
+            <div>
+              <span className="text-[var(--text-tertiary)] block mb-0.5">Last synced</span>
+              <span className="text-[var(--text-primary)]">
+                {profile.last_sync_at ? new Date(profile.last_sync_at).toLocaleString() : '-'}
+              </span>
+            </div>
+          </div>
+          {profile.latest_version && profile.last_client_version !== profile.latest_version && (
+            <div className="mt-4 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg text-sm">
+              <p className="text-yellow-500 font-medium">New version available</p>
+              <p className="text-[var(--text-tertiary)] mt-1">
+                Run <code className="bg-[var(--surface)] px-1.5 py-0.5 rounded text-[var(--text-secondary)]">pip install --upgrade sessionfs</code> to update from {profile.last_client_version} to {profile.latest_version}.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <button
+        onClick={logout}
+        className="px-4 py-2 text-sm border border-red-500/30 text-red-500 rounded-lg hover:bg-red-500/10 transition-colors"
+      >
+        Logout
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Connection Tab                                                     */
+/* ------------------------------------------------------------------ */
+
+function ConnectionTab() {
+  const { auth } = useAuth();
+  if (!auth) return null;
+
+  const maskedKey = auth.apiKey.slice(0, 12) + '\u2026' + auth.apiKey.slice(-4);
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+        <h2 className="text-sm font-medium text-[var(--text-primary)] mb-4">Connection</h2>
+
+        <div className="mb-4">
+          <label className="text-sm text-[var(--text-tertiary)] block mb-1">Server URL</label>
+          <div className="flex items-center gap-2">
+            <code className="text-sm text-[var(--text-secondary)] bg-[var(--surface)] border border-[var(--border)] px-3 py-2 rounded-lg flex-1">
+              {auth.baseUrl}
+            </code>
+            <CopyButton text={auth.baseUrl} />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm text-[var(--text-tertiary)] block mb-1">API Key</label>
+          <div className="flex items-center gap-2">
+            <code className="text-sm text-[var(--text-secondary)] bg-[var(--surface)] border border-[var(--border)] px-3 py-2 rounded-lg flex-1 font-mono">
+              {maskedKey}
+            </code>
+            <CopyButton text={auth.apiKey} />
+          </div>
+        </div>
+      </div>
+
+      {/* GitHub Integration */}
+      <GitHubIntegrationSection />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Judge Tab                                                          */
+/* ------------------------------------------------------------------ */
+
+function JudgeTab() {
+  const { auth } = useAuth();
   const { data: judgeSettings, isLoading: judgeLoading } = useJudgeSettings();
   const saveJudge = useSaveJudgeSettings();
   const clearJudge = useClearJudgeSettings();
@@ -90,7 +290,6 @@ export default function SettingsPage() {
 
   if (!auth) return null;
 
-  const maskedKey = auth.apiKey.slice(0, 12) + '\u2026' + auth.apiKey.slice(-4);
   const isOpenRouter = judgeProvider === 'openrouter';
   const providerModels = PROVIDER_MODELS[judgeProvider] || [];
   const keySet = judgeSettings?.key_set === true;
@@ -136,112 +335,24 @@ export default function SettingsPage() {
     'AIza...';
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-8">
-      <h1 className="text-lg font-medium text-text-primary mb-6">Settings</h1>
-
-      {profile && (
-        <div className="bg-bg-secondary border border-border rounded-lg p-4 mb-4">
-          <h2 className="text-sm uppercase tracking-wider text-text-muted mb-3">Account</h2>
-          <div className="mb-2">
-            <label className="text-sm text-text-muted block mb-1">Email</label>
-            <div className="text-sm text-text-primary">{profile.email}</div>
-          </div>
-          <div className="flex gap-4 text-sm text-text-secondary">
-            <span>Tier: <span className="text-text-primary">{profile.tier}</span></span>
-            <span>Verified: {profile.email_verified
-              ? <span className="text-green-400">yes</span>
-              : <span className="text-yellow-400">no</span>
-            }</span>
-          </div>
-        </div>
-      )}
-
-      {/* Client Version + Device */}
-      {profile?.last_client_version && (
-        <div className="bg-bg-secondary border border-border rounded-lg p-4 mb-4">
-          <h2 className="text-sm uppercase tracking-wider text-text-muted mb-3">Last Sync</h2>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="text-text-muted">Package version: </span>
-              <span className="text-text-primary font-mono">{profile.last_client_version}</span>
-              {profile.latest_version && profile.last_client_version !== profile.latest_version && (
-                <span className="ml-2 px-2 py-0.5 bg-yellow-500/10 text-yellow-400 rounded text-xs">
-                  Update available: {profile.latest_version}
-                </span>
-              )}
-              {profile.latest_version && profile.last_client_version === profile.latest_version && (
-                <span className="ml-2 px-2 py-0.5 bg-green-500/10 text-green-400 rounded text-xs">
-                  Up to date
-                </span>
-              )}
-            </div>
-            <div>
-              <span className="text-text-muted">Platform: </span>
-              <span className="text-text-primary">{profile.last_client_platform || '-'}</span>
-            </div>
-            <div>
-              <span className="text-text-muted">Device: </span>
-              <span className="text-text-primary font-mono">{profile.last_client_device || '-'}</span>
-            </div>
-            <div>
-              <span className="text-text-muted">Last synced: </span>
-              <span className="text-text-primary">
-                {profile.last_sync_at ? new Date(profile.last_sync_at).toLocaleString() : '-'}
-              </span>
-            </div>
-          </div>
-          {profile.latest_version && profile.last_client_version !== profile.latest_version && (
-            <div className="mt-3 p-3 bg-yellow-500/5 border border-yellow-500/20 rounded-lg text-sm">
-              <p className="text-yellow-400 font-medium">New version available</p>
-              <p className="text-text-muted mt-1">
-                Run <code className="bg-bg-primary px-1.5 py-0.5 rounded text-text-secondary">pip install --upgrade sessionfs</code> to update from {profile.last_client_version} to {profile.latest_version}.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="bg-bg-secondary border border-border rounded-lg p-4 mb-4">
-        <h2 className="text-sm uppercase tracking-wider text-text-muted mb-3">Connection</h2>
-
-        <div className="mb-3">
-          <label className="text-sm text-text-muted block mb-1">Server URL</label>
-          <div className="flex items-center gap-2">
-            <code className="text-sm text-text-secondary bg-bg-primary px-2 py-1 rounded flex-1">
-              {auth.baseUrl}
-            </code>
-            <CopyButton text={auth.baseUrl} />
-          </div>
-        </div>
-
-        <div className="mb-3">
-          <label className="text-sm text-text-muted block mb-1">API Key</label>
-          <div className="flex items-center gap-2">
-            <code className="text-sm text-text-secondary bg-bg-primary px-2 py-1 rounded flex-1 font-mono">
-              {maskedKey}
-            </code>
-            <CopyButton text={auth.apiKey} />
-          </div>
-        </div>
-      </div>
-
+    <div className="space-y-5">
       {/* Judge Configuration */}
-      <div className="bg-bg-secondary border border-border rounded-lg p-4 mb-4">
-        <h2 className="text-sm uppercase tracking-wider text-text-muted mb-3">Judge Configuration</h2>
-        <p className="text-sm text-text-muted mb-3">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+        <h2 className="text-sm font-medium text-[var(--text-primary)] mb-2">Judge Configuration</h2>
+        <p className="text-sm text-[var(--text-tertiary)] mb-4">
           Configure the LLM used for session audits. Your key is stored server-side and used only for audit requests.
         </p>
 
         {judgeLoading ? (
-          <div className="text-sm text-text-muted py-2">Loading settings...</div>
+          <div className="text-sm text-[var(--text-tertiary)] py-2">Loading settings...</div>
         ) : (
           <>
-            <div className="mb-3">
-              <label className="text-sm text-text-muted block mb-1">Provider</label>
+            <div className="mb-4">
+              <label className="text-sm text-[var(--text-tertiary)] block mb-1">Provider</label>
               <select
                 value={judgeProvider}
                 onChange={(e) => handleProviderChange(e.target.value)}
-                className="w-full px-2 py-1.5 bg-bg-primary border border-border rounded text-sm text-text-secondary focus:outline-none focus:border-accent"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
               >
                 {PROVIDERS.map((p) => (
                   <option key={p.value} value={p.value}>{p.label}</option>
@@ -249,16 +360,16 @@ export default function SettingsPage() {
               </select>
             </div>
 
-            <div className="mb-3">
-              <label className="text-sm text-text-muted block mb-1">
+            <div className="mb-4">
+              <label className="text-sm text-[var(--text-tertiary)] block mb-1">
                 Model
-                {discovering && <span className="text-text-muted/50 ml-2">discovering...</span>}
+                {discovering && <span className="text-[var(--text-tertiary)] opacity-50 ml-2">discovering...</span>}
               </label>
               {judgeBaseUrl && discoveredModels.length > 0 ? (
                 <select
                   value={judgeModel}
                   onChange={(e) => { setJudgeModel(e.target.value); setJudgeSaved(false); }}
-                  className="w-full px-2 py-1.5 bg-bg-primary border border-border rounded text-sm text-text-secondary focus:outline-none focus:border-accent font-mono"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] font-mono"
                 >
                   <option value="">Select a model...</option>
                   {discoveredModels.map((m) => (
@@ -271,7 +382,7 @@ export default function SettingsPage() {
                   value={judgeModel}
                   onChange={(e) => { setJudgeModel(e.target.value); setJudgeSaved(false); }}
                   placeholder="model-name"
-                  className="w-full px-2 py-1.5 bg-bg-primary border border-border rounded text-sm text-text-secondary placeholder:text-text-muted/50 focus:outline-none focus:border-accent font-mono"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
                 />
               ) : isOpenRouter ? (
                 <input
@@ -279,13 +390,13 @@ export default function SettingsPage() {
                   value={judgeModel}
                   onChange={(e) => { setJudgeModel(e.target.value); setJudgeSaved(false); }}
                   placeholder="anthropic/claude-sonnet-4"
-                  className="w-full px-2 py-1.5 bg-bg-primary border border-border rounded text-sm text-text-secondary placeholder:text-text-muted/50 focus:outline-none focus:border-accent font-mono"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
                 />
               ) : (
                 <select
                   value={judgeModel}
                   onChange={(e) => { setJudgeModel(e.target.value); setJudgeSaved(false); }}
-                  className="w-full px-2 py-1.5 bg-bg-primary border border-border rounded text-sm text-text-secondary focus:outline-none focus:border-accent"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
                 >
                   {providerModels.map((m) => (
                     <option key={m.value} value={m.value}>{m.label}</option>
@@ -294,36 +405,36 @@ export default function SettingsPage() {
               )}
             </div>
 
-            <div className="mb-3">
-              <label className="text-sm text-text-muted block mb-1">API Key</label>
+            <div className="mb-4">
+              <label className="text-sm text-[var(--text-tertiary)] block mb-1">API Key</label>
               <input
                 type="password"
                 value={judgeApiKey}
                 onChange={(e) => { setJudgeApiKey(e.target.value); setJudgeSaved(false); }}
                 placeholder={keyPlaceholder}
-                className="w-full px-2 py-1.5 bg-bg-primary border border-border rounded text-sm text-text-secondary placeholder:text-text-muted/50 focus:outline-none focus:border-accent font-mono"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
               />
             </div>
 
-            <div className="mb-3">
-              <label className="text-sm text-text-muted block mb-1">Base URL <span className="text-text-muted/50">(optional)</span></label>
+            <div className="mb-4">
+              <label className="text-sm text-[var(--text-tertiary)] block mb-1">Base URL <span className="opacity-50">(optional)</span></label>
               <input
                 type="text"
                 value={judgeBaseUrl}
                 onChange={(e) => { setJudgeBaseUrl(e.target.value); setJudgeSaved(false); }}
                 placeholder="https://litellm.company.internal/v1"
-                className="w-full px-2 py-1.5 bg-bg-primary border border-border rounded text-sm text-text-secondary placeholder:text-text-muted/50 focus:outline-none focus:border-accent font-mono"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
               />
-              <p className="text-xs text-text-muted/60 mt-1">
+              <p className="text-xs text-[var(--text-tertiary)] opacity-60 mt-1">
                 Leave blank for provider default. Set for LiteLLM, vLLM, Ollama, or any OpenAI-compatible gateway.
               </p>
             </div>
 
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-3 mb-3">
               <button
                 onClick={handleSaveJudge}
                 disabled={!judgeModel || (!judgeApiKey && !judgeBaseUrl) || saveJudge.isPending}
-                className="px-3 py-1.5 text-sm bg-accent text-white rounded hover:bg-accent/90 transition-colors disabled:opacity-50"
+                className="bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
               >
                 {saveJudge.isPending ? 'Saving...' : 'Save'}
               </button>
@@ -331,7 +442,7 @@ export default function SettingsPage() {
                 <button
                   onClick={handleClearJudge}
                   disabled={clearJudge.isPending}
-                  className="px-3 py-1.5 text-sm border border-red-500/30 text-red-400 rounded hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                  className="px-4 py-2 text-sm border border-red-500/30 text-red-500 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
                 >
                   {clearJudge.isPending ? 'Clearing...' : 'Clear Key'}
                 </button>
@@ -339,13 +450,13 @@ export default function SettingsPage() {
             </div>
 
             <div className="text-sm">
-              {judgeSaved && <span className="text-green-400">Key saved</span>}
-              {!judgeSaved && keySet && <span className="text-green-400">Key saved</span>}
-              {!judgeSaved && !keySet && <span className="text-text-muted">No key configured</span>}
+              {judgeSaved && <span className="text-green-500">Key saved</span>}
+              {!judgeSaved && keySet && <span className="text-green-500">Key saved</span>}
+              {!judgeSaved && !keySet && <span className="text-[var(--text-tertiary)]">No key configured</span>}
             </div>
 
             {saveJudge.isError && (
-              <div className="text-sm text-red-400 mt-2">
+              <div className="text-sm text-red-500 mt-2">
                 {saveJudge.error instanceof Error ? saveJudge.error.message : 'Failed to save settings.'}
               </div>
             )}
@@ -358,19 +469,50 @@ export default function SettingsPage() {
 
       {/* Autosync */}
       <AutosyncSection />
-
-      {/* GitHub Integration */}
-      <GitHubIntegrationSection />
-
-      <button
-        onClick={logout}
-        className="px-4 py-2 text-sm border border-red-500/30 text-red-400 rounded hover:bg-red-500/10 transition-colors"
-      >
-        Logout
-      </button>
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Preferences Tab                                                    */
+/* ------------------------------------------------------------------ */
+
+function PreferencesTab() {
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>(getInitialTheme);
+
+  function handleThemeChange(value: string) {
+    const choice = value as 'light' | 'dark' | 'system';
+    setTheme(choice);
+    applyTheme(choice);
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+        <h2 className="text-sm font-medium text-[var(--text-primary)] mb-4">Appearance</h2>
+        <div>
+          <label className="text-sm text-[var(--text-tertiary)] block mb-1">Theme</label>
+          <select
+            value={theme}
+            onChange={(e) => handleThemeChange(e.target.value)}
+            className="w-full max-w-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
+          >
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="system">System</option>
+          </select>
+          <p className="text-xs text-[var(--text-tertiary)] opacity-60 mt-1.5">
+            Choose how SessionFS looks. System follows your OS preference.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Auto-audit Section                                                 */
+/* ------------------------------------------------------------------ */
 
 function AutoAuditSection() {
   const { auth } = useAuth();
@@ -391,18 +533,18 @@ function AutoAuditSection() {
   const current = data?.trigger || 'manual';
 
   return (
-    <div className="bg-bg-secondary border border-border rounded-lg p-4 mb-4">
-      <h2 className="text-sm uppercase tracking-wider text-text-muted mb-3">Auto-audit</h2>
+    <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+      <h2 className="text-sm font-medium text-[var(--text-primary)] mb-3">Auto-audit</h2>
       <div className="space-y-2">
         {[
-          { value: 'manual', label: 'Manual only — run audits when you choose' },
-          { value: 'on_sync', label: 'On sync — automatically audit after each push' },
-          { value: 'on_pr', label: 'On PR/MR — audit when a pull/merge request is opened' },
+          { value: 'manual', label: 'Manual only -- run audits when you choose' },
+          { value: 'on_sync', label: 'On sync -- automatically audit after each push' },
+          { value: 'on_pr', label: 'On PR/MR -- audit when a pull/merge request is opened' },
         ].map(({ value, label }) => (
-          <label key={value} className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+          <label key={value} className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)] cursor-pointer">
             <input type="radio" name="audit-trigger" checked={current === value}
               onChange={() => update.mutate(value)} disabled={update.isPending}
-              className="text-accent focus:ring-accent" />
+              className="text-[var(--brand)] focus:ring-[var(--brand)]" />
             {label}
           </label>
         ))}
@@ -431,34 +573,34 @@ function AutosyncSection() {
   const currentMode = syncSettings?.mode || 'off';
 
   return (
-    <div className="bg-bg-secondary border border-border rounded-lg p-4 mb-4">
-      <h2 className="text-sm uppercase tracking-wider text-text-muted mb-3">Autosync</h2>
-      <p className="text-sm text-text-muted mb-3">
+    <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+      <h2 className="text-sm font-medium text-[var(--text-primary)] mb-2">Autosync</h2>
+      <p className="text-sm text-[var(--text-tertiary)] mb-3">
         Automatically sync sessions to the cloud. The daemon pushes changes after a short debounce period.
       </p>
 
       {isLoading ? (
-        <div className="text-sm text-text-muted py-2">Loading...</div>
+        <div className="text-sm text-[var(--text-tertiary)] py-2">Loading...</div>
       ) : (
         <div className="space-y-2">
           {(['off', 'all', 'selective'] as const).map((mode) => (
-            <label key={mode} className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+            <label key={mode} className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)] cursor-pointer">
               <input
                 type="radio"
                 name="sync-mode"
                 checked={currentMode === mode}
                 onChange={() => updateMode.mutate(mode)}
                 disabled={updateMode.isPending}
-                className="text-accent focus:ring-accent"
+                className="text-[var(--brand)] focus:ring-[var(--brand)]"
               />
-              {mode === 'off' && 'Off — Manual sync only (sfs push)'}
-              {mode === 'all' && 'All sessions — Sync everything automatically'}
-              {mode === 'selective' && 'Selective — Choose which sessions to sync'}
+              {mode === 'off' && 'Off -- Manual sync only (sfs push)'}
+              {mode === 'all' && 'All sessions -- Sync everything automatically'}
+              {mode === 'selective' && 'Selective -- Choose which sessions to sync'}
             </label>
           ))}
 
           {updateMode.isError && (
-            <div className="text-sm text-red-400 mt-1">Failed to update sync mode.</div>
+            <div className="text-sm text-red-500 mt-1">Failed to update sync mode.</div>
           )}
         </div>
       )}
@@ -486,75 +628,75 @@ function GitHubIntegrationSection() {
   const connected = ghSettings && ghSettings.account_login;
 
   return (
-    <div className="bg-bg-secondary border border-border rounded-lg p-4 mb-4">
-      <h2 className="text-sm uppercase tracking-wider text-text-muted mb-3">GitHub Integration</h2>
-      <p className="text-sm text-text-muted mb-3">
+    <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
+      <h2 className="text-sm font-medium text-[var(--text-primary)] mb-2">GitHub Integration</h2>
+      <p className="text-sm text-[var(--text-tertiary)] mb-4">
         Automatically post AI context comments on pull requests showing which sessions contributed to the code.
       </p>
 
       {isLoading ? (
-        <div className="text-sm text-text-muted py-2">Loading...</div>
+        <div className="text-sm text-[var(--text-tertiary)] py-2">Loading...</div>
       ) : connected ? (
         <>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="inline-block w-2 h-2 rounded-full bg-green-400" />
-            <span className="text-sm text-text-primary">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+            <span className="text-sm text-[var(--text-primary)]">
               Connected to <span className="font-medium">{ghSettings.account_login}</span>
-              <span className="text-text-muted ml-1">({ghSettings.account_type})</span>
+              <span className="text-[var(--text-tertiary)] ml-1">({ghSettings.account_type})</span>
             </span>
           </div>
 
-          <div className="space-y-2 mb-3">
-            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+          <div className="space-y-2 mb-4">
+            <label className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={ghSettings.auto_comment ?? true}
                 onChange={(e) => updateSettings.mutate({ auto_comment: e.target.checked })}
-                className="rounded border-border bg-bg-primary text-accent focus:ring-accent"
+                className="rounded border-[var(--border)] bg-[var(--surface)] text-[var(--brand)] focus:ring-[var(--brand)]"
               />
               Auto-comment on PRs
             </label>
-            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+            <label className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={ghSettings.include_trust_score ?? true}
                 onChange={(e) => updateSettings.mutate({ include_trust_score: e.target.checked })}
-                className="rounded border-border bg-bg-primary text-accent focus:ring-accent"
+                className="rounded border-[var(--border)] bg-[var(--surface)] text-[var(--brand)] focus:ring-[var(--brand)]"
               />
               Include trust scores
             </label>
-            <label className="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+            <label className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)] cursor-pointer">
               <input
                 type="checkbox"
                 checked={ghSettings.include_session_links ?? true}
                 onChange={(e) => updateSettings.mutate({ include_session_links: e.target.checked })}
-                className="rounded border-border bg-bg-primary text-accent focus:ring-accent"
+                className="rounded border-[var(--border)] bg-[var(--surface)] text-[var(--brand)] focus:ring-[var(--brand)]"
               />
               Include session links
             </label>
           </div>
 
           {updateSettings.isError && (
-            <div className="text-sm text-red-400 mb-2">Failed to update settings.</div>
+            <div className="text-sm text-red-500 mb-2">Failed to update settings.</div>
           )}
 
           <a
             href="https://github.com/apps/sessionfs-ai-context/installations/new"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-accent hover:underline"
+            className="text-sm text-[var(--brand)] hover:underline"
           >
             Manage installation
           </a>
         </>
       ) : (
         <div>
-          <p className="text-sm text-text-muted mb-3">Not connected</p>
+          <p className="text-sm text-[var(--text-tertiary)] mb-3">Not connected</p>
           <a
             href="https://github.com/apps/sessionfs-ai-context/installations/new"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block px-3 py-1.5 text-sm bg-accent text-white rounded hover:bg-accent/90 transition-colors"
+            className="inline-block bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors"
           >
             Connect GitHub
           </a>

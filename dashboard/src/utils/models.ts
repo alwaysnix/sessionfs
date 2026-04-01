@@ -33,3 +33,24 @@ export function abbreviateTool(name: string | null | undefined): string {
   }
   return name.length > 6 ? name.slice(0, 5) + '\u2026' : name;
 }
+
+const TOOL_FULL_NAMES: Record<string, string> = {
+  'claude-code': 'Claude Code',
+  codex: 'Codex',
+  cursor: 'Cursor',
+  gemini: 'Gemini CLI',
+  copilot: 'Copilot',
+  amp: 'Amp',
+  cline: 'Cline',
+  'roo-code': 'Roo Code',
+  aider: 'Aider',
+};
+
+export function fullToolName(name: string | null | undefined): string {
+  if (!name) return '';
+  const lower = name.toLowerCase();
+  for (const [key, display] of Object.entries(TOOL_FULL_NAMES)) {
+    if (lower === key || lower.startsWith(key)) return display;
+  }
+  return name;
+}

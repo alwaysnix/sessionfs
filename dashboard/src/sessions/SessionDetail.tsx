@@ -5,7 +5,7 @@ import { useMessages } from '../hooks/useMessages';
 import { useAudit } from '../hooks/useAudit';
 import { useFolders, useAddBookmark } from '../hooks/useBookmarks';
 import { useAuth } from '../auth/AuthContext';
-import { abbreviateModel } from '../utils/models';
+import { abbreviateModel, fullToolName } from '../utils/models';
 import { formatTokens } from '../utils/tokens';
 import { estimateCost } from '../utils/cost';
 import CopyButton from '../components/CopyButton';
@@ -15,6 +15,17 @@ import AuditTab from './AuditTab';
 import AuditModal from './AuditModal';
 import SummaryTab from './SummaryTab';
 import HandoffModal from '../handoffs/HandoffModal';
+
+const TOOL_COLORS: Record<string, string> = {
+  'claude-code': 'var(--tool-claude)',
+  cursor: 'var(--tool-cursor)',
+  codex: 'var(--tool-codex)',
+  gemini: 'var(--tool-gemini)',
+  copilot: 'var(--tool-copilot)',
+  amp: 'var(--tool-amp)',
+  cline: 'var(--tool-cline)',
+  'roo-code': 'var(--tool-roo)',
+};
 
 type Tab = 'messages' | 'summary' | 'audit';
 
@@ -32,6 +43,7 @@ export default function SessionDetail() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('messages');
   const [jumpToPage, setJumpToPage] = useState<number | undefined>(undefined);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   function handleJumpToMessage(messageIndex: number) {
     const page = Math.floor(messageIndex / 50) + 1;
@@ -74,13 +86,13 @@ export default function SessionDetail() {
   );
 
   if (isLoading) {
-    return <div className="p-8 text-text-muted">Loading session...</div>;
+    return <div className="p-8 text-[var(--text-tertiary)]">Loading session...</div>;
   }
 
   if (error || !session) {
     return (
       <div className="p-8">
-        <button onClick={() => navigate('/')} className="text-accent text-sm mb-4 hover:underline">
+        <button onClick={() => navigate('/')} className="text-[var(--brand)] text-sm mb-4 hover:underline">
           &larr; Back
         </button>
         <p className="text-red-400">Failed to load session: {String(error)}</p>
@@ -98,207 +110,247 @@ export default function SessionDetail() {
         : `${(session.duration_ms / 1000).toFixed(0)}s`
     : null;
 
+  const toolColor = TOOL_COLORS[session.source_tool] || '#6B7280';
+
+  // Quick preview data
+  const previewData = (() => {
+    const messages = lastMessagesData?.messages;
+    if (!messages || messages.length === 0) return null;
+    const last3 = messages.slice(-3).map((m) => {
+      const role = String(m.role || 'unknown');
+      let text = '';
+      if (typeof m.content === 'string') {
+        text = m.content;
+      } else if (Array.isArray(m.content)) {
+        const textBlock = m.content.find(
+          (b: unknown) => typeof b === 'object' && b !== null && (b as Record<string, unknown>).type === 'text',
+        ) as Record<string, unknown> | undefined;
+        if (textBlock) text = String(textBlock.text || '');
+      } else if (m.messages_text) {
+        text = String(m.messages_text);
+      }
+      return { role, text: text.slice(0, 120) + (text.length > 120 ? '...' : '') };
+    });
+    return last3;
+  })();
+
   return (
-    <div className="flex flex-col lg:flex-row min-h-0 flex-1">
-      {/* Sidebar */}
-      <aside className="lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-bg-secondary overflow-y-auto">
-        <div className="p-4">
-          <button
-            onClick={() => navigate('/')}
-            className="text-accent text-sm mb-3 hover:underline"
-          >
-            &larr; Back to Sessions
-          </button>
+    <div className="flex flex-col flex-1 min-h-0">
+      {/* Back link */}
+      <div className="px-4 pt-3">
+        <button
+          onClick={() => navigate('/')}
+          className="text-[var(--brand)] text-sm hover:underline inline-flex items-center gap-1"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back to Sessions
+        </button>
+      </div>
 
-          <h1 className="text-base font-medium text-text-primary mb-4 break-words">
-            {session.title || 'Untitled session'}
-          </h1>
-
-          <Section title="Session">
-            <Row label="ID" value={session.id} mono />
-            <Row label="Alias">
-              {editingAlias ? (
-                <div className="flex flex-col items-end gap-1">
-                  <input
-                    type="text"
-                    value={aliasInput}
-                    onChange={(e) => setAliasInput(e.target.value)}
-                    onKeyDown={handleAliasKeyDown}
-                    onBlur={handleAliasSave}
-                    autoFocus
-                    placeholder="e.g. auth-debug"
-                    className="w-[140px] px-1.5 py-0.5 text-sm bg-bg-primary border border-border rounded text-text-primary focus:outline-none focus:border-accent"
-                  />
-                  {aliasError && (
-                    <span className="text-red-400 text-[10px]">{aliasError}</span>
-                  )}
-                </div>
-              ) : (
-                <span
-                  onClick={handleAliasEdit}
-                  className="text-text-secondary text-sm cursor-pointer hover:text-accent truncate ml-2 max-w-[140px]"
-                  title="Click to edit alias"
-                >
-                  {session.alias || <span className="text-text-muted italic">Set alias</span>}
-                </span>
-              )}
-            </Row>
-            <Row label="Tool" value={`${session.source_tool} ${session.source_tool_version || ''}`} />
-            <Row label="Model" value={abbreviateModel(session.model_id)} />
-            {session.original_session_id && (
-              <Row label="Native ID" value={session.original_session_id} mono />
+      {/* Header card */}
+      <div className="mx-4 mt-2 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)]">
+        {/* Top row: tool + actions */}
+        <div className="px-5 pt-4 flex items-start justify-between">
+          <div className="flex items-center gap-3">
+            <span
+              className="w-6 h-6 rounded-full shrink-0"
+              style={{ backgroundColor: toolColor }}
+            />
+            <span className="text-base font-semibold text-[var(--text-primary)]">
+              {fullToolName(session.source_tool)}
+            </span>
+            {session.alias && (
+              <span className="text-sm text-purple-400 font-mono">
+                {session.alias}
+              </span>
             )}
-          </Section>
-
-          <Section title="Stats">
-            <Row label="Messages" value={String(session.message_count)} />
-            <Row label="Turns" value={String(session.turn_count)} />
-            <Row label="Tool uses" value={String(session.tool_use_count)} />
-            <Row label="Input" value={formatTokens(session.total_input_tokens)} />
-            <Row label="Output" value={formatTokens(session.total_output_tokens)} />
-            <Row label="Total" value={formatTokens(totalTokens)} />
-            {durationStr && <Row label="Duration" value={durationStr} />}
-            {cost > 0 && <Row label="Est. cost" value={`$${cost.toFixed(4)}`} />}
-          </Section>
-
-          <Section title="Timestamps">
-            <Row label="Created">
-              <RelativeDate iso={session.created_at} />
-            </Row>
-            <Row label="Updated">
-              <RelativeDate iso={session.updated_at} />
-            </Row>
-            <Row label="Uploaded">
-              <RelativeDate iso={session.uploaded_at} />
-            </Row>
-          </Section>
-
-          {session.tags.length > 0 && (
-            <Section title="Tags">
-              <div className="flex flex-wrap gap-1">
-                {session.tags.map((t) => (
-                  <span key={t} className="px-1.5 py-0.5 text-sm bg-bg-tertiary border border-border rounded text-text-secondary">
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          <BookmarksSection sessionId={session.id} />
-
-          <Section title="Audit Status">
-            {auditReport ? (
-              <div className="space-y-2">
-                <AuditScoreBar score={auditReport.summary.trust_score} />
-                <div className="text-sm text-text-muted">
-                  Last audited: <RelativeDate iso={auditReport.timestamp} /> ({auditReport.model})
-                </div>
-                <button
-                  onClick={() => setActiveTab('audit')}
-                  className="text-sm text-accent hover:underline"
-                >
-                  View Report
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <span className="text-sm text-text-muted">Not audited</span>
-                <button
-                  onClick={() => setShowAuditModal(true)}
-                  className="w-full px-3 py-1.5 text-sm border border-border text-text-secondary rounded hover:bg-bg-tertiary transition-colors"
-                >
-                  Run Audit
-                </button>
-              </div>
-            )}
-          </Section>
-
-          <Section title="Actions">
-            <div className="flex flex-col gap-2">
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHandoff(true)}
+              className="px-3 py-1.5 text-sm bg-[var(--brand)] text-white rounded-lg hover:bg-[var(--brand-hover)] transition-colors font-medium"
+            >
+              Hand Off
+            </button>
+            <div className="relative">
               <button
-                onClick={() => setShowHandoff(true)}
-                className="w-full px-3 py-1.5 text-sm bg-accent text-white rounded hover:bg-accent/90 transition-colors"
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="p-1.5 text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] rounded-lg transition-colors"
               >
-                Hand Off
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="5" r="2" />
+                  <circle cx="12" cy="12" r="2" />
+                  <circle cx="12" cy="19" r="2" />
+                </svg>
               </button>
-              <div className="flex items-center gap-2">
-                <code className="text-sm text-text-muted bg-bg-primary px-2 py-1 rounded flex-1 truncate">
-                  sfs resume {session.id}
-                </code>
-                <CopyButton text={`sfs resume ${session.id}`} label="Copy" />
-              </div>
-              <div className="flex items-center gap-2">
-                <code className="text-sm text-text-muted bg-bg-primary px-2 py-1 rounded flex-1 truncate">
-                  sfs show {session.id}
-                </code>
-                <CopyButton text={`sfs show ${session.id}`} label="Copy" />
-              </div>
+              {showMoreMenu && (
+                <MoreMenu
+                  sessionId={session.id}
+                  sourceTool={session.source_tool}
+                  onRunAudit={() => { setShowMoreMenu(false); setShowAuditModal(true); }}
+                  onEditAlias={() => { setShowMoreMenu(false); handleAliasEdit(); }}
+                  onClose={() => setShowMoreMenu(false)}
+                />
+              )}
             </div>
-          </Section>
+          </div>
         </div>
-      </aside>
 
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Lineage banner */}
-        {session.parent_session_id && (
-          <div className="mx-4 mt-2 mb-0 px-4 py-2 rounded-lg border-l-4 border-l-accent bg-bg-secondary border border-border text-sm">
-            <span className="text-text-muted">Forked from </span>
-            <a href={`/sessions/${session.parent_session_id}`} className="text-accent hover:underline font-mono">
-              {session.parent_session_id.slice(0, 16)}
-            </a>
+        {/* Alias editing */}
+        {editingAlias && (
+          <div className="px-5 mt-2 flex items-center gap-2">
+            <input
+              type="text"
+              value={aliasInput}
+              onChange={(e) => setAliasInput(e.target.value)}
+              onKeyDown={handleAliasKeyDown}
+              onBlur={handleAliasSave}
+              autoFocus
+              placeholder="e.g. auth-debug"
+              className="w-48 px-2 py-1 text-sm bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand)]"
+            />
+            {aliasError && (
+              <span className="text-red-400 text-xs">{aliasError}</span>
+            )}
           </div>
         )}
 
-        {/* Quick Preview */}
-        <QuickPreview
-          session={session}
-          messages={lastMessagesData?.messages}
-        />
+        {/* Title */}
+        <div className="px-5 mt-2">
+          <h1 className="text-xl font-semibold text-[var(--text-primary)] break-words leading-snug">
+            {session.title || 'Untitled session'}
+          </h1>
+        </div>
+
+        {/* Metadata pills */}
+        <div className="px-5 mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-mono text-[var(--text-tertiary)]">{session.id}</span>
+          <span className="text-[var(--text-tertiary)]">&middot;</span>
+          <span className="text-[var(--text-secondary)]">{abbreviateModel(session.model_id)}</span>
+          <span className="text-[var(--text-tertiary)]">&middot;</span>
+          <span className="text-[var(--text-secondary)] tabular-nums">{session.message_count} msgs</span>
+          <span className="text-[var(--text-tertiary)]">&middot;</span>
+          <span className="text-[var(--text-secondary)] tabular-nums">{formatTokens(totalTokens)} tokens</span>
+          {durationStr && (
+            <>
+              <span className="text-[var(--text-tertiary)]">&middot;</span>
+              <span className="text-[var(--text-secondary)]">{durationStr}</span>
+            </>
+          )}
+          {cost > 0 && (
+            <>
+              <span className="text-[var(--text-tertiary)]">&middot;</span>
+              <span className="text-[var(--text-secondary)]">${cost.toFixed(4)}</span>
+            </>
+          )}
+          <span className="text-[var(--text-tertiary)]">&middot;</span>
+          <span className="text-[var(--text-tertiary)]">
+            <RelativeDate iso={session.updated_at} />
+          </span>
+        </div>
+
+        {/* Branch + tags row */}
+        {(session.parent_session_id || session.tags.length > 0) && (
+          <div className="px-5 mt-2 flex flex-wrap items-center gap-2">
+            {session.parent_session_id && (
+              <span className="text-sm text-[var(--text-tertiary)]">
+                Forked from{' '}
+                <a href={`/sessions/${session.parent_session_id}`} className="text-[var(--brand)] hover:underline font-mono">
+                  {session.parent_session_id.slice(0, 16)}
+                </a>
+              </span>
+            )}
+            {session.tags.map((t) => (
+              <span key={t} className="px-1.5 py-0.5 text-xs bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-secondary)]">
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* CLI commands (compact) */}
+        <div className="px-5 mt-3 flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex items-center gap-1.5">
+            <code className="text-[var(--text-tertiary)] bg-[var(--bg-primary)] px-2 py-0.5 rounded font-mono">
+              sfs resume {session.id}
+            </code>
+            <CopyButton text={`sfs resume ${session.id}`} label="Copy" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            <code className="text-[var(--text-tertiary)] bg-[var(--bg-primary)] px-2 py-0.5 rounded font-mono">
+              sfs show {session.id}
+            </code>
+            <CopyButton text={`sfs show ${session.id}`} label="Copy" />
+          </div>
+        </div>
+
+        {/* Audit status bar */}
+        {auditReport && (
+          <div className="px-5 mt-3 flex items-center gap-3">
+            <AuditScoreBar score={auditReport.summary.trust_score} />
+            <span className="text-xs text-[var(--text-tertiary)]">
+              Audited <RelativeDate iso={auditReport.timestamp} /> ({auditReport.model})
+            </span>
+          </div>
+        )}
+
+        {/* Quick preview */}
+        {previewData && previewData.length > 0 && (
+          <div className="px-5 mt-3 pb-1">
+            <div className="border-t border-[var(--border)] pt-3">
+              <div className="space-y-1">
+                {previewData.map((m, i) => (
+                  <div key={i} className="flex gap-2 text-sm">
+                    <span className={`shrink-0 text-xs font-medium px-1.5 py-0.5 rounded ${
+                      m.role === 'assistant'
+                        ? 'bg-green-500/10 text-green-400'
+                        : m.role === 'user'
+                          ? 'bg-blue-500/10 text-blue-400'
+                          : 'bg-gray-500/10 text-gray-400'
+                    }`}>
+                      {m.role === 'assistant' ? 'AI' : m.role === 'user' ? 'You' : m.role}
+                    </span>
+                    <span className="text-[var(--text-tertiary)] truncate">{m.text || '(no text)'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bookmarks section */}
+        <BookmarksSection sessionId={session.id} />
 
         {/* Tabs */}
-        <div className="flex border-b border-border bg-bg-secondary shrink-0">
-          <button
-            onClick={() => setActiveTab('messages')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'messages'
-                ? 'text-accent border-b-2 border-accent'
-                : 'text-text-muted hover:text-text-secondary'
-            }`}
-          >
-            Messages
-          </button>
-          <button
-            onClick={() => setActiveTab('summary')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'summary'
-                ? 'text-accent border-b-2 border-accent'
-                : 'text-text-muted hover:text-text-secondary'
-            }`}
-          >
-            Summary
-          </button>
-          <button
-            onClick={() => setActiveTab('audit')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'audit'
-                ? 'text-accent border-b-2 border-accent'
-                : 'text-text-muted hover:text-text-secondary'
-            }`}
-          >
-            Audit
-          </button>
+        <div className="flex px-5 mt-2 border-t border-[var(--border)]">
+          {(['messages', 'summary', 'audit'] as Tab[]).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+                activeTab === tab
+                  ? 'text-[var(--brand)]'
+                  : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {activeTab === tab && (
+                <span className="absolute bottom-0 left-4 right-4 h-0.5 bg-[var(--brand)] rounded-full" />
+              )}
+            </button>
+          ))}
         </div>
+      </div>
 
-        {/* Tab content */}
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === 'messages' && <ConversationView sessionId={session.id} initialPage={jumpToPage} />}
-          {activeTab === 'summary' && <SummaryTab sessionId={session.id} />}
-          {activeTab === 'audit' && (
-            <AuditTab sessionId={session.id} messageCount={session.message_count} sessionTitle={session.title || undefined} onJumpToMessage={handleJumpToMessage} />
-          )}
-        </div>
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'messages' && <ConversationView sessionId={session.id} initialPage={jumpToPage} />}
+        {activeTab === 'summary' && <SummaryTab sessionId={session.id} />}
+        {activeTab === 'audit' && (
+          <AuditTab sessionId={session.id} messageCount={session.message_count} sessionTitle={session.title || undefined} onJumpToMessage={handleJumpToMessage} />
+        )}
       </div>
 
       {showHandoff && (
@@ -316,35 +368,52 @@ export default function SessionDetail() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-4">
-      <h3 className="text-[10px] uppercase tracking-wider text-text-muted mb-1.5">{title}</h3>
-      {children}
-    </div>
-  );
-}
-
-function Row({
-  label,
-  value,
-  mono,
-  children,
+function MoreMenu({
+  sessionId,
+  sourceTool,
+  onRunAudit,
+  onEditAlias,
+  onClose,
 }: {
-  label: string;
-  value?: string;
-  mono?: boolean;
-  children?: React.ReactNode;
+  sessionId: string;
+  sourceTool: string;
+  onRunAudit: () => void;
+  onEditAlias: () => void;
+  onClose: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+  const resumeCmd = `sfs resume ${sessionId} --in ${sourceTool}`;
+
   return (
-    <div className="flex justify-between text-sm py-0.5">
-      <span className="text-text-muted">{label}</span>
-      {children || (
-        <span className={`text-text-secondary ${mono ? 'font-mono' : ''} truncate ml-2 max-w-[140px]`}>
-          {value}
-        </span>
-      )}
-    </div>
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 z-30" onClick={onClose} />
+      <div className="absolute right-0 top-10 z-40 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg shadow-[var(--shadow-md)] py-1 min-w-[180px]">
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(resumeCmd).then(() => {
+              setCopied(true);
+              setTimeout(() => { setCopied(false); onClose(); }, 800);
+            });
+          }}
+          className="w-full text-left px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition-colors"
+        >
+          {copied ? 'Copied!' : `Resume in ${fullToolName(sourceTool)}`}
+        </button>
+        <button
+          onClick={onRunAudit}
+          className="w-full text-left px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition-colors"
+        >
+          Run Audit
+        </button>
+        <button
+          onClick={onEditAlias}
+          className="w-full text-left px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] transition-colors"
+        >
+          Edit Alias
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -355,144 +424,42 @@ function BookmarksSection({ sessionId }: { sessionId: string }) {
 
   const folders = foldersData?.folders ?? [];
 
-  // We check all folders' sessions to see if this session is bookmarked.
-  // For simplicity, we track locally after mutations; the real source of truth
-  // is the folder sessions endpoint, but we avoid N+1 queries here.
-  // The bookmark IDs are not available from the folder list, so we show
-  // folder names and let users add/remove via the add dropdown.
+  if (folders.length === 0) return null;
 
   return (
-    <Section title="Bookmarks">
-      <div className="space-y-1">
-        {folders.length === 0 && (
-          <span className="text-sm text-text-muted">No folders created</span>
-        )}
-        {folders.length > 0 && !showAdd && (
-          <button
-            onClick={() => setShowAdd(true)}
-            className="text-sm text-accent hover:underline"
-          >
-            + Add to folder
-          </button>
-        )}
-        {showAdd && (
-          <div className="space-y-1">
-            {folders.map((f) => (
-              <button
-                key={f.id}
-                onClick={() => {
-                  addBookmark.mutate({ folderId: f.id, sessionId }, {
-                    onSettled: () => setShowAdd(false),
-                  });
-                }}
-                className="w-full text-left px-2 py-1 text-sm text-text-secondary hover:bg-bg-tertiary rounded flex items-center gap-2"
-              >
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: f.color || '#4f9cf7' }}
-                />
-                {f.name}
-              </button>
-            ))}
-            <button
-              onClick={() => setShowAdd(false)}
-              className="text-xs text-text-muted hover:text-text-secondary"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
-      </div>
-    </Section>
-  );
-}
-
-function QuickPreview({
-  session,
-  messages,
-}: {
-  session: { id: string; source_tool: string; message_count: number };
-  messages?: Record<string, unknown>[];
-}) {
-  const [copied, setCopied] = useState(false);
-  const resumeCmd = `sfs resume ${session.id} --in ${session.source_tool}`;
-
-  const preview = useMemo(() => {
-    if (!messages || messages.length === 0) return null;
-
-    // Last 3 messages
-    const last3 = messages.slice(-3).map((m) => {
-      const role = String(m.role || 'unknown');
-      let text = '';
-      if (typeof m.content === 'string') {
-        text = m.content;
-      } else if (Array.isArray(m.content)) {
-        const textBlock = m.content.find(
-          (b: unknown) => typeof b === 'object' && b !== null && (b as Record<string, unknown>).type === 'text',
-        ) as Record<string, unknown> | undefined;
-        if (textBlock) text = String(textBlock.text || '');
-      } else if (m.messages_text) {
-        text = String(m.messages_text);
-      }
-      return { role, text: text.slice(0, 100) + (text.length > 100 ? '...' : '') };
-    });
-
-    // Extract file paths from messages text
-    const filePattern = /(?:^|\s)((?:[\w.-]+\/)+[\w.-]+\.\w+)/g;
-    const filesSet = new Set<string>();
-    for (const m of messages) {
-      const text = typeof m.content === 'string' ? m.content : String(m.messages_text || '');
-      let match;
-      while ((match = filePattern.exec(text)) !== null) {
-        if (filesSet.size < 5) filesSet.add(match[1]);
-      }
-    }
-
-    return { last3, files: Array.from(filesSet) };
-  }, [messages]);
-
-  if (!preview) return null;
-
-  function handleCopy() {
-    navigator.clipboard.writeText(resumeCmd).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  }
-
-  return (
-    <div className="mx-4 mt-2 mb-0 p-3 bg-bg-secondary border border-border rounded-lg">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs uppercase tracking-wider text-text-muted">Quick Preview</h3>
+    <div className="px-5 mt-2">
+      {!showAdd ? (
         <button
-          onClick={handleCopy}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs bg-accent text-white rounded hover:bg-accent/90 transition-colors"
+          onClick={() => setShowAdd(true)}
+          className="text-xs text-[var(--brand)] hover:underline"
         >
-          {copied ? 'Copied!' : `Resume in ${session.source_tool}`}
+          + Add to folder
         </button>
-      </div>
-
-      {/* Last messages */}
-      <div className="space-y-1 mb-2">
-        {preview.last3.map((m, i) => (
-          <div key={i} className="flex gap-2 text-sm">
-            <span className={`shrink-0 font-medium ${
-              m.role === 'assistant' ? 'text-role-assistant' : 'text-accent'
-            }`}>
-              {m.role === 'assistant' ? 'AI' : m.role === 'user' ? 'You' : m.role}
-            </span>
-            <span className="text-text-muted truncate">{m.text || '(no text)'}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Files touched */}
-      {preview.files.length > 0 && (
-        <div className="border-t border-border pt-1.5">
-          <span className="text-xs text-text-muted">Files: </span>
-          <span className="text-xs text-text-secondary font-mono">
-            {preview.files.join(', ')}
-          </span>
+      ) : (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {folders.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => {
+                addBookmark.mutate({ folderId: f.id, sessionId }, {
+                  onSettled: () => setShowAdd(false),
+                });
+              }}
+              className="inline-flex items-center gap-1.5 px-2 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--surface-hover)] rounded transition-colors border border-[var(--border)]"
+            >
+              <span
+                className="w-2 h-2 rounded-full shrink-0"
+                style={{ backgroundColor: f.color || '#4f9cf7' }}
+              />
+              {f.name}
+            </button>
+          ))}
+          <button
+            onClick={() => setShowAdd(false)}
+            className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] px-1"
+          >
+            Cancel
+          </button>
         </div>
       )}
     </div>
@@ -507,12 +474,9 @@ function AuditScoreBar({ score }: { score: number }) {
     pct >= 90 ? 'text-green-400' : pct >= 70 ? 'text-yellow-400' : 'text-red-400';
 
   return (
-    <div>
-      <div className="flex items-baseline justify-between mb-1">
-        <span className="text-sm text-text-muted">Trust</span>
-        <span className={`text-sm font-semibold tabular-nums ${textColor}`}>{pct}%</span>
-      </div>
-      <div className="h-1.5 bg-bg-tertiary rounded-full overflow-hidden">
+    <div className="flex items-center gap-2">
+      <span className={`text-sm font-semibold tabular-nums ${textColor}`}>{pct}%</span>
+      <div className="w-24 h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
     </div>
