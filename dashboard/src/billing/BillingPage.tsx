@@ -93,52 +93,59 @@ export default function BillingPage() {
   });
 
   if (isLoading) {
-    return <div className="text-center py-12 text-text-muted">Loading billing...</div>;
+    return <div className="text-center py-12 text-[var(--text-tertiary)]">Loading billing...</div>;
   }
 
   const currentTier = billing?.tier || 'free';
   const hasSubscription = billing?.has_subscription;
+  const storagePct = billing?.storage_limit_bytes > 0
+    ? Math.min(100, (billing.storage_used_bytes / billing.storage_limit_bytes) * 100)
+    : 0;
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Billing</h1>
+      <h1 className="text-lg font-semibold text-[var(--text-primary)] mb-6">Billing</h1>
 
       {/* Current plan info */}
-      <div className="bg-bg-secondary rounded-lg p-6 mb-8">
+      <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-text-muted">Current Plan</p>
-            <p className="text-xl font-semibold capitalize">{currentTier}</p>
+            <p className="text-sm text-[var(--text-tertiary)] mb-1">Current Plan</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xl font-semibold text-[var(--text-primary)] capitalize">{currentTier}</p>
+              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-[var(--brand)]/15 text-[var(--brand)]">
+                Current plan
+              </span>
+            </div>
           </div>
           {billing?.storage_limit_bytes > 0 && (
             <div className="text-right">
-              <p className="text-sm text-text-muted">Storage</p>
-              <p className="text-lg">
+              <p className="text-sm text-[var(--text-tertiary)] mb-1">Storage</p>
+              <p className="text-lg font-medium text-[var(--text-primary)]">
                 {formatBytes(billing.storage_used_bytes)} / {formatBytes(billing.storage_limit_bytes)}
               </p>
-              <div className="w-48 h-2 bg-border rounded-full mt-1">
+              <div className="w-48 h-2 bg-[var(--border)] rounded-full mt-2 overflow-hidden">
                 <div
-                  className="h-2 bg-accent rounded-full"
-                  style={{
-                    width: `${Math.min(100, (billing.storage_used_bytes / billing.storage_limit_bytes) * 100)}%`,
-                  }}
+                  className="h-full bg-[var(--brand)] rounded-full transition-all"
+                  style={{ width: `${storagePct}%` }}
                 />
               </div>
+              <p className="text-xs text-[var(--text-tertiary)] mt-1">{storagePct.toFixed(0)}% used</p>
             </div>
           )}
         </div>
 
         {hasSubscription && (
-          <div className="mt-4 flex gap-3">
+          <div className="mt-5 pt-4 border-t border-[var(--border)] flex gap-3">
             <button
               onClick={() => portalMutation.mutate()}
-              className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/90"
+              className="bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors"
             >
               Manage Subscription
             </button>
             <button
               onClick={() => portalMutation.mutate()}
-              className="px-4 py-2 border border-border rounded-lg hover:bg-bg-secondary"
+              className="border border-[var(--border)] text-[var(--text-secondary)] rounded-lg px-4 py-2 text-sm hover:bg-[var(--surface-hover)] transition-colors"
             >
               View Invoices
             </button>
@@ -148,50 +155,59 @@ export default function BillingPage() {
 
       {/* Tier cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {TIERS.map((t) => (
-          <div
-            key={t.tier}
-            className={`rounded-lg border p-5 ${
-              t.popular ? 'border-accent ring-1 ring-accent' : 'border-border'
-            } ${currentTier === t.tier ? 'bg-accent/5' : 'bg-bg-primary'}`}
-          >
-            {t.popular && (
-              <span className="text-xs font-medium text-accent uppercase tracking-wide">Popular</span>
-            )}
-            <h3 className="text-lg font-semibold mt-1">{t.name}</h3>
-            <p className="text-2xl font-bold mt-2">
-              {t.price}
-              <span className="text-sm font-normal text-text-muted">{t.period}</span>
-            </p>
+        {TIERS.map((t) => {
+          const isCurrent = currentTier === t.tier;
+          const isPro = t.popular;
 
-            <ul className="mt-4 space-y-2 text-sm">
-              {t.features.map((f) => (
-                <li key={f} className="flex items-start gap-2">
-                  <span className="text-green-500 mt-0.5">&#10003;</span>
-                  {f}
-                </li>
-              ))}
-            </ul>
-
-            <div className="mt-6">
-              {currentTier === t.tier ? (
-                <span className="block text-center py-2 text-text-muted text-sm">Current plan</span>
-              ) : t.tier === 'free' ? null : (
-                <button
-                  onClick={() => checkoutMutation.mutate(t.tier)}
-                  disabled={checkoutMutation.isPending}
-                  className="w-full py-2 px-4 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-50 text-sm font-medium"
-                >
-                  {checkoutMutation.isPending ? 'Redirecting...' : 'Upgrade'}
-                </button>
+          return (
+            <div
+              key={t.tier}
+              className={`bg-[var(--bg-elevated)] rounded-xl border p-5 transition-colors ${
+                isPro ? 'border-[var(--brand)] ring-1 ring-[var(--brand)]' : 'border-[var(--border)]'
+              } ${isCurrent ? 'bg-[var(--brand)]/[0.03]' : ''}`}
+            >
+              {isPro && (
+                <span className="text-xs font-medium text-[var(--brand)] uppercase tracking-wide">Popular</span>
               )}
+              <h3 className="text-lg font-semibold text-[var(--text-primary)] mt-1">{t.name}</h3>
+              <p className="text-2xl font-bold text-[var(--text-primary)] mt-2">
+                {t.price}
+                <span className="text-sm font-normal text-[var(--text-tertiary)]">{t.period}</span>
+              </p>
+
+              <ul className="mt-4 space-y-2 text-sm">
+                {t.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-[var(--text-secondary)]">
+                    <span className="text-green-500 mt-0.5 flex-shrink-0">&#10003;</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-6">
+                {isCurrent ? (
+                  <span className="block text-center py-2 text-[var(--text-tertiary)] text-sm">Current plan</span>
+                ) : t.tier === 'free' ? null : (
+                  <button
+                    onClick={() => checkoutMutation.mutate(t.tier)}
+                    disabled={checkoutMutation.isPending}
+                    className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                      isPro
+                        ? 'bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)]'
+                        : 'border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
+                    }`}
+                  >
+                    {checkoutMutation.isPending ? 'Redirecting...' : 'Upgrade'}
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <p className="text-center text-sm text-text-muted mt-8">
-        Need Enterprise? <a href="mailto:sales@sessionfs.dev" className="text-accent hover:underline">Contact sales</a>
+      <p className="text-center text-sm text-[var(--text-tertiary)] mt-8">
+        Need Enterprise? <a href="mailto:sales@sessionfs.dev" className="text-[var(--brand)] hover:underline">Contact sales</a>
       </p>
     </div>
   );

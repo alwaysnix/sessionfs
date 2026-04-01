@@ -39,19 +39,19 @@ export default function ContentBlock({ block }: BlockProps) {
         />
       );
     }
-    return <span className="text-text-muted italic text-sm">[image reference]</span>;
+    return <span className="text-[var(--text-tertiary)] italic text-sm">[image reference]</span>;
   }
 
   if (type === 'summary') {
     return (
-      <div className="text-text-muted italic text-sm border-l-2 border-border pl-3">
+      <div className="text-[var(--text-tertiary)] italic text-sm border-l-2 border-[var(--border)] pl-3">
         {String(block.text || '')}
       </div>
     );
   }
 
   return (
-    <pre className="text-sm text-text-muted bg-bg-secondary p-2 rounded overflow-x-auto">
+    <pre className="text-sm text-[var(--text-tertiary)] bg-[var(--bg-secondary)] p-2 rounded overflow-x-auto">
       {JSON.stringify(block, null, 2)}
     </pre>
   );
@@ -65,19 +65,22 @@ function ToolUseBlock({ block }: BlockProps) {
   const isLong = inputStr.length > 200;
 
   return (
-    <div className="border border-border rounded bg-bg-secondary text-sm">
+    <div className="ml-2 border border-[var(--border)] rounded-lg bg-[var(--bg-secondary)] text-sm">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-bg-tertiary transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-[var(--surface-hover)] transition-colors rounded-t-lg"
       >
-        <span className="text-role-tool font-mono">{name}</span>
+        <svg className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+        </svg>
+        <span className="text-[var(--text-secondary)] font-mono font-medium">{name}</span>
         {typeof block.tool_use_id === 'string' && (
-          <span className="text-text-muted font-mono">{block.tool_use_id.slice(0, 8)}</span>
+          <span className="text-[var(--text-tertiary)] font-mono text-xs">{block.tool_use_id.slice(0, 8)}</span>
         )}
-        <span className="ml-auto text-text-muted">{open ? '\u25B2' : '\u25BC'}</span>
+        <span className="ml-auto text-[var(--text-tertiary)] text-xs">{open ? '\u25B2' : '\u25BC'}</span>
       </button>
       {(open || !isLong) && inputStr && (
-        <pre className="px-3 py-2 border-t border-border overflow-x-auto text-text-secondary whitespace-pre-wrap">
+        <pre className="px-3 py-2 border-t border-[var(--border)] overflow-x-auto text-[var(--text-secondary)] whitespace-pre-wrap font-mono text-xs">
           {inputStr}
         </pre>
       )}
@@ -89,24 +92,19 @@ function ToolResultBlock({ block }: BlockProps) {
   const [open, setOpen] = useState(false);
   const content = String(block.content || block.output || '');
   const lines = content.split('\n');
-  const isLong = lines.length > 20;
 
   return (
-    <div className="border border-border rounded bg-bg-secondary text-sm">
+    <div className="ml-4 border border-[var(--border)] rounded-lg bg-[var(--bg-secondary)] text-sm opacity-70">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-bg-tertiary transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-[var(--surface-hover)] transition-colors rounded-t-lg"
       >
-        <span className="text-text-muted">result</span>
-        {isLong && (
-          <span className="text-text-muted">({String(lines.length)} lines)</span>
-        )}
-        {isLong && (
-          <span className="ml-auto text-text-muted">{open ? '\u25B2' : '\u25BC'}</span>
-        )}
+        <span className="text-[var(--text-tertiary)] text-xs">result</span>
+        <span className="text-[var(--text-tertiary)] text-xs">({String(lines.length)} lines)</span>
+        <span className="ml-auto text-[var(--text-tertiary)] text-xs">{open ? '\u25B2' : '\u25BC'}</span>
       </button>
-      {(open || !isLong) && (
-        <pre className="px-3 py-2 border-t border-border overflow-x-auto text-text-secondary whitespace-pre-wrap max-h-96 overflow-y-auto">
+      {open && (
+        <pre className="px-3 py-2 border-t border-[var(--border)] overflow-x-auto text-[var(--text-tertiary)] whitespace-pre-wrap max-h-96 overflow-y-auto font-mono text-xs">
           {content}
         </pre>
       )}
@@ -117,16 +115,16 @@ function ToolResultBlock({ block }: BlockProps) {
 function ThinkingBlock({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded bg-thinking-bg border border-border">
+    <div className="rounded-lg bg-thinking-bg border border-[var(--border)]">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full px-3 py-1.5 text-left text-sm text-text-muted hover:text-text-secondary transition-colors flex items-center gap-2"
+        className="w-full px-3 py-1.5 text-left text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors flex items-center gap-2"
       >
         <span>Thinking</span>
         <span>{open ? '\u25B2' : '\u25BC'}</span>
       </button>
       {open && (
-        <pre className="px-3 py-2 border-t border-border text-sm text-text-muted whitespace-pre-wrap max-h-80 overflow-y-auto">
+        <pre className="px-3 py-2 border-t border-[var(--border)] text-sm text-[var(--text-tertiary)] whitespace-pre-wrap max-h-80 overflow-y-auto">
           {text}
         </pre>
       )}
