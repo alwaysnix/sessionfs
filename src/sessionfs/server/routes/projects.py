@@ -94,7 +94,7 @@ async def list_projects(
         conditions.append(Project.git_remote_normalized.in_(user_remotes))
     stmt = select(Project).where(or_(*conditions)).order_by(Project.updated_at.desc())
     result = await db.execute(stmt)
-    projects = result.scalars().all()
+    projects: list[Project] = list(result.scalars().all())
 
     return [
         ProjectResponse(
