@@ -394,20 +394,14 @@ function TrustBadge({ score }: { score?: number | null }) {
 
 function AnalyticsCards({ sessions, dateRange, totalSessions }: { sessions: SessionSummary[]; dateRange: string; totalSessions: number }) {
   const periodLabel = dateRange === '24h' ? 'Last 24h' : dateRange === '7d' ? 'Last 7 Days' : dateRange === '30d' ? 'Last 30 Days' : 'All Time';
-  const isFiltered = dateRange !== '';
-  const sessionsLabel = isFiltered ? `Sessions · ${periodLabel} (this page)` : 'Sessions · All Time';
-  const tokensLabel = isFiltered ? `Tokens · ${periodLabel} (this page)` : 'Tokens · All Time';
-  const peakLabel_ = isFiltered ? `Peak · ${periodLabel}` : 'Peak Hours';
+  // All stats except "Sessions · All Time" are computed from the current page only
+  const pageNote = sessions.length < totalSessions ? ' (this page)' : '';
+  const sessionsLabel = `Sessions · ${periodLabel}`;
+  const tokensLabel = `Tokens${pageNote}`;
+  const peakLabel_ = `Peak Hours${pageNote}`;
   const stats = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const yesterdayStart = todayStart - 86400000;
-
     // Sessions count — use API total for "all time", page count for filtered
-    // Note: for filtered periods, this reflects only the current page of results
     const sessionsCount = dateRange === '' ? totalSessions : sessions.length;
-    // Comparison only meaningful with full data — skip for page-local views
-    const sessionsComparison: number | null = null;
 
     // Tool breakdown
     const toolCounts: Record<string, number> = {};
@@ -452,7 +446,6 @@ function AnalyticsCards({ sessions, dateRange, totalSessions }: { sessions: Sess
 
     return {
       sessionsCount,
-      sessionsComparison,
       topTools,
       totalForBar,
       totalTokens,
@@ -466,16 +459,11 @@ function AnalyticsCards({ sessions, dateRange, totalSessions }: { sessions: Sess
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-150">
         <div className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{stats.sessionsCount}</div>
         <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mt-1">{sessionsLabel}</div>
-        {dateRange === '24h' && stats.sessionsComparison != null && stats.sessionsComparison > 0 && (
-          <div className="text-xs text-[var(--text-tertiary)] mt-1">
-            +{stats.sessionsComparison} prev 24h
-          </div>
-        )}
       </div>
 
       {/* Tool Breakdown */}
       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-shadow duration-150">
-        <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Tool Breakdown</div>
+        <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mb-2">Tool Breakdown{pageNote}</div>
         {stats.totalForBar > 0 && (
           <>
             <div className="flex h-2 rounded-full overflow-hidden mb-2">
