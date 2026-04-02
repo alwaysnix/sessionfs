@@ -266,15 +266,15 @@ export default function SessionList() {
         {!isLoading && mostRecent && (
           <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 mb-5 shadow-[var(--shadow-sm)]">
             <div className="mb-1">
-              <span className="text-[10px] uppercase tracking-widest text-[var(--brand)] font-semibold">Resume Work</span>
+              <span className="text-xs uppercase tracking-widest text-[var(--brand)] font-semibold">Resume Work</span>
             </div>
-            <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-1">Resume where you left off</h2>
-            <p className="text-sm text-[var(--text-tertiary)] mb-4">Pick up recent sessions, handoffs, and repo-specific work across tools.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-1">Resume where you left off</h2>
+            <p className="text-base text-[var(--text-secondary)] max-w-xl mb-4">Pick up recent sessions, handoffs, and repo-specific work across tools.</p>
 
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Left: Primary resume card (60%) */}
               <div className="flex-[3] bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg p-4">
-                <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2 truncate">
+                <h3 className="text-2xl font-semibold text-[var(--text-primary)] mb-2 truncate">
                   {mostRecent.title || 'Untitled session'}
                 </h3>
                 <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)] mb-3">
@@ -290,7 +290,7 @@ export default function SessionList() {
                     </>
                   )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-[var(--text-tertiary)] mb-4">
+                <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)] mb-4">
                   <span className="tabular-nums">{mostRecent.message_count} msgs</span>
                   <span className="opacity-40">&middot;</span>
                   <span className="tabular-nums">{formatTokens(mostRecent.total_input_tokens + mostRecent.total_output_tokens)} tokens</span>
@@ -300,13 +300,13 @@ export default function SessionList() {
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => handleResume(mostRecent)}
-                    className="px-4 py-2 bg-[var(--brand)] text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+                    className="px-5 py-2.5 bg-[var(--brand)] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity"
                   >
                     {CAPTURE_ONLY_TOOLS.has(mostRecent.source_tool) ? 'Resume in Claude Code' : 'Resume'}
                   </button>
                   <button
                     onClick={() => navigate(`/sessions/${mostRecent.id}`)}
-                    className="px-4 py-2 border border-[var(--border)] text-sm font-medium text-[var(--text-secondary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
+                    className="px-5 py-2.5 border border-[var(--border)] text-sm font-semibold text-[var(--text-secondary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
                   >
                     View Session
                   </button>
@@ -321,7 +321,7 @@ export default function SessionList() {
                     <>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm">Handoff from {latestHandoff.sender_email.split('@')[0]}</span>
+                          <span className="text-lg font-semibold">Handoff from {latestHandoff.sender_email.split('@')[0]}</span>
                         </div>
                         <p className="text-sm text-[var(--text-secondary)] truncate mb-1">
                           {latestHandoff.message || latestHandoff.session_title || 'No message'}
@@ -338,7 +338,7 @@ export default function SessionList() {
                         to={`/handoffs/${latestHandoff.id}`}
                         className="mt-2 text-sm font-medium text-[var(--brand)] hover:underline inline-flex items-center gap-1"
                       >
-                        Open Handoff <span aria-hidden>&rarr;</span>
+                        Open Handoff <span aria-hidden="true">&rarr;</span>
                       </Link>
                     </>
                   ) : (
@@ -351,8 +351,8 @@ export default function SessionList() {
                 {/* Project context card */}
                 <div className="flex-1 bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg p-4 flex flex-col justify-between">
                   <div>
-                    <div className="text-sm text-[var(--text-secondary)] mb-1">Project Context</div>
-                    <p className="text-xs text-[var(--text-tertiary)]">
+                    <div className="text-lg font-semibold text-[var(--text-primary)] mb-1">Project Context</div>
+                    <p className="text-sm text-[var(--text-secondary)]">
                       Share repo-level context across tools and team members.
                     </p>
                   </div>
@@ -374,7 +374,7 @@ export default function SessionList() {
             <select
               value={toolFilter}
               onChange={(e) => { setToolFilter(e.target.value); setPage(1); }}
-              className="appearance-none bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-8 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] cursor-pointer transition-colors"
+              className="appearance-none bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-8 text-[14px] font-medium text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] cursor-pointer transition-colors"
             >
               {TOOLS.map((t) => (
                 <option key={t} value={t}>{t === 'all' ? 'All Tools' : fullToolName(t)}</option>
@@ -388,7 +388,7 @@ export default function SessionList() {
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
-              className="appearance-none bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-8 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] cursor-pointer transition-colors"
+              className="appearance-none bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-8 text-[14px] font-medium text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] cursor-pointer transition-colors"
             >
               {DATE_RANGES.map((d) => (
                 <option key={d.value} value={d.value}>{d.label}</option>
@@ -402,7 +402,7 @@ export default function SessionList() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortKey)}
-              className="appearance-none bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-8 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] cursor-pointer transition-colors"
+              className="appearance-none bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 pr-8 text-[14px] font-medium text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] cursor-pointer transition-colors"
             >
               <option value="date">Sort: Date</option>
               <option value="messages">Sort: Messages</option>
@@ -446,7 +446,7 @@ export default function SessionList() {
         {/* ── Session list with date grouping ── */}
         {!isLoading && filteredSessions.length > 0 && (
           <>
-            <SessionGroup label="Today" sessions={grouped.today} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} />
+            <SessionGroup label="Today" sessions={grouped.today} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} isFirst />
             <SessionGroup label="This Week" sessions={grouped.thisWeek} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} />
             <SessionGroup label="Earlier" sessions={grouped.earlier} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} />
 
@@ -478,10 +478,10 @@ export default function SessionList() {
 
             {/* ── Insights strip ── */}
             {insights && (
-              <div className="mt-4 pt-3 border-t border-[var(--border)] text-xs text-[var(--text-tertiary)] flex flex-wrap items-center gap-x-4 gap-y-1">
-                {insights.toolMix && <span>Tool Mix: {insights.toolMix}</span>}
+              <div className="mt-4 py-6 border-t border-[var(--border)] text-[12px] text-[var(--text-tertiary)] flex flex-wrap items-center gap-1">
+                {insights.toolMix && <><span>Tool Mix: {insights.toolMix}</span><span className="opacity-40">&middot;</span></>}
                 <span>{formatTokens(insights.tokensToday)} tokens today</span>
-                {insights.peak && <span>Peak: {insights.peak}</span>}
+                {insights.peak && <><span className="opacity-40">&middot;</span><span>Peak: {insights.peak}</span></>}
               </div>
             )}
           </>
@@ -512,18 +512,20 @@ function SessionGroup({
   onRowClick,
   onRowKeyDown,
   onResume,
+  isFirst,
 }: {
   label: string;
   sessions: SessionSummary[];
   onRowClick: (id: string) => void;
   onRowKeyDown: (e: React.KeyboardEvent, id: string) => void;
   onResume: (s: SessionSummary) => void;
+  isFirst?: boolean;
 }) {
   if (sessions.length === 0) return null;
 
   return (
-    <div className="mb-5">
-      <h3 className="text-xs uppercase tracking-wide text-[var(--text-tertiary)] pb-1.5 mb-2 border-b border-[var(--border)]">
+    <div className={`mb-5 ${isFirst ? 'mt-0' : 'mt-6'}`}>
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] pb-2 mb-3 border-b border-[var(--border)]">
         {label}
       </h3>
       <div className="flex flex-col gap-1.5">
@@ -559,11 +561,11 @@ function SessionRow({
       onClick={onClick}
       onKeyDown={onKeyDown}
       tabIndex={0}
-      className="group bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg px-4 py-3 cursor-pointer hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] transition-all duration-150 focus:bg-[var(--surface-hover)] outline-none focus:ring-1 focus:ring-[var(--brand)]"
+      className="group bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg px-4 py-4 cursor-pointer hover:bg-[var(--surface-hover)] hover:shadow-[var(--shadow-sm)] transition-all duration-150 focus:bg-[var(--surface-hover)] outline-none focus:ring-1 focus:ring-[var(--brand)]"
     >
       {/* Line 1: Title + hover actions + timestamp */}
       <div className="flex items-center gap-3 mb-1">
-        <span className="text-[15px] font-medium text-[var(--text-primary)] truncate flex-1">
+        <span className="text-[16px] font-medium text-[var(--text-primary)] truncate flex-1">
           {s.title || <span className="text-[var(--text-tertiary)] italic">Untitled session</span>}
           {s.parent_session_id && (
             <span className="text-[var(--text-tertiary)] text-xs ml-1.5">&crarr; fork</span>
@@ -580,7 +582,7 @@ function SessionRow({
             </button>
           </div>
           <TrustBadge score={(s as SessionSummaryWithAudit).audit_trust_score} />
-          <span className="text-xs text-[var(--text-tertiary)]">
+          <span className="text-[13px] text-[var(--text-tertiary)]">
             <RelativeDate iso={s.updated_at} />
           </span>
           <div onClick={(e) => e.stopPropagation()}>
@@ -589,12 +591,12 @@ function SessionRow({
         </div>
       </div>
       {/* Line 2: Tool dot + tool name + metadata */}
-      <div className="flex items-center gap-2 text-xs text-[var(--text-tertiary)]">
+      <div className="flex items-center gap-2 text-[13px] text-[var(--text-tertiary)]">
         <span
           className="w-2 h-2 rounded-full shrink-0"
           style={{ backgroundColor: TOOL_COLORS[s.source_tool] || '#6B7280' }}
         />
-        <span className="whitespace-nowrap">{fullToolName(s.source_tool)}</span>
+        <span className="font-medium whitespace-nowrap">{fullToolName(s.source_tool)}</span>
         <span className="opacity-40">&middot;</span>
         <span className="font-mono">{s.id.slice(0, 12)}</span>
         <span className="opacity-40">&middot;</span>
