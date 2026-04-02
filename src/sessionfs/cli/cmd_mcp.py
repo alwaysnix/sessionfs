@@ -31,7 +31,7 @@ def serve() -> None:
 def install(
     tool: str = typer.Option(
         ..., "--for",
-        help="Tool to configure: claude-code, cursor, copilot",
+        help="Tool to configure: claude-code, codex, gemini, cursor, copilot, amp, cline, roo-code",
     ),
 ) -> None:
     """Auto-configure SessionFS as an MCP server for an AI tool."""
@@ -46,15 +46,28 @@ def install(
         "args": ["mcp", "serve"],
     }
 
-    if tool == "claude-code":
-        _install_claude_code(mcp_config)
-    elif tool == "cursor":
-        _install_cursor(mcp_config)
-    elif tool == "copilot":
-        _install_copilot(mcp_config)
-    else:
-        err_console.print(f"[red]Unknown tool: {tool}. Supported: claude-code, cursor, copilot[/red]")
+    # Map tool names to installer functions
+    installers = {
+        "claude-code": _install_claude_code,
+        "cursor": _install_cursor,
+        "copilot": _install_copilot,
+        "codex": _install_codex,
+        "gemini": _install_gemini,
+        "amp": _install_amp,
+        "cline": _install_vscode_extension,
+        "roo-code": _install_vscode_extension,
+    }
+
+    installer = installers.get(tool)
+    if not installer:
+        supported = ", ".join(sorted(installers.keys()))
+        err_console.print(f"[red]Unknown tool: {tool}. Supported: {supported}[/red]")
         raise SystemExit(1)
+
+    if tool in ("cline", "roo-code"):
+        installer(mcp_config, tool)
+    else:
+        installer(mcp_config)
 
 
 def _install_claude_code(mcp_config: dict) -> None:
@@ -135,6 +148,133 @@ def _install_copilot(mcp_config: dict) -> None:
     console.print("[green]SessionFS MCP server added to Copilot CLI.[/green]")
     console.print(f"  Config: {config_path}")
     console.print("  Restart Copilot CLI to activate.")
+
+
+def _install_codex(mcp_config: dict) -> None:
+    """Add SessionFS to Codex CLI's MCP config."""
+    config_path = Path.home() / ".codex" / "config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    data: dict = {}
+    if config_path.exists():
+        try:
+            data = json.loads(config_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    servers = data.setdefault("mcpServers", {})
+
+    if "sessionfs" in servers:
+        console.print("[dim]SessionFS MCP server already configured in Codex.[/dim]")
+        return
+
+    servers["sessionfs"] = mcp_config
+    config_path.write_text(json.dumps(data, indent=2))
+
+    console.print("[green]SessionFS MCP server added to Codex.[/green]")
+    console.print(f"  Config: {config_path}")
+    console.print("  Restart Codex to activate.")
+
+
+def _install_gemini(mcp_config: dict) -> None:
+    """Add SessionFS to Gemini CLI's MCP config."""
+    config_dir = Path.home() / ".gemini"
+    config_path = config_dir / "settings.json"
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    data: dict = {}
+    if config_path.exists():
+        try:
+            data = json.loads(config_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    servers = data.setdefault("mcpServers", {})
+
+    if "sessionfs" in servers:
+        console.print("[dim]SessionFS MCP server already configured in Gemini CLI.[/dim]")
+        return
+
+    servers["sessionfs"] = mcp_config
+    config_path.write_text(json.dumps(data, indent=2))
+
+    console.print("[green]SessionFS MCP server added to Gemini CLI.[/green]")
+    console.print(f"  Config: {config_path}")
+    console.print("  Restart Gemini CLI to activate.")
+
+
+def _install_amp(mcp_config: dict) -> None:
+    """Add SessionFS to Amp's MCP config."""
+    config_path = Path.home() / ".amp" / "config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+
+    data: dict = {}
+    if config_path.exists():
+        try:
+            data = json.loads(config_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    servers = data.setdefault("mcpServers", {})
+
+    if "sessionfs" in servers:
+        console.print("[dim]SessionFS MCP server already configured in Amp.[/dim]")
+        return
+
+    servers["sessionfs"] = mcp_config
+    config_path.write_text(json.dumps(data, indent=2))
+
+    console.print("[green]SessionFS MCP server added to Amp.[/green]")
+    console.print(f"  Config: {config_path}")
+    console.print("  Restart Amp to activate.")
+
+
+def _install_vscode_extension(mcp_config: dict, tool: str = "cline") -> None:
+    """Add SessionFS to a VS Code extension's MCP config (Cline or Roo Code)."""
+    ext_ids = {
+        "cline": "saoudrizwan.claude-dev",
+        "roo-code": "rooveterinaryinc.roo-cline",
+    }
+    ext_id = ext_ids.get(tool, ext_ids["cline"])
+    display = "Cline" if tool == "cline" else "Roo Code"
+
+    # VS Code globalStorage path
+    import platform
+    system = platform.system()
+    if system == "Darwin":
+        base = Path.home() / "Library" / "Application Support" / "Code" / "User" / "globalStorage"
+    elif system == "Linux":
+        base = Path.home() / ".config" / "Code" / "User" / "globalStorage"
+    else:
+        base = Path.home() / "AppData" / "Roaming" / "Code" / "User" / "globalStorage"
+
+    config_dir = base / ext_id
+    config_path = config_dir / "mcp_config.json"
+
+    if not config_dir.exists():
+        err_console.print(f"[yellow]{display} extension directory not found: {config_dir}[/yellow]")
+        err_console.print(f"Make sure {display} is installed in VS Code first.")
+        raise SystemExit(1)
+
+    data: dict = {}
+    if config_path.exists():
+        try:
+            data = json.loads(config_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    servers = data.setdefault("mcpServers", {})
+
+    if "sessionfs" in servers:
+        console.print(f"[dim]SessionFS MCP server already configured in {display}.[/dim]")
+        return
+
+    servers["sessionfs"] = mcp_config
+    config_path.write_text(json.dumps(data, indent=2))
+
+    console.print(f"[green]SessionFS MCP server added to {display}.[/green]")
+    console.print(f"  Config: {config_path}")
+    console.print("  Restart VS Code to activate.")
 
 
 @mcp_app.command("index")
