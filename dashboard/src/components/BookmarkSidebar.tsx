@@ -109,8 +109,8 @@ export default function BookmarkSidebar({
     return selectedFolderId === folderId;
   }
 
-  const activeClass = 'bg-[var(--surface-active,var(--bg-tertiary))] text-[var(--text-primary)] border-l-[3px] border-l-[var(--brand)]';
-  const inactiveClass = 'text-[var(--text-secondary)] hover:bg-[var(--surface-hover,var(--bg-tertiary))] border-l-[3px] border-l-transparent';
+  const activeClass = 'bg-[var(--surface-active,var(--bg-tertiary))] text-[var(--text-primary)] font-semibold border-l-[3px] border-l-[var(--brand)]';
+  const inactiveClass = 'text-[var(--text-secondary)] font-medium hover:bg-[var(--surface-hover,var(--bg-tertiary))] border-l-[3px] border-l-transparent';
 
   // Mobile chips are rendered separately via MobileNavChips
 
@@ -121,50 +121,50 @@ export default function BookmarkSidebar({
         {/* Nav items */}
         <button
           onClick={() => { onSelectFilter('all'); onSelectFolder(null); }}
-          className={`w-full text-left px-3 py-2 text-sm rounded-r-md transition-colors flex items-center justify-between ${
+          className={`w-full text-left px-3 py-2 text-[14px] rounded-r-md transition-colors flex items-center justify-between ${
             isActive('all') ? activeClass : inactiveClass
           }`}
         >
           <span>All Sessions</span>
-          <span className="text-xs text-[var(--text-tertiary)] tabular-nums">{totalCount}</span>
+          <span className="text-[12px] font-medium text-[var(--text-tertiary)] tabular-nums">{totalCount}</span>
         </button>
 
         {inRepoLabel && (
           <button
             onClick={() => { onSelectFilter('in-repo'); onSelectFolder(null); }}
-            className={`w-full text-left px-3 py-2 text-sm rounded-r-md transition-colors flex items-center justify-between ${
+            className={`w-full text-left px-3 py-2 text-[14px] rounded-r-md transition-colors flex items-center justify-between ${
               isActive('in-repo') ? activeClass : inactiveClass
             }`}
           >
             <span className="truncate">In This Repo</span>
-            <span className="text-xs text-[var(--text-tertiary)] tabular-nums">{inRepoCount}</span>
+            <span className="text-[12px] font-medium text-[var(--text-tertiary)] tabular-nums">{inRepoCount}</span>
           </button>
         )}
 
         <button
           onClick={() => { onSelectFilter('bookmarked'); onSelectFolder(null); }}
-          className={`w-full text-left px-3 py-2 text-sm rounded-r-md transition-colors flex items-center justify-between ${
+          className={`w-full text-left px-3 py-2 text-[14px] rounded-r-md transition-colors flex items-center justify-between ${
             isActive('bookmarked') ? activeClass : inactiveClass
           }`}
         >
           <span>Bookmarked</span>
-          <span className="text-xs text-[var(--text-tertiary)] tabular-nums">{bookmarkedCount}</span>
+          <span className="text-[12px] font-medium text-[var(--text-tertiary)] tabular-nums">{bookmarkedCount}</span>
         </button>
 
         <button
           onClick={() => navigate('/handoffs')}
-          className={`w-full text-left px-3 py-2 text-sm rounded-r-md transition-colors flex items-center justify-between ${inactiveClass}`}
+          className={`w-full text-left px-3 py-2 text-[14px] rounded-r-md transition-colors flex items-center justify-between ${inactiveClass}`}
         >
           <span>Handoffs</span>
-          <span className="text-xs text-[var(--text-tertiary)] tabular-nums">{handoffCount}</span>
+          <span className="text-[12px] font-medium text-[var(--text-tertiary)] tabular-nums">{handoffCount}</span>
         </button>
 
         {/* Divider */}
         <div className="border-t border-[var(--border)] my-2" />
 
         {/* Folders header */}
-        <div className="flex items-center justify-between px-3 mb-1">
-          <span className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)]">Folders</span>
+        <div className="flex items-center justify-between px-3 mb-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Folders</span>
           <button
             onClick={() => setShowCreate(true)}
             className="text-[var(--text-tertiary)] hover:text-[var(--brand)] text-lg leading-none"
@@ -219,7 +219,7 @@ export default function BookmarkSidebar({
               <div className="flex items-center group">
                 <button
                   onClick={() => { onSelectFolder(f.id); onSelectFilter(f.id); }}
-                  className={`flex-1 flex items-center gap-2 px-3 py-2 text-sm rounded-r-md transition-colors text-left ${
+                  className={`flex-1 flex items-center gap-2 px-3 py-2 text-[14px] rounded-r-md transition-colors text-left ${
                     isFolderActive(f.id) ? activeClass : inactiveClass
                   }`}
                 >
@@ -228,7 +228,7 @@ export default function BookmarkSidebar({
                     style={{ backgroundColor: f.color || '#4f9cf7' }}
                   />
                   <span className="truncate flex-1">{f.name}</span>
-                  <span className="text-[var(--text-tertiary)] text-xs tabular-nums">{f.bookmark_count}</span>
+                  <span className="text-[var(--text-tertiary)] text-[12px] font-medium tabular-nums">{f.bookmark_count}</span>
                 </button>
                 <button
                   onClick={(e) => {
