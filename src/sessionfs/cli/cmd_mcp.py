@@ -151,56 +151,73 @@ def _install_copilot(mcp_config: dict) -> None:
 
 
 def _install_codex(mcp_config: dict) -> None:
-    """Add SessionFS to Codex CLI's MCP config."""
-    config_path = Path.home() / ".codex" / "config.json"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
+    """Add SessionFS to Codex CLI via `codex mcp add`."""
+    import subprocess
 
-    data: dict = {}
-    if config_path.exists():
-        try:
-            data = json.loads(config_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
+    # Check if already registered
+    try:
+        result = subprocess.run(
+            ["codex", "mcp", "get", "sessionfs"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            console.print("[dim]SessionFS MCP server already configured in Codex.[/dim]")
+            return
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
 
-    servers = data.setdefault("mcpServers", {})
-
-    if "sessionfs" in servers:
-        console.print("[dim]SessionFS MCP server already configured in Codex.[/dim]")
-        return
-
-    servers["sessionfs"] = mcp_config
-    config_path.write_text(json.dumps(data, indent=2))
-
-    console.print("[green]SessionFS MCP server added to Codex.[/green]")
-    console.print(f"  Config: {config_path}")
-    console.print("  Restart Codex to activate.")
+    # Register via codex mcp add
+    sfs_path = mcp_config["command"]
+    try:
+        result = subprocess.run(
+            ["codex", "mcp", "add", "sessionfs", "--", sfs_path, "mcp", "serve"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            console.print("[green]SessionFS MCP server added to Codex.[/green]")
+            console.print("  Registered via: codex mcp add sessionfs -- sfs mcp serve")
+            console.print("  Restart Codex to activate.")
+        else:
+            err_console.print(f"[red]Failed to register: {result.stderr.strip()}[/red]")
+            console.print("  Try manually: codex mcp add sessionfs -- sfs mcp serve")
+    except FileNotFoundError:
+        err_console.print("[red]'codex' command not found. Install Codex CLI first.[/red]")
+        raise SystemExit(1)
 
 
 def _install_gemini(mcp_config: dict) -> None:
-    """Add SessionFS to Gemini CLI's MCP config."""
-    config_dir = Path.home() / ".gemini"
-    config_path = config_dir / "settings.json"
-    config_dir.mkdir(parents=True, exist_ok=True)
+    """Add SessionFS to Gemini CLI via `gemini mcp add`."""
+    import subprocess
 
-    data: dict = {}
-    if config_path.exists():
-        try:
-            data = json.loads(config_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
+    # Check if already registered
+    try:
+        result = subprocess.run(
+            ["gemini", "mcp", "list"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if "sessionfs" in result.stdout:
+            console.print("[dim]SessionFS MCP server already configured in Gemini CLI.[/dim]")
+            return
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
 
-    servers = data.setdefault("mcpServers", {})
-
-    if "sessionfs" in servers:
-        console.print("[dim]SessionFS MCP server already configured in Gemini CLI.[/dim]")
-        return
-
-    servers["sessionfs"] = mcp_config
-    config_path.write_text(json.dumps(data, indent=2))
-
-    console.print("[green]SessionFS MCP server added to Gemini CLI.[/green]")
-    console.print(f"  Config: {config_path}")
-    console.print("  Restart Gemini CLI to activate.")
+    # Register via gemini mcp add
+    sfs_path = mcp_config["command"]
+    try:
+        result = subprocess.run(
+            ["gemini", "mcp", "add", "sessionfs", sfs_path, "mcp", "serve"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            console.print("[green]SessionFS MCP server added to Gemini CLI.[/green]")
+            console.print("  Registered via: gemini mcp add sessionfs sfs mcp serve")
+            console.print("  Restart Gemini CLI to activate.")
+        else:
+            err_console.print(f"[red]Failed to register: {result.stderr.strip()}[/red]")
+            console.print("  Try manually: gemini mcp add sessionfs sfs mcp serve")
+    except FileNotFoundError:
+        err_console.print("[red]'gemini' command not found. Install Gemini CLI first.[/red]")
+        raise SystemExit(1)
 
 
 def _install_amp(mcp_config: dict) -> None:
