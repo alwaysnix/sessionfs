@@ -45,6 +45,8 @@ export default function SessionList() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   const PAGE_SIZE = 20;
+  const { data: foldersForMobile } = useFolders();
+  const mobileFolders = foldersForMobile?.folders ?? [];
 
   const { data, isLoading, error } = useSessions({
     page,
@@ -124,6 +126,9 @@ export default function SessionList() {
           className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)]"
         >
           <option value="">All Sessions</option>
+          {mobileFolders.map((f: any) => (
+            <option key={f.id} value={f.id}>{f.name}</option>
+          ))}
         </select>
       </div>
       {/* Filter bar */}
@@ -389,20 +394,20 @@ function TrustBadge({ score }: { score?: number | null }) {
 
 function AnalyticsCards({ sessions, dateRange, totalSessions }: { sessions: SessionSummary[]; dateRange: string; totalSessions: number }) {
   const periodLabel = dateRange === '24h' ? 'Last 24h' : dateRange === '7d' ? 'Last 7 Days' : dateRange === '30d' ? 'Last 30 Days' : 'All Time';
-  const sessionsLabel = `Sessions · ${periodLabel}`;
-  const tokensLabel = `Tokens · ${periodLabel}`;
-  const peakLabel_ = `Peak Hours · ${periodLabel}`;
+  const isFiltered = dateRange !== '';
+  const sessionsLabel = isFiltered ? `Sessions · ${periodLabel} (this page)` : 'Sessions · All Time';
+  const tokensLabel = isFiltered ? `Tokens · ${periodLabel} (this page)` : 'Tokens · All Time';
+  const peakLabel_ = isFiltered ? `Peak · ${periodLabel}` : 'Peak Hours';
   const stats = useMemo(() => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const yesterdayStart = todayStart - 86400000;
 
-    // Sessions count — use API total for "all time", page count for filtered periods
+    // Sessions count — use API total for "all time", page count for filtered
+    // Note: for filtered periods, this reflects only the current page of results
     const sessionsCount = dateRange === '' ? totalSessions : sessions.length;
-    // Comparison: previous period of same length
-    const sessionsComparison = dateRange === '24h'
-      ? sessions.filter((s) => { const t = new Date(s.created_at).getTime(); return t >= yesterdayStart && t < todayStart; }).length
-      : null; // No meaningful comparison for week/month/all
+    // Comparison only meaningful with full data — skip for page-local views
+    const sessionsComparison: number | null = null;
 
     // Tool breakdown
     const toolCounts: Record<string, number> = {};
