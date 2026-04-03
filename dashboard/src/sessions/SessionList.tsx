@@ -48,20 +48,35 @@ interface LineageGroup {
 
 function groupByLineage(sessions: SessionSummary[]): LineageGroup[] {
   const byId = new Map(sessions.map(s => [s.id, s]));
-  const childIds = new Set<string>();
 
-  // Identify children: sessions whose parent is in the current list
-  for (const s of sessions) {
-    if (s.parent_session_id && byId.has(s.parent_session_id)) {
-      childIds.add(s.id);
-    }
+  // Find the root of each session's chain (walk up parent links)
+  function findRoot(id: string, visited = new Set<string>()): string {
+    const s = byId.get(id);
+    if (!s || !s.parent_session_id || !byId.has(s.parent_session_id) || visited.has(id)) return id;
+    visited.add(id);
+    return findRoot(s.parent_session_id, visited);
   }
 
-  // Build groups: roots collect their direct children
+  // Group all sessions by their root
+  const rootToChildren = new Map<string, SessionSummary[]>();
+  for (const s of sessions) {
+    const rootId = findRoot(s.id);
+    if (rootId === s.id) continue; // this IS the root
+    if (!rootToChildren.has(rootId)) rootToChildren.set(rootId, []);
+    rootToChildren.get(rootId)!.push(s);
+  }
+
+  // Build groups: roots with all descendants, ordered by updated_at
+  const childIds = new Set<string>();
+  for (const kids of rootToChildren.values()) {
+    for (const k of kids) childIds.add(k.id);
+  }
+
   const groups: LineageGroup[] = [];
   for (const s of sessions) {
     if (!childIds.has(s.id)) {
-      const kids = sessions.filter(c => c.parent_session_id === s.id);
+      const kids = rootToChildren.get(s.id) || [];
+      kids.sort((a, b) => new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime());
       groups.push({ root: s, children: kids });
     }
   }
@@ -186,16 +201,15 @@ export default function SessionList() {
     )[0];
   }, [data]);
 
-  // "In This Repo" not yet implemented — needs git_remote on session summaries
-  const _repoLabel: string | null = null;
-  const inRepoCount = 0;
-
-  // "Bookmarked" nav: select first folder if none selected
+  // "Bookmarked" nav: when selected, show sessions from all folders
+  // by cycling through folders and collecting their session IDs
+  // For now, select the first folder — a proper "all bookmarked" API endpoint
+  // would be needed for a complete implementation
   useEffect(() => {
-    if (navFilter === 'bookmarked' && !selectedFolderId && foldersData?.folders?.length) {
-      setSelectedFolderId(foldersData.folders[0].id);
+    if (navFilter === 'bookmarked' && !selectedFolderId && allFolders.length) {
+      setSelectedFolderId(allFolders[0].id);
     }
-  }, [navFilter, selectedFolderId, foldersData]);
+  }, [navFilter, selectedFolderId, allFolders]);
 
   // Auto-expand group if the most recent session is a child
   useEffect(() => {
@@ -295,8 +309,8 @@ export default function SessionList() {
         onSelectFilter={(f) => { setNavFilter(f); setPage(1); }}
         totalCount={totalSessions}
         bookmarkedCount={totalBookmarked}
-        inRepoCount={inRepoCount}
-        inRepoLabel={_repoLabel}
+        inRepoCount={0}
+        inRepoLabel={null}
         handoffCount={pendingHandoffs.length}
         selectedFolderId={selectedFolderId}
         onSelectFolder={(id) => { setSelectedFolderId(id); setPage(1); }}
@@ -309,8 +323,8 @@ export default function SessionList() {
           onSelectFilter={(f) => { setNavFilter(f); setPage(1); }}
           totalCount={totalSessions}
           bookmarkedCount={totalBookmarked}
-          inRepoCount={inRepoCount}
-          inRepoLabel={_repoLabel}
+          inRepoCount={0}
+          inRepoLabel={null}
           handoffCount={pendingHandoffs.length}
           selectedFolderId={selectedFolderId}
           onSelectFolder={(id) => { setSelectedFolderId(id); setPage(1); }}
