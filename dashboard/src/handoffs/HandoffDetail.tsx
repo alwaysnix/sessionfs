@@ -79,7 +79,7 @@ function HandoffStepper({ handoff }: { handoff: HandoffDetailType }) {
                   )}
                 </div>
                 <span
-                  className={`mt-2 text-xs font-medium whitespace-nowrap ${
+                  className={`mt-2 text-[13px] font-medium whitespace-nowrap ${
                     state === 'completed'
                       ? 'text-[var(--text-primary)]'
                       : state === 'current'
@@ -130,23 +130,23 @@ function SessionContextCard({ summary }: { summary: HandoffSessionSummary }) {
 
   return (
     <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5 mb-5">
-      <h3 className="text-sm font-medium text-[var(--text-primary)] mb-4">Session Context</h3>
+      <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Session Context</h3>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mb-4">
         <div>
-          <span className="text-[var(--text-tertiary)] block mb-0.5">Tool</span>
+          <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Tool</span>
           <span className="text-[var(--text-secondary)]">{summary.tool}</span>
         </div>
         <div>
-          <span className="text-[var(--text-tertiary)] block mb-0.5">Model</span>
+          <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Model</span>
           <span className="text-[var(--text-secondary)]">{summary.model ? abbreviateModel(summary.model) : '-'}</span>
         </div>
         <div>
-          <span className="text-[var(--text-tertiary)] block mb-0.5">Messages</span>
+          <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Messages</span>
           <span className="text-[var(--text-secondary)]">{summary.message_count}</span>
         </div>
         <div>
-          <span className="text-[var(--text-tertiary)] block mb-0.5">Commands</span>
+          <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Commands</span>
           <span className="text-[var(--text-secondary)]">{summary.commands_executed}</span>
         </div>
       </div>
@@ -277,7 +277,7 @@ export default function HandoffDetail() {
     <div className="max-w-3xl mx-auto px-4 py-6">
       <button
         onClick={() => navigate('/handoffs')}
-        className="text-[var(--brand)] text-sm mb-5 hover:underline"
+        className="text-[var(--brand)] text-[14px] mb-5 hover:underline"
       >
         &larr; Back to Handoffs
       </button>
@@ -291,26 +291,26 @@ export default function HandoffDetail() {
       {/* Session preview card */}
       <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5 mb-5">
         <div className="flex items-start justify-between mb-4">
-          <h2 className="text-base font-medium text-[var(--text-primary)] break-words">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] break-words">
             {handoff.session_title || 'Untitled session'}
           </h2>
           <StatusBadge status={handoff.status} />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div>
-            <span className="text-[var(--text-tertiary)] block mb-0.5">Tool</span>
+            <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Tool</span>
             <span className="text-[var(--text-secondary)]">{handoff.session_tool}</span>
           </div>
           <div>
-            <span className="text-[var(--text-tertiary)] block mb-0.5">Model</span>
+            <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Model</span>
             <span className="text-[var(--text-secondary)]">{abbreviateModel(handoff.session_model_id)}</span>
           </div>
           <div>
-            <span className="text-[var(--text-tertiary)] block mb-0.5">Messages</span>
+            <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Messages</span>
             <span className="text-[var(--text-secondary)]">{handoff.session_message_count}</span>
           </div>
           <div>
-            <span className="text-[var(--text-tertiary)] block mb-0.5">Tokens</span>
+            <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Tokens</span>
             <span className="text-[var(--text-secondary)]">{formatTokens(handoff.session_total_tokens ?? 0)}</span>
           </div>
         </div>
@@ -330,7 +330,7 @@ export default function HandoffDetail() {
           <button
             onClick={() => claimMutation.mutate()}
             disabled={claimMutation.isPending}
-            className="bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
+            className="bg-[var(--brand)] text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
           >
             {claimMutation.isPending ? 'Claiming...' : 'Claim this handoff'}
           </button>
@@ -357,20 +357,20 @@ export default function HandoffDetail() {
       <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5 mb-5">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-[var(--text-tertiary)] block mb-0.5">From</span>
+            <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">From</span>
             <span className="text-[var(--text-secondary)]">{handoff.sender_email}</span>
           </div>
           <div>
-            <span className="text-[var(--text-tertiary)] block mb-0.5">To</span>
+            <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">To</span>
             <span className="text-[var(--text-secondary)]">{handoff.recipient_email}</span>
           </div>
           <div>
-            <span className="text-[var(--text-tertiary)] block mb-0.5">Sent</span>
+            <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Sent</span>
             <span className="text-[var(--text-secondary)]"><RelativeDate iso={handoff.created_at} /></span>
           </div>
           {handoff.claimed_at && (
             <div>
-              <span className="text-[var(--text-tertiary)] block mb-0.5">Claimed</span>
+              <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Claimed</span>
               <span className="text-[var(--text-secondary)]"><RelativeDate iso={handoff.claimed_at} /></span>
             </div>
           )}

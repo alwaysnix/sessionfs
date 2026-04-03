@@ -118,15 +118,15 @@ export default function OrgPage() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-lg font-semibold text-[var(--text-primary)]">{org.name}</h1>
-          <p className="text-[var(--text-tertiary)] text-sm">
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">{org.name}</h1>
+          <p className="text-[15px] text-[var(--text-secondary)]">
             {org.slug} &middot; {org.tier} tier &middot; {org.seats_used}/{org.seats_limit} seats
           </p>
         </div>
         {isAdmin && (
           <button
             onClick={() => setShowInviteForm(!showInviteForm)}
-            className="bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors"
+            className="bg-[var(--brand)] text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-[var(--brand-hover)] transition-colors"
           >
             Invite Member
           </button>
@@ -139,7 +139,7 @@ export default function OrgPage() {
           <h3 className="text-sm font-medium text-[var(--text-primary)] mb-3">Invite a teammate</h3>
           <div className="flex gap-3 items-end">
             <div className="flex-1">
-              <label className="block text-sm text-[var(--text-tertiary)] mb-1">Email</label>
+              <label className="block text-[13px] text-[var(--text-tertiary)] mb-1">Email</label>
               <input
                 type="email"
                 value={inviteEmail}
@@ -149,7 +149,7 @@ export default function OrgPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-[var(--text-tertiary)] mb-1">Role</label>
+              <label className="block text-[13px] text-[var(--text-tertiary)] mb-1">Role</label>
               <select
                 value={inviteRole}
                 onChange={(e) => setInviteRole(e.target.value)}
@@ -162,7 +162,7 @@ export default function OrgPage() {
             <button
               onClick={() => inviteMutation.mutate()}
               disabled={!inviteEmail || inviteMutation.isPending}
-              className="bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
+              className="bg-[var(--brand)] text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
             >
               {inviteMutation.isPending ? 'Sending...' : 'Send Invite'}
             </button>
@@ -176,7 +176,7 @@ export default function OrgPage() {
       {/* Members */}
       <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-[var(--border)]">
-          <h3 className="text-sm font-medium text-[var(--text-primary)]">Members</h3>
+          <h3 className="text-lg font-semibold text-[var(--text-primary)]">Members</h3>
         </div>
         <div className="divide-y divide-[var(--border)]">
           {members.map((m: any) => (
@@ -188,7 +188,7 @@ export default function OrgPage() {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="text-sm text-[var(--text-primary)] truncate">{m.email}</div>
+                <div className="text-[14px] text-[var(--text-primary)] truncate">{m.email}</div>
                 <div className="text-xs text-[var(--text-tertiary)]">{m.display_name || 'No display name'}</div>
               </div>
 
@@ -243,7 +243,7 @@ export default function OrgPage() {
       {isAdmin && pendingInvites.length > 0 && (
         <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b border-[var(--border)]">
-            <h3 className="text-sm font-medium text-[var(--text-primary)]">Pending Invites</h3>
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">Pending Invites</h3>
           </div>
           <div className="divide-y divide-[var(--border)]">
             {pendingInvites.map((inv: any) => (
@@ -252,7 +252,7 @@ export default function OrgPage() {
                   {inv.email.charAt(0).toUpperCase()}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm text-[var(--text-primary)] truncate">{inv.email}</div>
+                  <div className="text-[14px] text-[var(--text-primary)] truncate">{inv.email}</div>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-500">
                   {inv.role}

@@ -105,15 +105,15 @@ export default function BillingPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-lg font-semibold text-[var(--text-primary)] mb-6">Billing</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-6">Billing</h1>
 
       {/* Current plan info */}
       <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-6 mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-[var(--text-tertiary)] mb-1">Current Plan</p>
+            <p className="text-[13px] text-[var(--text-tertiary)] mb-1">Current Plan</p>
             <div className="flex items-center gap-2">
-              <p className="text-xl font-semibold text-[var(--text-primary)] capitalize">{currentTier}</p>
+              <p className="text-2xl font-semibold text-[var(--text-primary)] capitalize">{currentTier}</p>
               {isBeta && (
                 <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-[var(--accent)]/15 text-[var(--accent)]">
                   Beta — all features included
@@ -147,13 +147,13 @@ export default function BillingPage() {
           <div className="mt-5 pt-4 border-t border-[var(--border)] flex gap-3">
             <button
               onClick={() => portalMutation.mutate()}
-              className="bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors"
+              className="bg-[var(--brand)] text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-[var(--brand-hover)] transition-colors"
             >
               Manage Subscription
             </button>
             <button
               onClick={() => portalMutation.mutate()}
-              className="border border-[var(--border)] text-[var(--text-secondary)] rounded-lg px-4 py-2 text-sm hover:bg-[var(--surface-hover)] transition-colors"
+              className="px-5 py-2.5 text-sm font-medium border border-[var(--border)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--surface-hover)] transition-colors"
             >
               View Invoices
             </button>
@@ -177,13 +177,13 @@ export default function BillingPage() {
               {isPro && (
                 <span className="text-xs font-medium text-[var(--brand)] uppercase tracking-wide">Popular</span>
               )}
-              <h3 className="text-lg font-semibold text-[var(--text-primary)] mt-1">{t.name}</h3>
-              <p className="text-2xl font-bold text-[var(--text-primary)] mt-2">
+              <h3 className="text-xl font-semibold text-[var(--text-primary)] mt-1">{t.name}</h3>
+              <p className="text-3xl font-bold text-[var(--text-primary)] mt-2">
                 {t.price}
                 <span className="text-sm font-normal text-[var(--text-tertiary)]">{t.period}</span>
               </p>
 
-              <ul className="mt-4 space-y-2 text-sm">
+              <ul className="mt-4 space-y-2 text-[14px]">
                 {t.features.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-[var(--text-secondary)]">
                     <span className="text-green-500 mt-0.5 flex-shrink-0">&#10003;</span>
@@ -201,7 +201,7 @@ export default function BillingPage() {
                   <button
                     onClick={() => checkoutMutation.mutate(t.tier)}
                     disabled={checkoutMutation.isPending}
-                    className={`w-full py-2 px-4 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                    className={`w-full py-2.5 px-5 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${
                       isPro
                         ? 'bg-[var(--brand)] text-white hover:bg-[var(--brand-hover)]'
                         : 'border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]'
@@ -225,7 +225,7 @@ export default function BillingPage() {
       {/* Storage usage */}
       {billing?.storage_used_bytes != null && (
         <div className="mt-8 pt-6 border-t border-[var(--border)]">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)] mb-3">Storage Usage</h2>
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] mb-3">Storage Usage</h2>
           <div className="w-full h-3 bg-[var(--border)] rounded-full overflow-hidden">
             <div
               className="h-full bg-[var(--brand)] rounded-full transition-all"

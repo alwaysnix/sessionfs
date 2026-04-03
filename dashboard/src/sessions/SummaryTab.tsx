@@ -94,12 +94,12 @@ export default function SummaryTab({ sessionId }: Props) {
       {/* Files */}
       {summary.files_modified.length > 0 && (
         <section className="mb-4">
-          <h3 className="text-sm font-medium text-text-secondary mb-1">
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
             Files modified ({summary.files_modified.length})
           </h3>
           <div className="space-y-0.5">
             {summary.files_modified.map((f) => (
-              <p key={f} className="text-sm text-text-muted font-mono">{f}</p>
+              <p key={f} className="font-mono text-[13px] text-[var(--text-tertiary)]">{f}</p>
             ))}
           </div>
         </section>
@@ -107,12 +107,12 @@ export default function SummaryTab({ sessionId }: Props) {
 
       {summary.files_read.length > 0 && (
         <section className="mb-4">
-          <h3 className="text-sm font-medium text-text-secondary mb-1">
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">
             Files read ({summary.files_read.length})
           </h3>
           <div className="space-y-0.5">
             {(showAllRead ? summary.files_read : summary.files_read.slice(0, 5)).map((f) => (
-              <p key={f} className="text-sm text-text-muted font-mono">{f}</p>
+              <p key={f} className="font-mono text-[13px] text-[var(--text-tertiary)]">{f}</p>
             ))}
             {summary.files_read.length > 5 && !showAllRead && (
               <button onClick={() => setShowAllRead(true)}
@@ -126,7 +126,7 @@ export default function SummaryTab({ sessionId }: Props) {
 
       {/* Activity */}
       <section className="mb-4">
-        <h3 className="text-sm font-medium text-text-secondary mb-1">Activity</h3>
+        <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">Activity</h3>
         <div className="space-y-0.5 text-sm text-text-muted">
           <p>Commands: {summary.commands_executed}</p>
           {summary.tests_run > 0 && (
@@ -158,7 +158,7 @@ export default function SummaryTab({ sessionId }: Props) {
       {/* Narrative Summary */}
       {summary.what_happened ? (
         <section className="mb-4 p-4 bg-bg-secondary border border-border rounded-lg">
-          <h3 className="text-sm font-semibold text-text-secondary mb-3">Narrative Summary</h3>
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">Narrative Summary</h3>
 
           <div className="mb-3">
             <h4 className="text-xs font-medium text-text-muted uppercase tracking-wider mb-1">What happened</h4>
@@ -237,8 +237,8 @@ export default function SummaryTab({ sessionId }: Props) {
 function Card({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="bg-bg-secondary border border-border rounded-lg p-3 text-center">
-      <div className={`text-xl font-semibold tabular-nums ${color || 'text-text-secondary'}`}>{value}</div>
-      <div className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">{label}</div>
+      <div className={`text-2xl font-bold tabular-nums ${color || 'text-[var(--text-secondary)]'}`}>{value}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] mt-0.5">{label}</div>
     </div>
   );
 }

@@ -64,7 +64,7 @@ export default function LoginPage() {
             <text x="76" y="37" fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" fontSize="22" fontWeight="500" fill="#e6edf3" letterSpacing="-0.5">Session<tspan fill="#4f9cf7">FS</tspan></text>
           </svg>
         </div>
-        <h1 className="text-xl font-semibold text-text-primary mb-1 sr-only">SessionFS</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-text-primary mb-1 sr-only">SessionFS</h1>
         <p className="text-text-secondary text-sm mb-6">
           {mode === 'login' ? 'Sign in with your API key' : 'Create a new account'}
         </p>
@@ -88,7 +88,7 @@ export default function LoginPage() {
         {mode === 'login' ? (
           <form onSubmit={handleLogin}>
             <label className="block mb-4">
-              <span className="text-text-secondary text-sm uppercase tracking-wide">Server URL</span>
+              <span className="text-[var(--text-secondary)] text-[14px] font-medium">Server URL</span>
               <input
                 type="url"
                 value={baseUrl}
@@ -97,7 +97,7 @@ export default function LoginPage() {
               />
             </label>
             <label className="block mb-6">
-              <span className="text-text-secondary text-sm uppercase tracking-wide">API Key</span>
+              <span className="text-[var(--text-secondary)] text-[14px] font-medium">API Key</span>
               <input
                 type="password"
                 value={apiKey}
@@ -110,7 +110,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !apiKey}
-              className="w-full py-2 bg-accent text-bg-primary font-medium rounded text-sm hover:bg-accent-hover disabled:opacity-50 transition-colors"
+              className="w-full px-5 py-2.5 bg-[var(--brand)] text-white font-semibold rounded-lg text-sm hover:bg-[var(--brand-hover)] disabled:opacity-50 transition-colors"
             >
               {loading ? 'Connecting...' : 'Sign In'}
             </button>
@@ -124,7 +124,7 @@ export default function LoginPage() {
         ) : (
           <form onSubmit={handleSignup}>
             <label className="block mb-4">
-              <span className="text-text-secondary text-sm uppercase tracking-wide">Server URL</span>
+              <span className="text-[var(--text-secondary)] text-[14px] font-medium">Server URL</span>
               <input
                 type="url"
                 value={baseUrl}
@@ -133,7 +133,7 @@ export default function LoginPage() {
               />
             </label>
             <label className="block mb-6">
-              <span className="text-text-secondary text-sm uppercase tracking-wide">Email</span>
+              <span className="text-[var(--text-secondary)] text-[14px] font-medium">Email</span>
               <input
                 type="email"
                 value={email}
@@ -146,7 +146,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !email}
-              className="w-full py-2 bg-accent text-bg-primary font-medium rounded text-sm hover:bg-accent-hover disabled:opacity-50 transition-colors"
+              className="w-full px-5 py-2.5 bg-[var(--brand)] text-white font-semibold rounded-lg text-sm hover:bg-[var(--brand-hover)] disabled:opacity-50 transition-colors"
             >
               {loading ? 'Creating...' : 'Create Account'}
             </button>
