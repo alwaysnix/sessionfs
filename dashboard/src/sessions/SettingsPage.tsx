@@ -82,7 +82,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-lg font-semibold text-[var(--text-primary)] mb-6">Settings</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-6">Settings</h1>
 
       {/* Tab navigation */}
       <div className="flex gap-0 border-b border-[var(--border)] mb-6">
@@ -90,7 +90,7 @@ export default function SettingsPage() {
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
+            className={`px-4 py-2 text-[14px] font-medium transition-colors ${
               activeTab === t.key
                 ? 'text-[var(--text-primary)] border-b-2 border-[var(--brand)] -mb-px'
                 : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
@@ -121,10 +121,10 @@ function AccountTab({ profile, logout }: { profile: any; logout: () => void }) {
     <div className="space-y-5">
       {profile && (
         <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
-          <h2 className="text-sm font-medium text-[var(--text-primary)] mb-4">Account</h2>
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Account</h2>
           <div className="space-y-3">
             <div>
-              <label className="text-sm text-[var(--text-tertiary)] block mb-1">Email</label>
+              <label className="text-[13px] text-[var(--text-tertiary)] block mb-1">Email</label>
               <div className="text-sm text-[var(--text-primary)]">{profile.email}</div>
             </div>
             <div className="flex gap-4 text-sm text-[var(--text-secondary)]">
@@ -147,7 +147,7 @@ function AccountTab({ profile, logout }: { profile: any; logout: () => void }) {
               <polyline points="1 20 1 14 7 14" />
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </svg>
-            <h2 className="text-sm font-medium text-[var(--text-primary)]">Last Sync</h2>
+            <h2 className="text-lg font-semibold text-[var(--text-primary)]">Last Sync</h2>
             {profile.latest_version && profile.last_client_version === profile.latest_version && (
               <span className="ml-auto px-2.5 py-0.5 bg-green-500/10 text-green-500 rounded-full text-xs font-medium">
                 Up to date
@@ -161,19 +161,19 @@ function AccountTab({ profile, logout }: { profile: any; logout: () => void }) {
           </div>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-[var(--text-tertiary)] block mb-0.5">Package version</span>
+              <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Package version</span>
               <span className="text-[var(--text-primary)] font-mono">{profile.last_client_version}</span>
             </div>
             <div>
-              <span className="text-[var(--text-tertiary)] block mb-0.5">Platform</span>
+              <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Platform</span>
               <span className="text-[var(--text-primary)]">{profile.last_client_platform || '-'}</span>
             </div>
             <div>
-              <span className="text-[var(--text-tertiary)] block mb-0.5">Device</span>
+              <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Device</span>
               <span className="text-[var(--text-primary)] font-mono">{profile.last_client_device || '-'}</span>
             </div>
             <div>
-              <span className="text-[var(--text-tertiary)] block mb-0.5">Last synced</span>
+              <span className="text-[13px] text-[var(--text-tertiary)] block mb-0.5">Last synced</span>
               <span className="text-[var(--text-primary)]">
                 {profile.last_sync_at ? new Date(profile.last_sync_at).toLocaleString() : '-'}
               </span>
@@ -213,10 +213,10 @@ function ConnectionTab() {
   return (
     <div className="space-y-5">
       <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
-        <h2 className="text-sm font-medium text-[var(--text-primary)] mb-4">Connection</h2>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Connection</h2>
 
         <div className="mb-4">
-          <label className="text-sm text-[var(--text-tertiary)] block mb-1">Server URL</label>
+          <label className="text-[13px] text-[var(--text-tertiary)] block mb-1">Server URL</label>
           <div className="flex items-center gap-2">
             <code className="text-sm text-[var(--text-secondary)] bg-[var(--surface)] border border-[var(--border)] px-3 py-2 rounded-lg flex-1">
               {auth.baseUrl}
@@ -226,7 +226,7 @@ function ConnectionTab() {
         </div>
 
         <div>
-          <label className="text-sm text-[var(--text-tertiary)] block mb-1">API Key</label>
+          <label className="text-[13px] text-[var(--text-tertiary)] block mb-1">API Key</label>
           <div className="flex items-center gap-2">
             <code className="text-sm text-[var(--text-secondary)] bg-[var(--surface)] border border-[var(--border)] px-3 py-2 rounded-lg flex-1 font-mono">
               {maskedKey}
@@ -341,7 +341,7 @@ function JudgeTab() {
     <div className="space-y-5">
       {/* Judge Configuration */}
       <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
-        <h2 className="text-sm font-medium text-[var(--text-primary)] mb-2">Judge Configuration</h2>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Judge Configuration</h2>
         <p className="text-sm text-[var(--text-tertiary)] mb-4">
           Configure the LLM used for session audits. Your key is stored server-side and used only for audit requests.
         </p>
@@ -351,11 +351,11 @@ function JudgeTab() {
         ) : (
           <>
             <div className="mb-4">
-              <label className="text-sm text-[var(--text-tertiary)] block mb-1">Provider</label>
+              <label className="text-[13px] text-[var(--text-tertiary)] block mb-1">Provider</label>
               <select
                 value={judgeProvider}
                 onChange={(e) => handleProviderChange(e.target.value)}
-                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[14px] text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
               >
                 {PROVIDERS.map((p) => (
                   <option key={p.value} value={p.value}>{p.label}</option>
@@ -364,7 +364,7 @@ function JudgeTab() {
             </div>
 
             <div className="mb-4">
-              <label className="text-sm text-[var(--text-tertiary)] block mb-1">
+              <label className="text-[13px] text-[var(--text-tertiary)] block mb-1">
                 Model
                 {discovering && <span className="text-[var(--text-tertiary)] opacity-50 ml-2">discovering...</span>}
               </label>
@@ -372,7 +372,7 @@ function JudgeTab() {
                 <select
                   value={judgeModel}
                   onChange={(e) => { setJudgeModel(e.target.value); setJudgeSaved(false); }}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] font-mono"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[14px] text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)] font-mono"
                 >
                   <option value="">Select a model...</option>
                   {discoveredModels.map((m) => (
@@ -385,7 +385,7 @@ function JudgeTab() {
                   value={judgeModel}
                   onChange={(e) => { setJudgeModel(e.target.value); setJudgeSaved(false); }}
                   placeholder="model-name"
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[14px] text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
                 />
               ) : isOpenRouter ? (
                 <input
@@ -393,13 +393,13 @@ function JudgeTab() {
                   value={judgeModel}
                   onChange={(e) => { setJudgeModel(e.target.value); setJudgeSaved(false); }}
                   placeholder="anthropic/claude-sonnet-4"
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[14px] text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
                 />
               ) : (
                 <select
                   value={judgeModel}
                   onChange={(e) => { setJudgeModel(e.target.value); setJudgeSaved(false); }}
-                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
+                  className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[14px] text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
                 >
                   {providerModels.map((m) => (
                     <option key={m.value} value={m.value}>{m.label}</option>
@@ -409,24 +409,24 @@ function JudgeTab() {
             </div>
 
             <div className="mb-4">
-              <label className="text-sm text-[var(--text-tertiary)] block mb-1">API Key</label>
+              <label className="text-[13px] text-[var(--text-tertiary)] block mb-1">API Key</label>
               <input
                 type="password"
                 value={judgeApiKey}
                 onChange={(e) => { setJudgeApiKey(e.target.value); setJudgeSaved(false); }}
                 placeholder={keyPlaceholder}
-                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[14px] text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
               />
             </div>
 
             <div className="mb-4">
-              <label className="text-sm text-[var(--text-tertiary)] block mb-1">Base URL <span className="opacity-50">(optional)</span></label>
+              <label className="text-[13px] text-[var(--text-tertiary)] block mb-1">Base URL <span className="opacity-50">(optional)</span></label>
               <input
                 type="text"
                 value={judgeBaseUrl}
                 onChange={(e) => { setJudgeBaseUrl(e.target.value); setJudgeSaved(false); }}
                 placeholder="https://litellm.company.internal/v1"
-                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
+                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[14px] text-[var(--text-secondary)] placeholder:text-[var(--text-tertiary)] placeholder:opacity-50 focus:outline-none focus:border-[var(--brand)] font-mono"
               />
               <p className="text-xs text-[var(--text-tertiary)] opacity-60 mt-1">
                 Leave blank for provider default. Set for LiteLLM, vLLM, Ollama, or any OpenAI-compatible gateway.
@@ -437,7 +437,7 @@ function JudgeTab() {
               <button
                 onClick={handleSaveJudge}
                 disabled={!judgeModel || (!judgeApiKey && !judgeBaseUrl) || saveJudge.isPending}
-                className="bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
+                className="bg-[var(--brand)] text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50"
               >
                 {saveJudge.isPending ? 'Saving...' : 'Save'}
               </button>
@@ -492,13 +492,13 @@ function PreferencesTab() {
   return (
     <div className="space-y-5">
       <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
-        <h2 className="text-sm font-medium text-[var(--text-primary)] mb-4">Appearance</h2>
+        <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-4">Appearance</h2>
         <div>
-          <label className="text-sm text-[var(--text-tertiary)] block mb-1">Theme</label>
+          <label className="text-[13px] text-[var(--text-tertiary)] block mb-1">Theme</label>
           <select
             value={theme}
             onChange={(e) => handleThemeChange(e.target.value)}
-            className="w-full max-w-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
+            className="w-full max-w-xs bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-[14px] text-[var(--text-secondary)] focus:outline-none focus:border-[var(--brand)]"
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
@@ -537,7 +537,7 @@ function AutoAuditSection() {
 
   return (
     <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
-      <h2 className="text-sm font-medium text-[var(--text-primary)] mb-3">Auto-audit</h2>
+      <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-3">Auto-audit</h2>
       <div className="space-y-2">
         {[
           { value: 'manual', label: 'Manual only -- run audits when you choose' },
@@ -577,7 +577,7 @@ function AutosyncSection() {
 
   return (
     <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
-      <h2 className="text-sm font-medium text-[var(--text-primary)] mb-2">Autosync</h2>
+      <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Autosync</h2>
       <p className="text-sm text-[var(--text-tertiary)] mb-3">
         Automatically sync sessions to the cloud. The daemon pushes changes after a short debounce period.
       </p>
@@ -632,7 +632,7 @@ function GitHubIntegrationSection() {
 
   return (
     <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl p-5">
-      <h2 className="text-sm font-medium text-[var(--text-primary)] mb-2">GitHub Integration</h2>
+      <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-2">GitHub Integration</h2>
       <p className="text-sm text-[var(--text-tertiary)] mb-4">
         Automatically post AI context comments on pull requests showing which sessions contributed to the code.
       </p>
@@ -699,7 +699,7 @@ function GitHubIntegrationSection() {
             href="https://github.com/apps/sessionfs-ai-context/installations/new"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-block bg-[var(--brand)] text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-[var(--brand-hover)] transition-colors"
+            className="inline-block bg-[var(--brand)] text-white rounded-lg px-5 py-2.5 text-sm font-semibold hover:bg-[var(--brand-hover)] transition-colors"
           >
             Connect GitHub
           </a>

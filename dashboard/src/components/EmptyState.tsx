@@ -15,20 +15,20 @@ export default function EmptyState({ icon, title, description, actionLabel, onAc
         <div className="mb-4 text-[var(--text-tertiary)]">{icon}</div>
       )}
       <h3
-        className="text-lg font-medium mb-1"
+        className="text-xl font-semibold mb-1"
         style={{ color: 'var(--text-primary)' }}
       >
         {title}
       </h3>
       {description && (
-        <p className="text-sm max-w-sm" style={{ color: 'var(--text-tertiary)' }}>
+        <p className="text-[15px] max-w-sm" style={{ color: 'var(--text-secondary)' }}>
           {description}
         </p>
       )}
       {actionLabel && onAction && (
         <button
           onClick={onAction}
-          className="mt-4 px-4 py-2 text-sm font-medium rounded-[var(--radius-md)] transition-colors"
+          className="mt-4 px-5 py-2.5 text-sm font-semibold rounded-lg transition-colors"
           style={{
             backgroundColor: 'var(--brand)',
             color: 'var(--text-inverse)',

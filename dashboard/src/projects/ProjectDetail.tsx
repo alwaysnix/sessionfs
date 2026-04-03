@@ -103,10 +103,10 @@ export default function ProjectDetail() {
       <div className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl shadow-[var(--shadow-sm)]">
         <div className="px-5 pt-4 flex items-start justify-between">
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold text-[var(--text-primary)] break-all">
+            <h1 className="text-2xl font-semibold text-[var(--text-primary)] break-all">
               {project.git_remote_normalized}
             </h1>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[var(--text-tertiary)]">
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-[var(--text-tertiary)]">
               <span>
                 Created <RelativeDate iso={project.created_at} />
               </span>
@@ -120,7 +120,7 @@ export default function ProjectDetail() {
             {!editing && (
               <button
                 onClick={handleEdit}
-                className="px-3 py-1.5 text-sm bg-[var(--brand)] text-white rounded-lg hover:bg-[var(--brand-hover)] transition-colors font-medium"
+                className="px-5 py-2.5 text-sm font-semibold bg-[var(--brand)] text-white rounded-lg hover:bg-[var(--brand-hover)] transition-colors"
               >
                 Edit
               </button>
@@ -163,7 +163,7 @@ export default function ProjectDetail() {
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
-                className="w-full min-h-[400px] px-3 py-3 text-sm font-mono bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand)] resize-y placeholder:text-[var(--text-tertiary)]"
+                className="w-full min-h-[400px] px-3 py-3 text-[14px] font-mono bg-[var(--bg-primary)] border border-[var(--border)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand)] resize-y placeholder:text-[var(--text-tertiary)]"
                 placeholder="Write your project context document here...&#10;&#10;This will be shared with all sessions in this project."
                 autoFocus
               />
@@ -177,7 +177,7 @@ export default function ProjectDetail() {
                 <button
                   onClick={handleSave}
                   disabled={updateContext.isPending}
-                  className="px-4 py-1.5 text-sm bg-[var(--brand)] text-white rounded-lg hover:bg-[var(--brand-hover)] transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 text-sm font-semibold bg-[var(--brand)] text-white rounded-lg hover:bg-[var(--brand-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updateContext.isPending ? 'Saving...' : 'Save'}
                 </button>
@@ -185,7 +185,7 @@ export default function ProjectDetail() {
             </div>
           ) : project.context_document ? (
             <pre
-              className="text-sm text-[var(--text-secondary)] leading-relaxed"
+              className="text-[15px] text-[var(--text-secondary)] leading-relaxed"
               style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
             >
               {project.context_document}

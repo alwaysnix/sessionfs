@@ -108,7 +108,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
-      <h1 className="text-lg font-semibold text-[var(--text-primary)] mb-6">Admin Dashboard</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-6">Admin</h1>
 
       {/* Overview Cards */}
       {statsLoading && (
@@ -128,8 +128,8 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <div>
-                <p className="text-xs text-[var(--text-tertiary)] mb-1">Users</p>
-                <p className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{stats.users.total}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] mb-1">Users</p>
+                <p className="text-3xl font-bold text-[var(--text-primary)] tabular-nums">{stats.users.total}</p>
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">
                   {stats.users.verified} verified, {stats.users.total - stats.users.verified} pending
                 </p>
@@ -148,8 +148,8 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <div>
-                <p className="text-xs text-[var(--text-tertiary)] mb-1">Sessions</p>
-                <p className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{stats.sessions.total}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] mb-1">Sessions</p>
+                <p className="text-3xl font-bold text-[var(--text-primary)] tabular-nums">{stats.sessions.total}</p>
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">
                   {activeTools} active tool{activeTools !== 1 ? 's' : ''}
                 </p>
@@ -168,8 +168,8 @@ export default function AdminDashboard() {
                 </svg>
               </div>
               <div className="flex-1">
-                <p className="text-xs text-[var(--text-tertiary)] mb-1">Storage</p>
-                <p className="text-2xl font-bold text-[var(--text-primary)] tabular-nums">{formatBytes(storageUsed)}</p>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] mb-1">Storage</p>
+                <p className="text-3xl font-bold text-[var(--text-primary)] tabular-nums">{formatBytes(storageUsed)}</p>
                 {storageLimit > 0 && (
                   <>
                     <div className="w-full h-1.5 bg-[var(--border)] rounded-full mt-2 overflow-hidden">
@@ -195,7 +195,7 @@ export default function AdminDashboard() {
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
+            className={`px-4 py-2 text-[14px] font-medium transition-colors ${
               activeTab === t.key
                 ? 'text-[var(--text-primary)] border-b-2 border-[var(--brand)] -mb-px'
                 : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
@@ -213,9 +213,9 @@ export default function AdminDashboard() {
         <section>
           {actionsData && actionsData.actions.length > 0 ? (
             <div className="border border-[var(--border)] rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+              <table className="w-full text-[14px]">
                 <thead>
-                  <tr className="bg-[var(--bg-elevated)] text-[var(--text-tertiary)] text-xs uppercase tracking-wider">
+                  <tr className="bg-[var(--bg-elevated)] text-[13px] font-semibold text-[var(--text-tertiary)]">
                     <th className="px-4 py-3 text-left">Admin</th>
                     <th className="px-4 py-3 text-left">Action</th>
                     <th className="px-4 py-3 text-left">Target</th>
@@ -267,9 +267,9 @@ export default function AdminDashboard() {
 
           {usersData && usersData.users.length > 0 && (
             <div className="border border-[var(--border)] rounded-xl overflow-hidden">
-              <table className="w-full text-sm">
+              <table className="w-full text-[14px]">
                 <thead>
-                  <tr className="bg-[var(--bg-elevated)] text-[var(--text-tertiary)] text-xs uppercase tracking-wider">
+                  <tr className="bg-[var(--bg-elevated)] text-[13px] font-semibold text-[var(--text-tertiary)]">
                     <th className="px-4 py-3 text-left">User</th>
                     <th className="px-4 py-3 text-left w-24">Tier</th>
                     <th className="px-4 py-3 text-center w-20">Verified</th>

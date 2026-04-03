@@ -170,7 +170,7 @@ export default function SessionDetail() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowHandoff(true)}
-              className="px-3 py-1.5 text-sm bg-[var(--brand)] text-white rounded-lg hover:bg-[var(--brand-hover)] transition-colors font-medium"
+              className="px-5 py-2.5 text-sm font-semibold bg-[var(--brand)] text-white rounded-lg hover:bg-[var(--brand-hover)] transition-colors"
             >
               Hand Off
             </button>
@@ -219,13 +219,13 @@ export default function SessionDetail() {
 
         {/* Title */}
         <div className="px-5 mt-2">
-          <h1 className="text-xl font-semibold text-[var(--text-primary)] break-words leading-snug">
+          <h1 className="text-2xl font-semibold text-[var(--text-primary)] break-words leading-snug">
             {session.title || 'Untitled session'}
           </h1>
         </div>
 
         {/* Metadata pills */}
-        <div className="px-5 mt-2 flex flex-wrap items-center gap-2 text-sm">
+        <div className="px-5 mt-2 flex flex-wrap items-center gap-2 text-[13px]">
           <span className="font-mono text-[var(--text-tertiary)]">{session.id}</span>
           <span className="text-[var(--text-tertiary)]">&middot;</span>
           <span className="text-[var(--text-secondary)]">{abbreviateModel(session.model_id)}</span>
@@ -344,7 +344,7 @@ export default function SessionDetail() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+              className={`px-4 py-3 text-[14px] font-medium transition-colors relative ${
                 activeTab === tab
                   ? 'text-[var(--brand)]'
                   : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'

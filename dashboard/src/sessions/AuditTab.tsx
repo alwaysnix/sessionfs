@@ -473,7 +473,7 @@ function FindingCard({
 
       {/* Claim text always visible */}
       <div className="px-3 pb-2">
-        <p className="text-sm text-text-primary">{finding.claim}</p>
+        <p className="text-[15px] font-medium text-[var(--text-primary)]">{finding.claim}</p>
       </div>
 
       {/* Expanded evidence viewer */}
@@ -500,14 +500,14 @@ function FindingCard({
                       <div className="px-2 py-0.5 bg-bg-tertiary border-b border-border/50 text-[10px] text-text-muted">
                         Message #{snippet.message_index}
                       </div>
-                      <pre className="px-2 py-1.5 text-xs text-text-secondary overflow-x-auto whitespace-pre-wrap max-h-32 overflow-y-auto font-mono">
+                      <pre className="px-2 py-1.5 text-[13px] text-[var(--text-tertiary)] overflow-x-auto whitespace-pre-wrap max-h-32 overflow-y-auto font-mono">
                         {snippet.text}
                       </pre>
                     </div>
                   ))}
                 </div>
               ) : finding.evidence ? (
-                <pre className="bg-bg-tertiary border border-border rounded px-2 py-1.5 text-xs text-text-secondary overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto font-mono">
+                <pre className="bg-bg-tertiary border border-border rounded px-2 py-1.5 text-[13px] text-[var(--text-tertiary)] overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto font-mono">
                   {finding.evidence}
                 </pre>
               ) : (
@@ -585,8 +585,8 @@ function FindingCard({
 function MetricCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="bg-bg-secondary border border-border rounded-lg p-3 text-center">
-      <div className={`text-xl font-semibold tabular-nums ${color}`}>{value}</div>
-      <div className="text-[10px] text-text-muted uppercase tracking-wider mt-0.5">{label}</div>
+      <div className={`text-3xl font-bold tabular-nums ${color}`}>{value}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] mt-0.5">{label}</div>
     </div>
   );
 }

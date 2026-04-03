@@ -33,13 +33,13 @@ export default function HandoffList() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
-      <h1 className="text-lg font-semibold text-[var(--text-primary)] mb-5">Handoffs</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] mb-5">Handoffs</h1>
 
       {/* Tabs */}
       <div className="flex items-center gap-0 mb-6 border-b border-[var(--border)]">
         <button
           onClick={() => setTab('inbox')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
+          className={`px-4 py-2 text-[14px] font-medium transition-colors ${
             isInbox
               ? 'border-b-2 border-[var(--brand)] text-[var(--text-primary)] -mb-px'
               : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
@@ -54,7 +54,7 @@ export default function HandoffList() {
         </button>
         <button
           onClick={() => setTab('sent')}
-          className={`px-4 py-2 text-sm font-medium transition-colors ${
+          className={`px-4 py-2 text-[14px] font-medium transition-colors ${
             !isInbox
               ? 'border-b-2 border-[var(--brand)] text-[var(--text-primary)] -mb-px'
               : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'
@@ -94,10 +94,10 @@ export default function HandoffList() {
                     {(isInbox ? h.sender_email : h.recipient_email).charAt(0)}
                   </span>
                   <div className="min-w-0">
-                    <div className="text-sm text-[var(--text-primary)] truncate">
+                    <div className="text-[14px] font-medium text-[var(--text-primary)] truncate">
                       {isInbox ? h.sender_email : h.recipient_email}
                     </div>
-                    <div className="text-sm text-[var(--text-tertiary)]">
+                    <div className="text-[13px] text-[var(--text-tertiary)]">
                       <RelativeDate iso={h.created_at} />
                     </div>
                   </div>
@@ -106,7 +106,7 @@ export default function HandoffList() {
               </div>
 
               {/* Session info */}
-              <div className="mt-3 flex items-center gap-3 text-sm">
+              <div className="mt-3 flex items-center gap-3 text-[13px]">
                 {h.session_tool && <ToolBadge tool={h.session_tool} />}
                 <span className="text-[var(--text-primary)] truncate">
                   {h.session_title || <span className="text-[var(--text-tertiary)] italic">Untitled</span>}
@@ -131,7 +131,7 @@ export default function HandoffList() {
                 <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
                 <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
               </svg>
-              <p className="text-[var(--text-primary)] font-medium mb-1">No handoffs received yet</p>
+              <p className="text-xl font-semibold text-[var(--text-primary)] mb-1">No handoffs received yet</p>
               <p className="text-[var(--text-tertiary)] text-sm mb-4">
                 When a teammate hands off a session to you, it will appear here.
               </p>
@@ -150,7 +150,7 @@ export default function HandoffList() {
                 <line x1="22" y1="2" x2="11" y2="13" />
                 <polygon points="22 2 15 22 11 13 2 9 22 2" />
               </svg>
-              <p className="text-[var(--text-primary)] font-medium mb-1">No handoffs sent yet</p>
+              <p className="text-xl font-semibold text-[var(--text-primary)] mb-1">No handoffs sent yet</p>
               <p className="text-[var(--text-tertiary)] text-sm mb-4">
                 Hand off a session to share context with a teammate.
               </p>

@@ -12,10 +12,10 @@ export default function ProjectsPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-5">
-        <h1 className="text-lg font-semibold text-[var(--text-primary)]">Projects</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Projects</h1>
         <button
           onClick={() => setShowCreate(true)}
-          className="px-3 py-1.5 text-sm bg-[var(--brand)] text-white rounded-lg hover:bg-[var(--brand-hover)] transition-colors font-medium"
+          className="px-5 py-2.5 text-sm font-semibold bg-[var(--brand)] text-white rounded-lg hover:bg-[var(--brand-hover)] transition-colors"
         >
           + New Project
         </button>
@@ -45,11 +45,11 @@ export default function ProjectsPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                  <div className="text-lg font-semibold text-[var(--text-primary)] truncate">
                     {p.git_remote_normalized}
                   </div>
                   {p.context_document && (
-                    <div className="mt-1 text-sm text-[var(--text-tertiary)] truncate">
+                    <div className="mt-1 text-[14px] text-[var(--text-secondary)] truncate">
                       {p.context_document.slice(0, 80)}
                       {p.context_document.length > 80 ? '...' : ''}
                     </div>
@@ -79,7 +79,7 @@ export default function ProjectsPage() {
           >
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
           </svg>
-          <p className="text-[var(--text-primary)] font-medium mb-1">No project contexts yet</p>
+          <p className="text-xl font-semibold text-[var(--text-primary)] mb-1">No project contexts yet</p>
           <p className="text-[var(--text-tertiary)] text-sm mb-4">
             Create a project context to share instructions across sessions.
           </p>

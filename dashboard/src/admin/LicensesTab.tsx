@@ -61,9 +61,9 @@ export default function LicensesTab() {
 
       {licenses.length > 0 && (
         <div className="border border-[var(--border)] rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <table className="w-full text-[14px]">
             <thead>
-              <tr className="bg-[var(--bg-elevated)] text-[var(--text-tertiary)] text-xs uppercase tracking-wider">
+              <tr className="bg-[var(--bg-elevated)] text-[13px] font-semibold text-[var(--text-tertiary)]">
                 <th className="px-4 py-3 text-left">Organization</th>
                 <th className="px-4 py-3 text-left">Contact</th>
                 <th className="px-4 py-3 text-left w-20">Type</th>
