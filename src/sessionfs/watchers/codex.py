@@ -59,6 +59,7 @@ class CodexParsedSession:
     tool_use_count: int = 0
     total_input_tokens: int = 0
     total_output_tokens: int = 0
+    originator: str = ""
     parse_errors: list[str] = field(default_factory=list)
 
 
@@ -94,6 +95,7 @@ def parse_codex_session(jsonl_path: Path) -> CodexParsedSession:
             payload = entry.get("payload", {})
 
             if entry_type == "session_meta":
+                session.originator = payload.get("originator", "")
                 session.session_id = payload.get("id", session.session_id)
                 session.cwd = payload.get("cwd")
                 session.cli_version = payload.get("cli_version")
@@ -499,6 +501,12 @@ class CodexWatcher:
         logger.info("Capturing Codex session %s (%d bytes)", native_id[:12], size)
         try:
             codex_session = parse_codex_session(native_path)
+
+            # Skip sessionfs_import sessions (injected by resume, not native Codex)
+            if codex_session.originator == "sessionfs_import":
+                logger.info("Skipping sessionfs_import session %s", native_id[:12])
+                return
+
             sfs_id = session_id_from_native(native_id)
             session_dir = self._store.allocate_session_dir(sfs_id)
             convert_codex_to_sfs(codex_session, session_dir, session_id=sfs_id)
