@@ -82,10 +82,10 @@ def convert_sfs_to_codex(
             "id": codex_session_id,
             "timestamp": created_at,
             "cwd": effective_cwd,
-            "originator": "codex_cli_rs",
+            "originator": "sessionfs_import",
             "cli_version": "0.116.0",
             "source": "cli",
-            "model_provider": model_info.get("provider", "openai"),
+            "model_provider": "openai",  # Codex native provider — don't inherit from source session
             "base_instructions": None,
             "git": {
                 "commit_hash": git_info.get("commit_sha"),
