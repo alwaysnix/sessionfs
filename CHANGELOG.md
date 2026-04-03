@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.6] - 2026-03-30
+
+### Added
+- **Self-hosted license lifecycle** — migration 017, grace period state machine (valid → warning → degraded → 403), validation logging, admin CLI commands (`sfs admin create-trial`, `sfs admin create-license`, `sfs admin list`, `sfs admin extend`, `sfs admin revoke`), admin API (CRUD + history), Helm local mode (seed job with retry + cache fallback), dashboard licenses tab.
+- **Dashboard full redesign** — light/dark mode with proper contrast, resume-first layout replacing analytics cards, date-grouped sessions, lineage grouping (collapsible follow-ups), left rail navigation, page transitions, toast notifications, skeleton loading.
+- **Narrative session summaries** — `POST /summary/narrative` generates what_happened, key_decisions, outcome, open_issues from session data via LLM. Dashboard SummaryTab has "Generate Narrative" button. Pro+ tier gated.
+- **Project Context dashboard page** — list, detail, markdown editor, create/delete from the web UI.
+- **Cross-tool resume improvements** — full conversation transcript via `--append-system-prompt-file`, 50-message trim + handoff context for better continuity.
+- **MCP install for all 8 tools** — was 3, now supports all tools. Codex uses `codex mcp add`, Gemini uses `gemini mcp add`.
+- **`sfs init` wizard** — auto-detects all 8 tools, optional sync setup during first run.
+- **`sfs security scan/fix`** — config permissions audit, API key exposure check, dependency audit.
+- **Skill/slash command detection** — recognized across all converters for accurate tool call counts.
+- **Multi-select bulk delete** — select and delete multiple sessions from dashboard.
+- **Find Duplicates** — dashboard feature to identify duplicate sessions.
+- **Delete session from detail** — remove a session directly from the session detail page.
+- **Enterprise page** — rewritten for AI governance messaging.
+- **Feature page** — `/features/project-context/` deep-dive.
+- **Cross-site theme consistency** — dashboard passes `?theme=` parameter to marketing site.
+- **Handoff UX** — status stepper and session context card for clearer handoff flow.
+
+### Changed
+- LLM Judge revamped — confidence scores (0-100) per finding, CWE mapping (CWE-393, CWE-684, CWE-1104, etc.), evidence linking, dismiss/confirm findings with reason tracking.
+- Dashboard analytics section replaced with resume-first hero section.
+- Tool call capture fixed for Gemini CLI (reads `toolCalls` array) and Amp (parses `tool_use`/`tool_result` blocks).
+- Audit now warns when a session has 0 tool calls.
+- Session deduplication — Codex watcher skips `sessionfs_import` sessions.
+- Search endpoint fixed to use effective org tier instead of raw `user.tier`.
+- 958 tests passing.
+
+### Security
+- **Security pipeline** — GitHub Action running pip-audit, Trivy container scanning, and Bandit static analysis on every push.
+- **Dependabot** enabled for automated dependency update PRs.
+- **SECURITY.md** — responsible disclosure policy published.
+
 ## [0.9.5] - 2026-03-30
 
 ### Added
