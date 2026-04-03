@@ -917,7 +917,7 @@ Start the MCP server on stdio transport.
 sfs mcp serve
 ```
 
-Tools exposed: `search_sessions`, `get_session_context`, `list_recent_sessions`, `find_related_sessions`, `get_project_context`.
+Tools exposed: `search_sessions`, `get_session_context`, `list_recent_sessions`, `find_related_sessions`, `get_project_context`, `get_session_summary`, `get_audit_report`.
 
 ---
 
@@ -931,7 +931,7 @@ sfs mcp install --for TOOL
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `--for` | string | Target tool: `claude-code`, `cursor`, `copilot` |
+| `--for` | string | Target tool: `claude-code`, `codex`, `gemini`, `copilot`, `cursor`, `amp`, `cline`, `roo-code` |
 
 ---
 
@@ -941,6 +941,147 @@ Re-extract metadata for all cloud sessions (admin only).
 
 ```
 sfs admin reindex
+```
+
+---
+
+## `sfs admin create-trial`
+
+Create a trial license for self-hosted deployments (admin only).
+
+```
+sfs admin create-trial [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--org` | string | — | Organization slug |
+| `--days` | int | `14` | Trial duration in days |
+
+---
+
+## `sfs admin create-license`
+
+Create a full license for self-hosted deployments (admin only).
+
+```
+sfs admin create-license [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--org` | string | required | Organization slug |
+| `--tier` | string | required | License tier (team, enterprise) |
+| `--seats` | int | — | Seat limit |
+| `--expires` | string | — | Expiry date (ISO format) |
+
+---
+
+## `sfs admin list`
+
+List all self-hosted licenses (admin only).
+
+```
+sfs admin list [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--status` | string | — | Filter by status: active, expired, revoked |
+
+---
+
+## `sfs admin extend`
+
+Extend an existing license expiry (admin only).
+
+```
+sfs admin extend LICENSE_ID --days DAYS
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `LICENSE_ID` | yes | License ID |
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--days` | int | required | Number of days to extend |
+
+---
+
+## `sfs admin revoke`
+
+Revoke a self-hosted license (admin only).
+
+```
+sfs admin revoke LICENSE_ID
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `LICENSE_ID` | yes | License ID to revoke |
+
+---
+
+## `sfs init`
+
+Interactive setup wizard for first-time users. Auto-detects installed AI tools and configures watchers. Optionally sets up cloud sync.
+
+```
+sfs init
+```
+
+**Example:**
+
+```bash
+$ sfs init
+
+Detected tools:
+  ✓ Claude Code
+  ✓ Codex CLI
+  ✓ Gemini CLI
+  ✗ Cursor (not installed)
+  ✓ Copilot CLI
+  ✗ Amp (not installed)
+  ✗ Cline (not installed)
+  ✗ Roo Code (not installed)
+
+Enabling watchers for 4 detected tools...
+Set up cloud sync now? [y/N]:
+```
+
+---
+
+## `sfs security`
+
+Audit and fix security configuration.
+
+### `sfs security scan`
+
+Scan for security issues — config file permissions, API key exposure in config, and dependency vulnerabilities.
+
+```
+sfs security scan
+```
+
+**Example:**
+
+```bash
+$ sfs security scan
+
+Config permissions .......... OK (600)
+API key in config.toml ...... WARNING (plaintext key found)
+pip-audit ................... OK (0 vulnerabilities)
+
+1 issue found. Run 'sfs security fix' to remediate.
+```
+
+### `sfs security fix`
+
+Auto-fix security issues found by `sfs security scan`.
+
+```
+sfs security fix
 ```
 
 ---

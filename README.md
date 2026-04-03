@@ -94,9 +94,12 @@ Sessions are indexed locally for fast browsing via the CLI. Cloud sync is opt-in
 | `sfs auth login\|signup\|status` | Manage cloud authentication |
 | `sfs config show\|set` | Manage configuration |
 | `sfs mcp serve` | Start MCP server for AI tool integration |
-| `sfs mcp install --for TOOL` | Auto-configure MCP for Claude Code, Cursor, or Copilot |
+| `sfs mcp install --for TOOL` | Auto-configure MCP for all 8 supported tools |
+| `sfs init` | Interactive setup wizard — auto-detects tools, optional sync |
+| `sfs security scan\|fix` | Audit config permissions, API key exposure, dependencies |
 | `sfs org create\|list\|show\|invite\|remove` | Manage organizations, members, and roles |
 | `sfs admin reindex` | Re-extract metadata for all cloud sessions |
+| `sfs admin create-trial\|create-license\|list\|extend\|revoke` | Manage self-hosted licenses |
 
 See the full [CLI Reference](docs/cli-reference.md) for options and examples.
 
@@ -191,28 +194,36 @@ All file paths are relative to workspace root. Sessions are append-only — conf
 
 ## Status
 
-**v0.9.5 — Public Beta.** 921 tests passing.
+**v0.9.6 — Public Beta.** 958 tests passing.
 
 What works today:
 - Eight-tool session capture (Claude Code, Codex, Gemini, Cursor, Copilot CLI, Amp, Cline, Roo Code)
-- Cross-tool resume between Claude Code, Codex, Gemini, and Copilot CLI (auto-launches native tool)
-- Shared project context — one document per repo, shared across the team, readable via MCP
+- Cross-tool resume between Claude Code, Codex, Gemini, and Copilot CLI (auto-launches native tool, full transcript via --append-system-prompt-file with 50-message trim)
+- Shared project context — one document per repo, shared across the team, readable via MCP, manageable from dashboard
 - Local storage management with configurable retention, pruning, and disk warnings
 - Full-text search across all sessions (CLI + dashboard + API)
-- MCP server with 5 tools — search, context, recent, related, and project context
-- LLM-as-a-Judge — audit sessions for hallucinations (BYOK, multi-provider, OpenRouter, custom base URL for LiteLLM/vLLM/Ollama)
+- MCP server with 7 tools — search, context, recent, related, project context, summary, and audit report
+- MCP install for all 8 tools (codex mcp add, gemini mcp add)
+- LLM-as-a-Judge with confidence scores (0-100), CWE mapping, evidence linking, dismiss/confirm findings
+- Narrative session summaries — LLM-powered what_happened, key_decisions, outcome, open_issues
 - GitHub PR App + GitLab MR integration — auto-comment AI session context on pull requests and merge requests
-- Team handoff with email notification and smart workspace resolution
+- Team handoff with email notification, status stepper, session context card, and smart workspace resolution
 - Multi-provider email (Resend, SMTP, or disabled for air-gapped)
 - Browse, inspect, export, fork, and checkpoint sessions
 - Cloud sync with push/pull, email verification, and ETag conflict detection
 - FSL licensing with open-source core and enterprise extensions
+- Self-hosted license lifecycle with grace periods, admin CLI, and dashboard licenses tab
 - Server-side tier gating (5 tiers, 30+ gated features)
 - RBAC with admin and member roles
 - Stripe billing integration with subscription management
 - Organization management (`sfs org` commands)
 - Self-hosted deployment via Helm chart with license validation (EKS/GKE/AKS tested)
-- Web dashboard with session management, search, handoffs, and audit
+- Web dashboard with light/dark mode, resume-first layout, date-grouped sessions, lineage grouping, skeleton loading
+- `sfs init` wizard with auto-detection of 8 tools and optional sync setup
+- `sfs security scan/fix` for config permissions, API key exposure, dependency audit
+- Security pipeline (GitHub Action with pip-audit, Trivy, Bandit), Dependabot, SECURITY.md
+- Multi-select bulk delete + Find Duplicates in dashboard
+- Skill/slash command detection across all converters
 
 On the roadmap:
 - Session similarity and duplicate detection
