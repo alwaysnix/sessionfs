@@ -239,6 +239,43 @@ export interface ProjectContext {
   updated_at: string;
 }
 
+export interface KnowledgeEntry {
+  id: number;
+  project_id: string;
+  session_id: string;
+  entry_type: string;
+  content: string;
+  confidence: number;
+  created_at: string;
+  compiled_at: string | null;
+  dismissed: boolean;
+}
+
+export interface KnowledgeEntryListResponse {
+  entries: KnowledgeEntry[];
+  total: number;
+}
+
+export interface ContextCompilation {
+  id: number;
+  entries_compiled: number;
+  context_before: string;
+  context_after: string;
+  compiled_at: string;
+}
+
+export interface ProjectHealthCheck {
+  name: string;
+  status: 'pass' | 'fail';
+  detail: string | null;
+}
+
+export interface ProjectHealthResponse {
+  checks: ProjectHealthCheck[];
+  suggestions: string[];
+  score: number;
+}
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -664,6 +701,40 @@ export function createApiClient(baseUrl: string, apiKey: string) {
       request<{ status: string }>(`/api/v1/projects/${id}`, {
         method: 'DELETE',
       }),
+
+    // Knowledge entries
+    listKnowledgeEntries: (
+      projectId: string,
+      params: { pending?: boolean; type?: string; limit?: number } = {},
+    ) => {
+      const sp = new URLSearchParams();
+      if (params.pending) sp.set('pending', 'true');
+      if (params.type) sp.set('type', params.type);
+      if (params.limit) sp.set('limit', String(params.limit));
+      return request<KnowledgeEntryListResponse>(
+        `/api/v1/projects/${projectId}/entries?${sp}`,
+      );
+    },
+
+    dismissEntry: (projectId: string, entryId: number) =>
+      request<KnowledgeEntry>(`/api/v1/projects/${projectId}/entries/${entryId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ dismissed: true }),
+      }),
+
+    compileProject: (projectId: string) =>
+      request<{ entries_compiled: number; compilation_id: number }>(
+        `/api/v1/projects/${projectId}/compile`,
+        { method: 'POST' },
+      ),
+
+    listCompilations: (projectId: string) =>
+      request<{ compilations: ContextCompilation[] }>(
+        `/api/v1/projects/${projectId}/compilations`,
+      ),
+
+    getProjectHealth: (projectId: string) =>
+      request<ProjectHealthResponse>(`/api/v1/projects/${projectId}/health`),
   };
 }
 
