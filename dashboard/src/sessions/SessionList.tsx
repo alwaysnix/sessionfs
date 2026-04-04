@@ -612,9 +612,9 @@ export default function SessionList() {
         {/* ── Session list with date grouping ── */}
         {!isLoading && filteredSessions.length > 0 && (
           <>
-            <DateGroup label="Today" sessions={grouped.today} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} isFirst selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
-            <DateGroup label="This Week" sessions={grouped.thisWeek} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
-            <DateGroup label="Earlier" sessions={grouped.earlier} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
+            <DateGroup label="Today" sessions={grouped.today} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} isFirst selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} isInFolder={!!selectedFolderId} />
+            <DateGroup label="This Week" sessions={grouped.thisWeek} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} isInFolder={!!selectedFolderId} />
+            <DateGroup label="Earlier" sessions={grouped.earlier} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} isInFolder={!!selectedFolderId} />
 
             {/* Pagination */}
             <div className="flex items-center justify-between mt-4 text-sm text-[var(--text-tertiary)]">
@@ -702,6 +702,7 @@ function DateGroup({
   expandedGroups,
   onToggleGroup,
   isFirst,
+  isInFolder,
   selectMode,
   selectedIds,
   onToggleSelect,
@@ -714,6 +715,7 @@ function DateGroup({
   expandedGroups: Set<string>;
   onToggleGroup: (rootId: string) => void;
   isFirst?: boolean;
+  isInFolder?: boolean;
   selectMode: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -759,6 +761,7 @@ function DateGroup({
                 onResume={() => onResume(group.root)}
                 onNavigate={hasChildren ? () => onRowClick(group.root.id) : undefined}
                 hasChildren={hasChildren}
+                isBookmarked={!!isInFolder}
                 selectMode={selectMode}
                 selected={selectedIds.has(group.root.id)}
                 onToggleSelect={() => onToggleSelect(group.root.id)}
@@ -798,6 +801,7 @@ function DateGroup({
                       }}
                       onResume={() => onResume(child)}
                       isChild
+                      isBookmarked={!!isInFolder}
                       selectMode={selectMode}
                       selected={selectedIds.has(child.id)}
                       onToggleSelect={() => onToggleSelect(child.id)}
@@ -824,6 +828,7 @@ function SessionRow({
   lineageBadge,
   isChild,
   hasChildren,
+  isBookmarked,
   selectMode,
   selected,
   onToggleSelect,
@@ -836,6 +841,7 @@ function SessionRow({
   lineageBadge?: React.ReactNode;
   isChild?: boolean;
   hasChildren?: boolean;
+  isBookmarked?: boolean;
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -893,7 +899,7 @@ function SessionRow({
             <RelativeDate iso={s.updated_at} />
           </span>
           <div onClick={(e) => e.stopPropagation()}>
-            <BookmarkDropdown sessionId={s.id} />
+            <BookmarkDropdown sessionId={s.id} isBookmarked={isBookmarked} />
           </div>
         </div>
       </div>
