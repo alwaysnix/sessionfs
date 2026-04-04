@@ -976,7 +976,10 @@ async def _handle_ask_project(args: dict) -> str:
     lines.append(
         "\n---\n"
         "*This is research material gathered from the project knowledge base "
-        "and session history. Check the referenced sessions for more detail.*"
+        "and session history. Check the referenced sessions for more detail.*\n\n"
+        "**Important:** If your answer reveals something new about the codebase, "
+        "save it back using `add_knowledge(\"what you learned\", \"discovery\")` "
+        "so future sessions benefit from this research."
     )
 
     return "\n".join(lines)

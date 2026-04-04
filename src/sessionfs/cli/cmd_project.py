@@ -506,19 +506,29 @@ def ask_project(
         console.print("[dim]No matching knowledge entries found.[/dim]")
         console.print()
 
-    # 6. Optionally save as a discovery entry
-    if typer.confirm("Save this question as a discovery entry?", default=False):
+    # 6. Optionally save the Q&A as a discovery entry
+    # Build answer from matching entries for filing back
+    answer_parts = []
+    if entries:
+        for e in entries[:5]:
+            answer_parts.append(f"[{e.get('entry_type', '?')}] {e.get('content', '')}")
+
+    if typer.confirm("Save this Q&A to the knowledge base?", default=False):
+        qa_content = f"Q: {question}"
+        if answer_parts:
+            qa_content += f"\nA: {'; '.join(answer_parts)}"
         asyncio.run(_api_request(
             "POST", f"/api/v1/projects/{project_id}/entries",
             api_url, api_key,
             json_data={
                 "entry_type": "discovery",
-                "content": f"Question researched: {question}",
-                "session_id": "cli",
-                "confidence": 0.5,
+                "content": qa_content[:1000],
+                "session_id": "cli-ask",
+                "confidence": 0.8,
+                "source_context": f"Answered from {len(answer_parts)} knowledge entries via sfs project ask",
             },
         ))
-        console.print("[green]Saved as discovery entry.[/green]")
+        console.print("[green]Q&A saved to knowledge base.[/green]")
 
 
 @project_app.command("dismiss")

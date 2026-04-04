@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import secrets
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -157,6 +158,66 @@ async def compile_project_context(
         project_id,
         compilation.id,
     )
+
+    # 8. Create/update section wiki pages per entry type
+    from sessionfs.server.db.models import KnowledgePage
+
+    slug_map = {
+        "decision": "key-decisions",
+        "pattern": "patterns",
+        "convention": "coding-conventions",
+        "bug": "known-issues",
+        "dependency": "dependencies",
+        "discovery": "discoveries",
+    }
+
+    for entry_type, contents in grouped.items():
+        slug = slug_map.get(entry_type, entry_type)
+        section_title = SECTION_MAP.get(entry_type, f"## {entry_type.title()}").lstrip("# ")
+
+        # Build page content from all entries of this type (not just pending)
+        all_of_type = await db.execute(
+            select(KnowledgeEntry).where(
+                KnowledgeEntry.project_id == project_id,
+                KnowledgeEntry.entry_type == entry_type,
+                KnowledgeEntry.dismissed == False,  # noqa: E712
+            ).order_by(KnowledgeEntry.created_at.desc())
+        )
+        all_entries = all_of_type.scalars().all()
+
+        page_content = f"# {section_title}\n\n"
+        for e in all_entries:
+            conf = " *(unverified)*" if e.confidence < 0.5 else ""
+            page_content += f"- {e.content}{conf}\n"
+
+        # Upsert the section page
+        existing_page = await db.execute(
+            select(KnowledgePage).where(
+                KnowledgePage.project_id == project_id,
+                KnowledgePage.slug == slug,
+            )
+        )
+        page = existing_page.scalar_one_or_none()
+
+        if page:
+            page.content = page_content
+            page.word_count = len(page_content.split())
+            page.entry_count = len(all_entries)
+            page.updated_at = now
+        else:
+            db.add(KnowledgePage(
+                id=f"kp_{secrets.token_hex(8)}",
+                project_id=project_id,
+                slug=slug,
+                title=section_title,
+                page_type="section",
+                content=page_content,
+                word_count=len(page_content.split()),
+                entry_count=len(all_entries),
+                auto_generated=True,
+            ))
+
+    await db.commit()
 
     return compilation
 
