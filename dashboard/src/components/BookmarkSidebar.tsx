@@ -26,7 +26,7 @@ export default function BookmarkSidebar({
   selectedFilter,
   onSelectFilter,
   totalCount,
-  bookmarkedCount,
+  bookmarkedCount: _bookmarkedCount,
   inRepoCount,
   inRepoLabel,
   handoffCount,
@@ -140,16 +140,6 @@ export default function BookmarkSidebar({
             <span className="text-[12px] font-medium text-[var(--text-tertiary)] tabular-nums">{inRepoCount}</span>
           </button>
         )}
-
-        <button
-          onClick={() => { onSelectFilter('bookmarked'); onSelectFolder(null); }}
-          className={`w-full text-left px-3 py-2 text-[14px] rounded-r-md transition-colors flex items-center justify-between ${
-            isActive('bookmarked') ? activeClass : inactiveClass
-          }`}
-        >
-          <span>Bookmarked</span>
-          <span className="text-[12px] font-medium text-[var(--text-tertiary)] tabular-nums">{bookmarkedCount}</span>
-        </button>
 
         <button
           onClick={() => navigate('/handoffs')}
@@ -325,7 +315,7 @@ export function MobileNavChips({
   selectedFilter,
   onSelectFilter,
   totalCount,
-  bookmarkedCount,
+  bookmarkedCount: _mobileBookmarkedCount,
   inRepoCount,
   inRepoLabel,
   handoffCount,
@@ -364,14 +354,6 @@ export function MobileNavChips({
           This Repo ({inRepoCount})
         </button>
       )}
-      <button
-        onClick={() => { onSelectFilter('bookmarked'); onSelectFolder(null); }}
-        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-          isActive('bookmarked') ? 'bg-[var(--brand)] text-white' : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'
-        }`}
-      >
-        Bookmarked ({bookmarkedCount})
-      </button>
       <button
         onClick={() => navigate('/handoffs')}
         className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] transition-colors"

@@ -59,6 +59,8 @@ async def _api_request(method: str, path: str, api_url: str, api_key: str, json_
             resp = await client.post(url, headers=headers, json=json_data)
         elif method == "PUT":
             resp = await client.put(url, headers=headers, json=json_data)
+        elif method == "DELETE":
+            resp = await client.delete(url, headers=headers)
         else:
             raise ValueError(f"Unsupported method: {method}")
 
@@ -404,26 +406,168 @@ def project_health() -> None:
     console.print(f"[bold]Project Health: {result['name']}[/bold]")
     console.print()
 
-    checks = health_result.get("checks", [])
-    for check in checks:
-        status = check.get("status", "unknown")
-        icon = "[green]\u2713[/green]" if status == "pass" else "[red]\u2717[/red]"
-        console.print(f"  {icon}  {check.get('name', 'Unknown check')}")
-        if check.get("detail"):
-            console.print(f"      [dim]{check['detail']}[/dim]")
+    total = health_result.get("total_entries", 0)
+    pending = health_result.get("pending_entries", 0)
+    compiled = health_result.get("compiled_entries", 0)
+    word_count = health_result.get("word_count", 0)
+    section_count = health_result.get("section_count", 0)
+    stale = health_result.get("potentially_stale", False)
+    last_compiled = health_result.get("last_compiled")
 
-    suggestions = health_result.get("suggestions", [])
+    # Build checks from the API data
+    ok = "[green]\u2713[/green]"
+    warn = "[yellow]\u26a0[/yellow]"
+
+    console.print(f"  {ok}  Context document exists ({word_count} words, {section_count} sections)")
+    console.print(f"  {ok}  {total} knowledge entries ({compiled} compiled, {health_result.get('dismissed_entries', 0)} dismissed)")
+
+    if pending > 0:
+        console.print(f"  {warn}  {pending} entries pending compilation")
+    else:
+        console.print(f"  {ok}  All entries compiled")
+
+    if last_compiled:
+        console.print(f"  {ok}  Last compiled: {str(last_compiled)[:10]}")
+    elif total > 0:
+        console.print(f"  {warn}  Never compiled — run 'sfs project compile'")
+
+    if stale:
+        console.print(f"  {warn}  Context may be stale — pending entries contain new information")
+    else:
+        console.print(f"  {ok}  Context appears up to date")
+
+    # Suggestions
+    suggestions = []
+    if pending > 5:
+        suggestions.append(f"Run 'sfs project compile' to merge {pending} pending entries")
+    if word_count == 0:
+        suggestions.append("Add project context: sfs project edit")
+    if stale:
+        suggestions.append("Review pending entries for new information")
+
     if suggestions:
         console.print()
         console.print("[bold]Suggestions:[/bold]")
-        for suggestion in suggestions:
-            console.print(f"  [yellow]\u2022[/yellow] {suggestion}")
+        for s in suggestions:
+            console.print(f"  [yellow]\u2022[/yellow] {s}")
 
-    score = health_result.get("score")
-    if score is not None:
+    # Score
+    score = 100
+    if pending > 10:
+        score -= 20
+    elif pending > 0:
+        score -= 10
+    if stale:
+        score -= 15
+    if word_count == 0:
+        score -= 30
+
+    console.print()
+    color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
+    console.print(f"[bold]Health Score:[/bold] [{color}]{score}%[/{color}]")
+
+
+@project_app.command("ask")
+def ask_project(
+    question: str = typer.Argument(help="Question about the project"),
+) -> None:
+    """Ask a question about the project using the knowledge base."""
+    from rich.markdown import Markdown
+    from rich.panel import Panel
+
+    git_remote = _get_git_remote()
+    if not git_remote:
+        err_console.print("[red]Not a git repository.[/red]")
+        raise typer.Exit(1)
+
+    normalized = _normalize_remote(git_remote)
+    api_url, api_key = _get_project_client()
+
+    # 1. Get project context
+    result = asyncio.run(_api_request("GET", f"/api/v1/projects/{normalized}", api_url, api_key))
+    if result.get("_status") == 404:
+        err_console.print("[yellow]No project context found. Run 'sfs project init' first.[/yellow]")
+        raise typer.Exit(1)
+
+    project_id = result["id"]
+    context_doc = result.get("context_document", "")
+
+    # 2. Search knowledge entries for the question
+    search_params = f"?search={question}&limit=10"
+    entries_result = asyncio.run(_api_request(
+        "GET", f"/api/v1/projects/{project_id}/entries{search_params}",
+        api_url, api_key,
+    ))
+
+    entries = entries_result if isinstance(entries_result, list) else entries_result.get("entries", [])
+
+    # 3. Format context
+    console.print(Panel(f"[bold]Question:[/bold] {question}", border_style="blue"))
+    console.print()
+
+    if context_doc.strip():
+        console.print("[bold]Project Context (excerpt):[/bold]")
+        # Show first 500 chars of context
+        excerpt = context_doc[:500]
+        if len(context_doc) > 500:
+            excerpt += "..."
+        console.print(Markdown(excerpt))
         console.print()
-        color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
-        console.print(f"[bold]Health Score:[/bold] [{color}]{score}%[/{color}]")
+
+    # 4. Show matching entries
+    if entries:
+        type_colors = {
+            "decision": "green", "pattern": "blue", "discovery": "magenta",
+            "convention": "cyan", "bug": "red", "dependency": "yellow",
+        }
+        console.print(f"[bold]Matching Knowledge Entries ({len(entries)}):[/bold]")
+        for entry in entries:
+            etype = entry.get("entry_type", "unknown")
+            color = type_colors.get(etype, "white")
+            confidence = entry.get("confidence", 0)
+            session_id = entry.get("session_id", "")
+            created = entry.get("created_at", "")[:10]
+            unverified = " (unverified)" if confidence < 0.5 else ""
+            console.print(
+                f"  [{color}][{etype}][/{color}]{unverified} {entry.get('content', '')}"
+            )
+            console.print(f"    [dim]Session: {session_id} | {created} | confidence: {confidence:.0%}[/dim]")
+        console.print()
+
+        # 5. Show relevant session links
+        session_ids = list({e.get("session_id", "") for e in entries if e.get("session_id")})
+        if session_ids:
+            console.print("[bold]Related Sessions:[/bold]")
+            for sid in session_ids[:5]:
+                console.print(f"  sfs show {sid}")
+            console.print()
+    else:
+        console.print("[dim]No matching knowledge entries found.[/dim]")
+        console.print()
+
+    # 6. Optionally save the Q&A as a discovery entry
+    # Build answer from matching entries for filing back
+    answer_parts = []
+    if entries:
+        for e in entries[:5]:
+            answer_parts.append(f"[{e.get('entry_type', '?')}] {e.get('content', '')}")
+
+    if typer.confirm("Save this Q&A to the knowledge base?", default=False):
+        qa_content = f"Q: {question}"
+        if answer_parts:
+            qa_content += f"\nA: {'; '.join(answer_parts)}"
+        asyncio.run(_api_request(
+            "POST", f"/api/v1/projects/{project_id}/entries",
+            api_url, api_key,
+            json_data={
+                "entry_type": "discovery",
+                "content": qa_content[:1000],
+                "session_id": "cli-ask",
+                "confidence": 0.8,
+                "source_context": f"Answered from {len(answer_parts)} knowledge entries via sfs project ask",
+            },
+        ))
+        console.print("[green]Q&A saved to knowledge base.[/green]")
 
 
 @project_app.command("dismiss")
@@ -454,3 +598,188 @@ def project_dismiss(
     ))
 
     console.print(f"Entry {entry_id} dismissed.")
+
+
+@project_app.command("pages")
+def project_pages() -> None:
+    """List wiki pages for this project."""
+    from rich.table import Table
+
+    git_remote = _get_git_remote()
+    if not git_remote:
+        err_console.print("[red]Not a git repository.[/red]")
+        raise typer.Exit(1)
+
+    normalized = _normalize_remote(git_remote)
+    api_url, api_key = _get_project_client()
+
+    result = asyncio.run(_api_request("GET", f"/api/v1/projects/{normalized}", api_url, api_key))
+    if result.get("_status") == 404:
+        err_console.print("[yellow]No project context found. Run 'sfs project init' first.[/yellow]")
+        raise typer.Exit(1)
+
+    project_id = result["id"]
+
+    pages_result = asyncio.run(_api_request(
+        "GET", f"/api/v1/projects/{project_id}/pages",
+        api_url, api_key,
+    ))
+
+    pages = pages_result if isinstance(pages_result, list) else pages_result.get("pages", [])
+    if not pages:
+        console.print("[dim]No wiki pages found.[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold", expand=True)
+    table.add_column("Slug", style="bold", ratio=1)
+    table.add_column("Title", ratio=2)
+    table.add_column("Type", width=10)
+    table.add_column("Words", width=8, justify="right")
+    table.add_column("Entries", width=8, justify="right")
+    table.add_column("Auto", width=6, justify="center")
+
+    for page in pages:
+        auto = "[yellow]yes[/yellow]" if page.get("auto_generated") else "[dim]no[/dim]"
+        table.add_row(
+            page.get("slug", ""),
+            page.get("title", ""),
+            page.get("page_type", ""),
+            str(page.get("word_count", 0)),
+            str(page.get("entry_count", 0)),
+            auto,
+        )
+
+    console.print(table)
+    console.print(f"[dim]{len(pages)} pages[/dim]")
+
+
+@project_app.command("page")
+def project_page(
+    slug: str = typer.Argument(help="Page slug"),
+) -> None:
+    """View a wiki page."""
+    from rich.markdown import Markdown
+    from rich.panel import Panel
+
+    git_remote = _get_git_remote()
+    if not git_remote:
+        err_console.print("[red]Not a git repository.[/red]")
+        raise typer.Exit(1)
+
+    normalized = _normalize_remote(git_remote)
+    api_url, api_key = _get_project_client()
+
+    result = asyncio.run(_api_request("GET", f"/api/v1/projects/{normalized}", api_url, api_key))
+    if result.get("_status") == 404:
+        err_console.print("[yellow]No project context found. Run 'sfs project init' first.[/yellow]")
+        raise typer.Exit(1)
+
+    project_id = result["id"]
+
+    from urllib.parse import quote
+    page_result = asyncio.run(_api_request(
+        "GET", f"/api/v1/projects/{project_id}/pages/{quote(slug, safe='')}",
+        api_url, api_key,
+    ))
+
+    if page_result.get("_status") == 404:
+        err_console.print(f"[red]Page not found: {slug}[/red]")
+        raise typer.Exit(1)
+
+    title = page_result.get("title") or page_result.get("slug", slug)
+    content = page_result.get("content", "")
+    auto = page_result.get("auto_generated", False)
+
+    subtitle = f"[dim]{page_result.get('slug', '')}[/dim]"
+    if auto:
+        subtitle += "  [yellow](auto-generated)[/yellow]"
+
+    console.print(Panel(Markdown(content), title=title, subtitle=subtitle, border_style="blue"))
+
+    backlinks = page_result.get("backlinks", [])
+    if backlinks:
+        console.print()
+        console.print("[bold]Backlinks:[/bold]")
+        for bl in backlinks:
+            console.print(f"  {bl.get('title') or bl.get('slug', '')}")
+
+
+@project_app.command("regenerate")
+def project_regenerate(
+    slug: str = typer.Argument(help="Page slug to regenerate"),
+) -> None:
+    """Regenerate an auto-generated concept article from latest entries."""
+    from urllib.parse import quote
+
+    git_remote = _get_git_remote()
+    if not git_remote:
+        err_console.print("[red]Not a git repository.[/red]")
+        raise typer.Exit(1)
+
+    normalized = _normalize_remote(git_remote)
+    api_url, api_key = _get_project_client()
+
+    result = asyncio.run(_api_request("GET", f"/api/v1/projects/{normalized}", api_url, api_key))
+    if result.get("_status") == 404:
+        err_console.print("[yellow]No project context found. Run 'sfs project init' first.[/yellow]")
+        raise typer.Exit(1)
+
+    project_id = result["id"]
+
+    console.print(f"[dim]Regenerating page '{slug}'...[/dim]")
+
+    regen_result = asyncio.run(_api_request(
+        "POST", f"/api/v1/projects/{project_id}/pages/{quote(slug, safe='')}/regenerate",
+        api_url, api_key,
+    ))
+
+    if regen_result.get("_status") == 404:
+        err_console.print(f"[red]Page not found: {slug}[/red]")
+        raise typer.Exit(1)
+
+    word_count = regen_result.get("word_count", 0)
+    entries_used = regen_result.get("entries_used", 0)
+    console.print(
+        f"Article regenerated ({word_count} words from {entries_used} entries)."
+    )
+
+
+@project_app.command("set")
+def project_set(
+    auto_narrative: bool | None = typer.Option(
+        None, "--auto-narrative/--no-auto-narrative",
+        help="Enable or disable auto-narrative on sync",
+    ),
+) -> None:
+    """Update project settings."""
+    git_remote = _get_git_remote()
+    if not git_remote:
+        err_console.print("[red]Not a git repository.[/red]")
+        raise typer.Exit(1)
+
+    normalized = _normalize_remote(git_remote)
+    api_url, api_key = _get_project_client()
+
+    result = asyncio.run(_api_request("GET", f"/api/v1/projects/{normalized}", api_url, api_key))
+    if result.get("_status") == 404:
+        err_console.print("[yellow]No project context found. Run 'sfs project init' first.[/yellow]")
+        raise typer.Exit(1)
+
+    project_id = result["id"]
+
+    settings: dict = {}
+    if auto_narrative is not None:
+        settings["auto_narrative"] = auto_narrative
+
+    if not settings:
+        err_console.print("[yellow]No settings specified. Use --auto-narrative or --no-auto-narrative.[/yellow]")
+        raise typer.Exit(1)
+
+    asyncio.run(_api_request(
+        "PUT", f"/api/v1/projects/{project_id}/settings",
+        api_url, api_key,
+        json_data=settings,
+    ))
+
+    for key, value in settings.items():
+        console.print(f"[bold]{key}[/bold] = {value}")

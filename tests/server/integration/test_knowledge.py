@@ -269,3 +269,117 @@ async def test_health_endpoint(
     assert data["compiled_entries"] == 1
     assert data["dismissed_entries"] == 1
     assert data["total_compilations"] == 0
+    assert "word_count" in data
+    assert "section_count" in data
+    assert "potentially_stale" in data
+
+
+@pytest.mark.asyncio
+async def test_search_entries_with_query(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession,
+    test_user: User, test_project: Project,
+):
+    """Test search endpoint with query parameter returns matching entries."""
+    entry1 = KnowledgeEntry(
+        project_id=test_project.id,
+        session_id="ses_search1",
+        user_id=test_user.id,
+        entry_type="decision",
+        content="Use PostgreSQL for the database",
+        confidence=0.9,
+    )
+    entry2 = KnowledgeEntry(
+        project_id=test_project.id,
+        session_id="ses_search2",
+        user_id=test_user.id,
+        entry_type="pattern",
+        content="Always use Redis for caching",
+        confidence=0.8,
+    )
+    entry3 = KnowledgeEntry(
+        project_id=test_project.id,
+        session_id="ses_search3",
+        user_id=test_user.id,
+        entry_type="dependency",
+        content="Package installed: psycopg2",
+        confidence=0.9,
+    )
+    db_session.add_all([entry1, entry2, entry3])
+    await db_session.commit()
+
+    # Search for "PostgreSQL" — should match entry1
+    resp = await client.get(
+        f"/api/v1/projects/{test_project.id}/entries?search=PostgreSQL",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert "PostgreSQL" in data[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_search_entries_with_type_filter(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession,
+    test_user: User, test_project: Project,
+):
+    """Test search with type filter narrows results."""
+    entry1 = KnowledgeEntry(
+        project_id=test_project.id,
+        session_id="ses_filter1",
+        user_id=test_user.id,
+        entry_type="decision",
+        content="Use FastAPI framework",
+        confidence=0.9,
+    )
+    entry2 = KnowledgeEntry(
+        project_id=test_project.id,
+        session_id="ses_filter2",
+        user_id=test_user.id,
+        entry_type="pattern",
+        content="FastAPI pattern for middleware",
+        confidence=0.8,
+    )
+    db_session.add_all([entry1, entry2])
+    await db_session.commit()
+
+    # Search "FastAPI" with type=decision — should only return entry1
+    resp = await client.get(
+        f"/api/v1/projects/{test_project.id}/entries?search=FastAPI&type=decision",
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["entry_type"] == "decision"
+
+
+@pytest.mark.asyncio
+async def test_compilation_creates_recent_changes_section(
+    db_session: AsyncSession, test_user: User, test_project: Project,
+):
+    """Test that simple compilation creates a Recent Changes section."""
+    entry = KnowledgeEntry(
+        project_id=test_project.id,
+        session_id="ses_recent1",
+        user_id=test_user.id,
+        entry_type="decision",
+        content="Switched from Flask to FastAPI",
+        confidence=0.9,
+    )
+    db_session.add(entry)
+    await db_session.commit()
+
+    from sessionfs.server.services.compiler import compile_project_context
+
+    compilation = await compile_project_context(
+        project_id=test_project.id,
+        user_id=test_user.id,
+        db=db_session,
+    )
+
+    assert compilation is not None
+    context_after = compilation.context_after
+    assert "## Recent Changes" in context_after
+    assert "## Key Decisions" in context_after
+    assert "Switched from Flask to FastAPI" in context_after

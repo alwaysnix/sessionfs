@@ -50,6 +50,13 @@ class CompileRequest(BaseModel):
     base_url: str | None = None
 
 
+class AddEntryRequest(BaseModel):
+    content: str
+    entry_type: str = "discovery"
+    session_id: str | None = None
+    confidence: float = 1.0
+
+
 class DismissRequest(BaseModel):
     dismissed: bool = True
 
@@ -62,14 +69,30 @@ class HealthResponse(BaseModel):
     dismissed_entries: int
     total_compilations: int
     last_compilation_at: datetime | None = None
+    word_count: int = 0
+    section_count: int = 0
+    last_compiled: datetime | None = None
+    potentially_stale: bool = False
 
 
-async def _get_project_or_404(project_id: str, db: AsyncSession) -> Project:
-    """Get project by ID or raise 404."""
+async def _get_project_or_404(project_id: str, db: AsyncSession, user_id: str | None = None) -> Project:
+    """Get project by ID, verify access, or raise 404/403."""
     result = await db.execute(select(Project).where(Project.id == project_id))
     project = result.scalar_one_or_none()
     if not project:
         raise HTTPException(404, "Project not found")
+
+    # Enforce access control if user_id provided
+    if user_id and project.owner_id != user_id:
+        from sessionfs.server.db.models import Session
+        access = await db.execute(
+            select(Session.id)
+            .where(Session.user_id == user_id, Session.git_remote_normalized == project.git_remote_normalized)
+            .limit(1)
+        )
+        if access.scalar_one_or_none() is None:
+            raise HTTPException(403, "No access to this project")
+
     return project
 
 
@@ -78,15 +101,18 @@ async def list_entries(
     project_id: str,
     type: str | None = Query(None, description="Filter by entry type"),
     pending: bool | None = Query(None, description="Filter by pending status"),
+    search: str | None = Query(None, description="Search content (case-insensitive substring)"),
     limit: int = Query(50, ge=1, le=200),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[KnowledgeEntryResponse]:
     """List knowledge entries for a project."""
-    await _get_project_or_404(project_id, db)
+    await _get_project_or_404(project_id, db, user.id)
 
     stmt = select(KnowledgeEntry).where(KnowledgeEntry.project_id == project_id)
 
+    if search is not None:
+        stmt = stmt.where(KnowledgeEntry.content.ilike(f"%{search}%"))
     if type is not None:
         stmt = stmt.where(KnowledgeEntry.entry_type == type)
     if pending is True:
@@ -119,6 +145,48 @@ async def list_entries(
     ]
 
 
+@router.post("/{project_id}/entries/add", response_model=KnowledgeEntryResponse, status_code=201)
+async def add_entry(
+    project_id: str,
+    body: AddEntryRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> KnowledgeEntryResponse:
+    """Create a single knowledge entry (used by MCP tools and external clients)."""
+    await _get_project_or_404(project_id, db, user.id)
+
+    valid_types = {"decision", "pattern", "discovery", "convention", "bug", "dependency"}
+    if body.entry_type not in valid_types:
+        from fastapi import HTTPException as _HTTPException
+        raise _HTTPException(422, f"Invalid entry_type. Must be one of: {', '.join(sorted(valid_types))}")
+
+    entry = KnowledgeEntry(
+        project_id=project_id,
+        session_id=body.session_id or "manual",
+        user_id=user.id,
+        entry_type=body.entry_type,
+        content=body.content,
+        confidence=body.confidence,
+    )
+    db.add(entry)
+    await db.commit()
+    await db.refresh(entry)
+
+    return KnowledgeEntryResponse(
+        id=entry.id,
+        project_id=entry.project_id,
+        session_id=entry.session_id,
+        user_id=entry.user_id,
+        entry_type=entry.entry_type,
+        content=entry.content,
+        confidence=entry.confidence,
+        source_context=entry.source_context,
+        created_at=entry.created_at,
+        compiled_at=entry.compiled_at,
+        dismissed=entry.dismissed,
+    )
+
+
 @router.put("/{project_id}/entries/{entry_id}", response_model=KnowledgeEntryResponse)
 async def dismiss_entry(
     project_id: str,
@@ -128,6 +196,8 @@ async def dismiss_entry(
     db: AsyncSession = Depends(get_db),
 ) -> KnowledgeEntryResponse:
     """Dismiss or un-dismiss a knowledge entry."""
+    await _get_project_or_404(project_id, db, user.id)
+
     result = await db.execute(
         select(KnowledgeEntry).where(
             KnowledgeEntry.id == entry_id,
@@ -165,9 +235,12 @@ async def compile_context(
     db: AsyncSession = Depends(get_db),
 ) -> CompilationResponse:
     """Compile pending knowledge entries into project context."""
-    await _get_project_or_404(project_id, db)
+    await _get_project_or_404(project_id, db, user.id)
 
-    from sessionfs.server.services.compiler import compile_project_context
+    from sessionfs.server.services.compiler import (
+        auto_generate_concepts,
+        compile_project_context,
+    )
 
     body = body or CompileRequest()
     compilation = await compile_project_context(
@@ -182,6 +255,20 @@ async def compile_context(
 
     if not compilation:
         raise HTTPException(404, "No pending entries to compile")
+
+    # Auto-generate concept pages after compilation
+    try:
+        await auto_generate_concepts(
+            project_id=project_id,
+            user_id=user.id,
+            db=db,
+            api_key=body.llm_api_key,
+            model=body.model or "claude-sonnet-4",
+            provider=body.provider,
+            base_url=body.base_url,
+        )
+    except Exception:
+        logger.warning("Concept auto-generation failed (non-fatal)", exc_info=True)
 
     return CompilationResponse(
         id=compilation.id,
@@ -202,7 +289,7 @@ async def list_compilations(
     db: AsyncSession = Depends(get_db),
 ) -> list[CompilationResponse]:
     """List compilation history for a project."""
-    await _get_project_or_404(project_id, db)
+    await _get_project_or_404(project_id, db, user.id)
 
     result = await db.execute(
         select(ContextCompilation)
@@ -233,7 +320,7 @@ async def project_health(
     db: AsyncSession = Depends(get_db),
 ) -> HealthResponse:
     """Get knowledge health status for a project."""
-    await _get_project_or_404(project_id, db)
+    await _get_project_or_404(project_id, db, user.id)
 
     # Total entries
     total_result = await db.execute(
@@ -287,6 +374,30 @@ async def project_health(
     )
     last_compilation_at = last_compilation_result.scalar_one_or_none()
 
+    # Context document analysis
+    project = await _get_project_or_404(project_id, db, user.id)
+    context_doc = project.context_document or ""
+    word_count = len(context_doc.split()) if context_doc.strip() else 0
+    section_count = sum(1 for line in context_doc.splitlines() if line.startswith("## "))
+
+    # Staleness detection: check if pending entries mention numbers/terms not in the doc
+    potentially_stale = False
+    if pending_entries > 0 and context_doc.strip():
+        pending_stmt = select(KnowledgeEntry.content).where(
+            KnowledgeEntry.project_id == project_id,
+            KnowledgeEntry.compiled_at.is_(None),
+            KnowledgeEntry.dismissed == False,  # noqa: E712
+        )
+        pending_result_entries = await db.execute(pending_stmt)
+        pending_contents = [row[0] for row in pending_result_entries.all()]
+        # Flag stale if any pending entry content is not found in the document
+        for content in pending_contents:
+            # Extract key terms (words longer than 4 chars) from entry
+            terms = [w for w in content.split() if len(w) > 4]
+            if terms and not any(term.lower() in context_doc.lower() for term in terms[:3]):
+                potentially_stale = True
+                break
+
     return HealthResponse(
         project_id=project_id,
         total_entries=total_entries,
@@ -295,4 +406,8 @@ async def project_health(
         dismissed_entries=dismissed_entries,
         total_compilations=total_compilations,
         last_compilation_at=last_compilation_at,
+        word_count=word_count,
+        section_count=section_count,
+        last_compiled=last_compilation_at,
+        potentially_stale=potentially_stale,
     )

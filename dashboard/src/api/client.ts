@@ -229,6 +229,26 @@ export interface CreateLicenseRequest {
   notes?: string;
 }
 
+export interface WikiPage {
+  id: string;
+  slug: string;
+  title: string;
+  page_type: string;
+  content: string;
+  word_count: number;
+  entry_count: number;
+  auto_generated: boolean;
+  updated_at: string;
+}
+
+export interface WikiPageDetail extends WikiPage {
+  backlinks?: { source_type: string; source_id: string; link_type: string; confidence: number }[];
+}
+
+export interface WikiPageListResponse {
+  pages: WikiPage[];
+}
+
 export interface ProjectContext {
   id: string;
   name: string;
@@ -237,6 +257,8 @@ export interface ProjectContext {
   owner_id: string;
   created_at: string;
   updated_at: string;
+  session_count?: number;
+  auto_narrative?: boolean;
 }
 
 export interface KnowledgeEntry {
@@ -703,17 +725,22 @@ export function createApiClient(baseUrl: string, apiKey: string) {
       }),
 
     // Knowledge entries
-    listKnowledgeEntries: (
+    listKnowledgeEntries: async (
       projectId: string,
       params: { pending?: boolean; type?: string; limit?: number } = {},
-    ) => {
+    ): Promise<KnowledgeEntryListResponse> => {
       const sp = new URLSearchParams();
       if (params.pending) sp.set('pending', 'true');
       if (params.type) sp.set('type', params.type);
       if (params.limit) sp.set('limit', String(params.limit));
-      return request<KnowledgeEntryListResponse>(
+      const resp = await request<KnowledgeEntryListResponse | KnowledgeEntry[]>(
         `/api/v1/projects/${projectId}/entries?${sp}`,
       );
+      // Server returns bare list; normalize to wrapper shape
+      if (Array.isArray(resp)) {
+        return { entries: resp, total: resp.length };
+      }
+      return resp;
     },
 
     dismissEntry: (projectId: string, entryId: number) =>
@@ -728,13 +755,57 @@ export function createApiClient(baseUrl: string, apiKey: string) {
         { method: 'POST' },
       ),
 
-    listCompilations: (projectId: string) =>
-      request<{ compilations: ContextCompilation[] }>(
+    listCompilations: async (projectId: string): Promise<{ compilations: ContextCompilation[] }> => {
+      const resp = await request<{ compilations: ContextCompilation[] } | ContextCompilation[]>(
         `/api/v1/projects/${projectId}/compilations`,
-      ),
+      );
+      // Server returns bare list; normalize to wrapper shape
+      if (Array.isArray(resp)) {
+        return { compilations: resp };
+      }
+      return resp;
+    },
 
     getProjectHealth: (projectId: string) =>
       request<ProjectHealthResponse>(`/api/v1/projects/${projectId}/health`),
+
+    // Wiki pages
+    listWikiPages: async (projectId: string): Promise<WikiPageListResponse> => {
+      const resp = await request<WikiPageListResponse | WikiPage[]>(
+        `/api/v1/projects/${projectId}/pages`,
+      );
+      // Server returns bare list; normalize to wrapper shape
+      if (Array.isArray(resp)) {
+        return { pages: resp };
+      }
+      return resp;
+    },
+
+    getWikiPage: (projectId: string, slug: string) =>
+      request<WikiPageDetail>(`/api/v1/projects/${projectId}/pages/${encodeURIComponent(slug)}`),
+
+    updateWikiPage: (projectId: string, slug: string, content: string, title?: string) =>
+      request<WikiPage>(`/api/v1/projects/${projectId}/pages/${encodeURIComponent(slug)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ content, ...(title ? { title } : {}) }),
+      }),
+
+    deleteWikiPage: (projectId: string, slug: string) =>
+      request<void>(`/api/v1/projects/${projectId}/pages/${encodeURIComponent(slug)}`, {
+        method: 'DELETE',
+      }),
+
+    regenerateWikiPage: (projectId: string, slug: string) =>
+      request<{ status: string; slug: string; word_count: number; entries_used: number }>(
+        `/api/v1/projects/${projectId}/pages/${encodeURIComponent(slug)}/regenerate`,
+        { method: 'POST' },
+      ),
+
+    updateProjectSettings: (projectId: string, settings: { auto_narrative?: boolean }) =>
+      request<{ status: string }>(`/api/v1/projects/${projectId}/settings`, {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      }),
   };
 }
 

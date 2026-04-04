@@ -86,7 +86,9 @@ function groupByLineage(sessions: SessionSummary[]): LineageGroup[] {
 function findDuplicateGroups(sessions: SessionSummary[]): Map<string, SessionSummary[]> {
   const groups = new Map<string, SessionSummary[]>();
   for (const s of sessions) {
-    const key = `${s.title || ''}:${s.message_count}:${s.source_tool}`;
+    // Strong key: title + message_count + source_tool + etag (content hash)
+    // etag is the SHA-256 of the session archive — identical content = identical etag
+    const key = `${s.title || ''}:${s.message_count}:${s.source_tool}:${(s as any).etag || ''}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(s);
   }
@@ -148,12 +150,23 @@ export default function SessionList() {
   async function handleBulkDelete() {
     if (!confirm(`Delete ${selectedIds.size} session(s)? This cannot be undone.`)) return;
 
-    const promises = Array.from(selectedIds).map(id =>
-      auth!.client.deleteSession(id).catch(() => null)
+    const results = await Promise.all(
+      Array.from(selectedIds).map(id =>
+        auth!.client.deleteSession(id).then(() => true).catch(() => false)
+      )
     );
-    await Promise.all(promises);
 
-    addToast('success', `${selectedIds.size} session(s) deleted`);
+    const succeeded = results.filter(Boolean).length;
+    const failed = results.length - succeeded;
+
+    if (failed === 0) {
+      addToast('success', `${succeeded} session(s) deleted`);
+    } else if (succeeded === 0) {
+      addToast('error', `Failed to delete ${failed} session(s)`);
+    } else {
+      addToast('warning', `${succeeded} deleted, ${failed} failed`);
+    }
+
     clearSelection();
     queryClient.invalidateQueries({ queryKey: ['sessions'] });
   }
@@ -254,15 +267,10 @@ export default function SessionList() {
     )[0];
   }, [data]);
 
-  // "Bookmarked" nav: when selected, show sessions from all folders
-  // by cycling through folders and collecting their session IDs
-  // For now, select the first folder — a proper "all bookmarked" API endpoint
-  // would be needed for a complete implementation
+  // Clear folder selection when switching to "all"
   useEffect(() => {
-    if (navFilter === 'bookmarked' && !selectedFolderId && allFolders.length) {
-      setSelectedFolderId(allFolders[0].id);
-    }
-  }, [navFilter, selectedFolderId, allFolders]);
+    if (navFilter === 'all') setSelectedFolderId(null);
+  }, [navFilter]);
 
   // Auto-expand group if the most recent session is a child
   useEffect(() => {
@@ -299,7 +307,10 @@ export default function SessionList() {
   }, [filteredSessions]);
 
   const hasMore = selectedFolderId ? false : (data?.has_more ?? false);
+  // totalSessions for analytics = current view count
   const totalSessions = selectedFolderId ? (folderSessionsData?.total ?? 0) : (data?.total ?? 0);
+  // allSessionsCount for sidebar "All Sessions" label = always the real total from API
+  const allSessionsCount = data?.total ?? 0;
 
   // Insights strip data
   const insights = useMemo(() => {
@@ -360,7 +371,7 @@ export default function SessionList() {
       <BookmarkSidebar
         selectedFilter={navFilter}
         onSelectFilter={(f) => { setNavFilter(f); setPage(1); }}
-        totalCount={totalSessions}
+        totalCount={allSessionsCount}
         bookmarkedCount={totalBookmarked}
         inRepoCount={0}
         inRepoLabel={null}
@@ -374,7 +385,7 @@ export default function SessionList() {
         <MobileNavChips
           selectedFilter={navFilter}
           onSelectFilter={(f) => { setNavFilter(f); setPage(1); }}
-          totalCount={totalSessions}
+          totalCount={allSessionsCount}
           bookmarkedCount={totalBookmarked}
           inRepoCount={0}
           inRepoLabel={null}
@@ -404,7 +415,7 @@ export default function SessionList() {
                     style={{ backgroundColor: TOOL_COLORS[mostRecent.source_tool] || '#6B7280' }}
                   />
                   <span>{fullToolName(mostRecent.source_tool)}</span>
-                  {mostRecent.model_id && (
+                  {mostRecent.model_id && mostRecent.model_id !== '<synthetic>' && (
                     <>
                       <span className="opacity-40">&middot;</span>
                       <span>{abbreviateModel(mostRecent.model_id)}</span>
@@ -413,8 +424,12 @@ export default function SessionList() {
                 </div>
                 <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)] mb-4">
                   <span className="tabular-nums">{mostRecent.message_count} msgs</span>
-                  <span className="opacity-40">&middot;</span>
-                  <span className="tabular-nums">{formatTokens(mostRecent.total_input_tokens + mostRecent.total_output_tokens)} tokens</span>
+                  {(mostRecent.total_input_tokens + mostRecent.total_output_tokens) > 0 && (
+                    <>
+                      <span className="opacity-40">&middot;</span>
+                      <span className="tabular-nums">{formatTokens(mostRecent.total_input_tokens + mostRecent.total_output_tokens)} tokens</span>
+                    </>
+                  )}
                   <span className="opacity-40">&middot;</span>
                   <RelativeDate iso={mostRecent.updated_at} />
                 </div>
@@ -597,9 +612,9 @@ export default function SessionList() {
         {/* ── Session list with date grouping ── */}
         {!isLoading && filteredSessions.length > 0 && (
           <>
-            <DateGroup label="Today" sessions={grouped.today} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} isFirst selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
-            <DateGroup label="This Week" sessions={grouped.thisWeek} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
-            <DateGroup label="Earlier" sessions={grouped.earlier} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} />
+            <DateGroup label="Today" sessions={grouped.today} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} isFirst selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} isInFolder={!!selectedFolderId} />
+            <DateGroup label="This Week" sessions={grouped.thisWeek} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} isInFolder={!!selectedFolderId} />
+            <DateGroup label="Earlier" sessions={grouped.earlier} onRowClick={handleRowClick} onRowKeyDown={handleRowKeyDown} onResume={handleResume} expandedGroups={expandedGroups} onToggleGroup={toggleGroup} selectMode={selectMode} selectedIds={selectedIds} onToggleSelect={toggleSelect} isInFolder={!!selectedFolderId} />
 
             {/* Pagination */}
             <div className="flex items-center justify-between mt-4 text-sm text-[var(--text-tertiary)]">
@@ -687,6 +702,7 @@ function DateGroup({
   expandedGroups,
   onToggleGroup,
   isFirst,
+  isInFolder,
   selectMode,
   selectedIds,
   onToggleSelect,
@@ -699,6 +715,7 @@ function DateGroup({
   expandedGroups: Set<string>;
   onToggleGroup: (rootId: string) => void;
   isFirst?: boolean;
+  isInFolder?: boolean;
   selectMode: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -744,6 +761,7 @@ function DateGroup({
                 onResume={() => onResume(group.root)}
                 onNavigate={hasChildren ? () => onRowClick(group.root.id) : undefined}
                 hasChildren={hasChildren}
+                isBookmarked={!!isInFolder}
                 selectMode={selectMode}
                 selected={selectedIds.has(group.root.id)}
                 onToggleSelect={() => onToggleSelect(group.root.id)}
@@ -783,6 +801,7 @@ function DateGroup({
                       }}
                       onResume={() => onResume(child)}
                       isChild
+                      isBookmarked={!!isInFolder}
                       selectMode={selectMode}
                       selected={selectedIds.has(child.id)}
                       onToggleSelect={() => onToggleSelect(child.id)}
@@ -809,6 +828,7 @@ function SessionRow({
   lineageBadge,
   isChild,
   hasChildren,
+  isBookmarked,
   selectMode,
   selected,
   onToggleSelect,
@@ -821,6 +841,7 @@ function SessionRow({
   lineageBadge?: React.ReactNode;
   isChild?: boolean;
   hasChildren?: boolean;
+  isBookmarked?: boolean;
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -878,7 +899,7 @@ function SessionRow({
             <RelativeDate iso={s.updated_at} />
           </span>
           <div onClick={(e) => e.stopPropagation()}>
-            <BookmarkDropdown sessionId={s.id} />
+            <BookmarkDropdown sessionId={s.id} isBookmarked={isBookmarked} />
           </div>
         </div>
       </div>
@@ -893,13 +914,13 @@ function SessionRow({
         <span className="font-mono">{s.id.slice(0, 12)}</span>
         <span className="opacity-40">&middot;</span>
         <span className="tabular-nums">{s.message_count} msgs</span>
-        {!isChild && (
+        {!isChild && (s.total_input_tokens + s.total_output_tokens) > 0 && (
           <>
             <span className="opacity-40">&middot;</span>
             <span className="tabular-nums">{formatTokens(s.total_input_tokens + s.total_output_tokens)}</span>
           </>
         )}
-        {s.model_id && (
+        {s.model_id && s.model_id !== '<synthetic>' && (
           <>
             <span className="opacity-40">&middot;</span>
             <span>{abbreviateModel(s.model_id)}</span>
@@ -912,15 +933,20 @@ function SessionRow({
 
 /* ── Bookmark dropdown (unchanged logic) ── */
 
-function BookmarkDropdown({ sessionId }: { sessionId: string }) {
+function BookmarkDropdown({ sessionId, isBookmarked: initialBookmarked }: { sessionId: string; isBookmarked?: boolean }) {
   const [open, setOpen] = useState(false);
   const [popping, setPopping] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(initialBookmarked ?? false);
   const ref = useRef<HTMLDivElement>(null);
   const { data: foldersData } = useFolders();
   const addBookmark = useAddBookmark();
 
   const folders = foldersData?.folders ?? [];
+
+  // Update when prop changes
+  useEffect(() => {
+    if (initialBookmarked !== undefined) setBookmarked(initialBookmarked);
+  }, [initialBookmarked]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
