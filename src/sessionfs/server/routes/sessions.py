@@ -1185,7 +1185,19 @@ async def get_session_messages(
         raise HTTPException(status_code=404, detail="Session blob not found")
 
     content = _get_cached_archive_content(session_id, session.etag, data)
-    messages = content["messages"]
+    all_messages = content["messages"]
+
+    # Filter out sidechain and empty messages — they render as blank pages
+    messages = [
+        m for m in all_messages
+        if not m.get("is_sidechain")
+        and (m.get("content") or m.get("role") == "tool")
+    ]
+
+    # Support order parameter: "newest" reverses so most recent is page 1
+    order = request.query_params.get("order", "oldest") if request else "oldest"
+    if order == "newest":
+        messages = list(reversed(messages))
 
     total = len(messages)
     start = (page - 1) * page_size

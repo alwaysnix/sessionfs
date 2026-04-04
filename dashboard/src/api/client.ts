@@ -338,9 +338,9 @@ export function createApiClient(baseUrl: string, apiKey: string) {
     deleteSession: (id: string) =>
       request<void>(`/api/v1/sessions/${id}`, { method: 'DELETE' }),
 
-    getMessages: (id: string, page = 1, pageSize = 50) =>
+    getMessages: (id: string, page = 1, pageSize = 50, order: 'oldest' | 'newest' = 'oldest') =>
       request<MessagesResponse>(
-        `/api/v1/sessions/${id}/messages?page=${page}&page_size=${pageSize}`,
+        `/api/v1/sessions/${id}/messages?page=${page}&page_size=${pageSize}&order=${order}`,
       ),
 
     search: (params: URLSearchParams) =>
