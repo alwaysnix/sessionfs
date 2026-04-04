@@ -34,6 +34,7 @@ class PageSummary(BaseModel):
     word_count: int
     entry_count: int
     auto_generated: bool
+    updated_at: datetime
 
 
 class BacklinkItem(BaseModel):
@@ -122,6 +123,7 @@ async def list_pages(
             word_count=p.word_count,
             entry_count=p.entry_count,
             auto_generated=p.auto_generated,
+            updated_at=p.updated_at,
         )
         for p in pages
     ]

@@ -242,7 +242,7 @@ export interface WikiPage {
 }
 
 export interface WikiPageDetail extends WikiPage {
-  backlinks?: { slug: string; title: string }[];
+  backlinks?: { source_type: string; source_id: string; link_type: string; confidence: number }[];
 }
 
 export interface WikiPageListResponse {
@@ -258,6 +258,7 @@ export interface ProjectContext {
   created_at: string;
   updated_at: string;
   session_count?: number;
+  auto_narrative?: boolean;
 }
 
 export interface KnowledgeEntry {
@@ -724,17 +725,22 @@ export function createApiClient(baseUrl: string, apiKey: string) {
       }),
 
     // Knowledge entries
-    listKnowledgeEntries: (
+    listKnowledgeEntries: async (
       projectId: string,
       params: { pending?: boolean; type?: string; limit?: number } = {},
-    ) => {
+    ): Promise<KnowledgeEntryListResponse> => {
       const sp = new URLSearchParams();
       if (params.pending) sp.set('pending', 'true');
       if (params.type) sp.set('type', params.type);
       if (params.limit) sp.set('limit', String(params.limit));
-      return request<KnowledgeEntryListResponse>(
+      const resp = await request<KnowledgeEntryListResponse | KnowledgeEntry[]>(
         `/api/v1/projects/${projectId}/entries?${sp}`,
       );
+      // Server returns bare list; normalize to wrapper shape
+      if (Array.isArray(resp)) {
+        return { entries: resp, total: resp.length };
+      }
+      return resp;
     },
 
     dismissEntry: (projectId: string, entryId: number) =>
@@ -749,17 +755,31 @@ export function createApiClient(baseUrl: string, apiKey: string) {
         { method: 'POST' },
       ),
 
-    listCompilations: (projectId: string) =>
-      request<{ compilations: ContextCompilation[] }>(
+    listCompilations: async (projectId: string): Promise<{ compilations: ContextCompilation[] }> => {
+      const resp = await request<{ compilations: ContextCompilation[] } | ContextCompilation[]>(
         `/api/v1/projects/${projectId}/compilations`,
-      ),
+      );
+      // Server returns bare list; normalize to wrapper shape
+      if (Array.isArray(resp)) {
+        return { compilations: resp };
+      }
+      return resp;
+    },
 
     getProjectHealth: (projectId: string) =>
       request<ProjectHealthResponse>(`/api/v1/projects/${projectId}/health`),
 
     // Wiki pages
-    listWikiPages: (projectId: string) =>
-      request<WikiPageListResponse>(`/api/v1/projects/${projectId}/pages`),
+    listWikiPages: async (projectId: string): Promise<WikiPageListResponse> => {
+      const resp = await request<WikiPageListResponse | WikiPage[]>(
+        `/api/v1/projects/${projectId}/pages`,
+      );
+      // Server returns bare list; normalize to wrapper shape
+      if (Array.isArray(resp)) {
+        return { pages: resp };
+      }
+      return resp;
+    },
 
     getWikiPage: (projectId: string, slug: string) =>
       request<WikiPageDetail>(`/api/v1/projects/${projectId}/pages/${encodeURIComponent(slug)}`),

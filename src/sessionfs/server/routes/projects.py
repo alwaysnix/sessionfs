@@ -58,6 +58,7 @@ class ProjectResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     session_count: int = 0
+    auto_narrative: bool = False
 
 
 async def _check_repo_access(db: AsyncSession, user_id: str, git_remote: str) -> bool:
@@ -128,6 +129,7 @@ async def list_projects(
             created_at=p.created_at,
             updated_at=p.updated_at,
             session_count=session_counts.get(p.git_remote_normalized, 0),
+            auto_narrative=getattr(p, "auto_narrative", False),
         )
         for p in projects
     ]
@@ -168,6 +170,7 @@ async def create_project(
         owner_id=project.owner_id,
         created_at=project.created_at,
         updated_at=project.updated_at,
+        auto_narrative=getattr(project, "auto_narrative", False),
     )
 
 
@@ -202,6 +205,7 @@ async def get_project(
         owner_id=project.owner_id,
         created_at=project.created_at,
         updated_at=project.updated_at,
+        auto_narrative=getattr(project, "auto_narrative", False),
     )
 
 

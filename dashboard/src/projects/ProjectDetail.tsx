@@ -415,7 +415,7 @@ function PagesTab({ projectId }: { projectId: string }) {
                     ) : (
                       <>
                         <div className="prose prose-sm dark:prose-invert max-w-none text-[var(--text-secondary)]">
-                          <ReactMarkdown>{pageDetail?.content || page.content}</ReactMarkdown>
+                          <ReactMarkdown>{pageDetail?.content ?? page.content ?? ''}</ReactMarkdown>
                         </div>
 
                         {/* Backlinks */}
@@ -423,14 +423,15 @@ function PagesTab({ projectId }: { projectId: string }) {
                           <div className="mt-4 pt-3 border-t border-[var(--border)]">
                             <span className="text-xs font-medium text-[var(--text-tertiary)]">Backlinks:</span>
                             <div className="flex flex-wrap gap-2 mt-1">
-                              {pageDetail.backlinks.map((bl) => (
-                                <button
-                                  key={bl.slug}
-                                  onClick={() => setSelectedSlug(bl.slug)}
-                                  className="text-xs text-[var(--brand)] hover:underline"
+                              {pageDetail.backlinks.map((bl, idx) => (
+                                <span
+                                  key={`${bl.source_type}-${bl.source_id}-${idx}`}
+                                  className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-secondary)]"
                                 >
-                                  {bl.title || bl.slug}
-                                </button>
+                                  <span className="text-[var(--text-tertiary)]">[{bl.source_type}]</span>
+                                  <span className="font-mono">{bl.source_id.length > 20 ? bl.source_id.slice(0, 20) + '..' : bl.source_id}</span>
+                                  <span className="text-[var(--text-tertiary)]">({bl.link_type})</span>
+                                </span>
                               ))}
                             </div>
                           </div>
@@ -439,7 +440,7 @@ function PagesTab({ projectId }: { projectId: string }) {
                         {/* Actions */}
                         <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[var(--border)]">
                           <button
-                            onClick={() => { setEditingSlug(page.slug); setEditDraft(pageDetail?.content || page.content); }}
+                            onClick={() => { setEditingSlug(page.slug); setEditDraft(pageDetail?.content ?? page.content ?? ''); }}
                             className="text-xs text-[var(--brand)] hover:underline"
                           >
                             Edit
@@ -541,8 +542,15 @@ export default function ProjectDetail() {
   const [draft, setDraft] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [autoNarrative, setAutoNarrative] = useState(false);
+  const [autoNarrative, setAutoNarrative] = useState(project?.auto_narrative ?? false);
   const updateSettings = useUpdateProjectSettings(project?.id);
+
+  // Sync auto_narrative state when project data loads
+  useEffect(() => {
+    if (project) {
+      setAutoNarrative(project.auto_narrative ?? false);
+    }
+  }, [project]);
 
   // Enter edit mode if ?edit=1
   useEffect(() => {
