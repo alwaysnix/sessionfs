@@ -62,6 +62,10 @@ class HealthResponse(BaseModel):
     dismissed_entries: int
     total_compilations: int
     last_compilation_at: datetime | None = None
+    word_count: int = 0
+    section_count: int = 0
+    last_compiled: datetime | None = None
+    potentially_stale: bool = False
 
 
 async def _get_project_or_404(project_id: str, db: AsyncSession) -> Project:
@@ -78,6 +82,7 @@ async def list_entries(
     project_id: str,
     type: str | None = Query(None, description="Filter by entry type"),
     pending: bool | None = Query(None, description="Filter by pending status"),
+    search: str | None = Query(None, description="Search content (case-insensitive substring)"),
     limit: int = Query(50, ge=1, le=200),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -87,6 +92,8 @@ async def list_entries(
 
     stmt = select(KnowledgeEntry).where(KnowledgeEntry.project_id == project_id)
 
+    if search is not None:
+        stmt = stmt.where(KnowledgeEntry.content.ilike(f"%{search}%"))
     if type is not None:
         stmt = stmt.where(KnowledgeEntry.entry_type == type)
     if pending is True:
@@ -287,6 +294,30 @@ async def project_health(
     )
     last_compilation_at = last_compilation_result.scalar_one_or_none()
 
+    # Context document analysis
+    project = await _get_project_or_404(project_id, db)
+    context_doc = project.context_document or ""
+    word_count = len(context_doc.split()) if context_doc.strip() else 0
+    section_count = sum(1 for line in context_doc.splitlines() if line.startswith("## "))
+
+    # Staleness detection: check if pending entries mention numbers/terms not in the doc
+    potentially_stale = False
+    if pending_entries > 0 and context_doc.strip():
+        pending_stmt = select(KnowledgeEntry.content).where(
+            KnowledgeEntry.project_id == project_id,
+            KnowledgeEntry.compiled_at.is_(None),
+            KnowledgeEntry.dismissed == False,  # noqa: E712
+        )
+        pending_result_entries = await db.execute(pending_stmt)
+        pending_contents = [row[0] for row in pending_result_entries.all()]
+        # Flag stale if any pending entry content is not found in the document
+        for content in pending_contents:
+            # Extract key terms (words longer than 4 chars) from entry
+            terms = [w for w in content.split() if len(w) > 4]
+            if terms and not any(term.lower() in context_doc.lower() for term in terms[:3]):
+                potentially_stale = True
+                break
+
     return HealthResponse(
         project_id=project_id,
         total_entries=total_entries,
@@ -295,4 +326,8 @@ async def project_health(
         dismissed_entries=dismissed_entries,
         total_compilations=total_compilations,
         last_compilation_at=last_compilation_at,
+        word_count=word_count,
+        section_count=section_count,
+        last_compiled=last_compilation_at,
+        potentially_stale=potentially_stale,
     )

@@ -205,6 +205,42 @@ _TOOLS = [
             "required": ["session_id"],
         },
     ),
+    Tool(
+        name="search_project_knowledge",
+        description=(
+            "Search the project knowledge base for specific information. "
+            "Returns matching knowledge entries filtered by query and type."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "What to search for"},
+                "entry_type": {
+                    "type": "string",
+                    "description": "Filter: decision, pattern, discovery, convention, bug, dependency",
+                },
+                "limit": {"type": "number", "description": "Max results (default 10)"},
+            },
+            "required": ["query"],
+        },
+    ),
+    Tool(
+        name="ask_project",
+        description=(
+            "Ask a question about the project. Researches the knowledge base "
+            "and session history to provide an answer."
+        ),
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "Question about the project",
+                },
+            },
+            "required": ["question"],
+        },
+    ),
 ]
 
 
@@ -231,6 +267,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             result = _handle_get_summary(arguments)
         elif name == "get_audit_report":
             result = _handle_get_audit(arguments)
+        elif name == "search_project_knowledge":
+            result = await _handle_search_knowledge(arguments)
+            return [TextContent(type="text", text=result if isinstance(result, str) else json.dumps(result, indent=2, default=str))]
+        elif name == "ask_project":
+            result = await _handle_ask_project(arguments)
+            return [TextContent(type="text", text=result if isinstance(result, str) else json.dumps(result, indent=2, default=str))]
         else:
             result = {"error": f"Unknown tool: {name}"}
     except Exception as exc:
@@ -536,6 +578,155 @@ def _handle_get_audit(args: dict) -> dict[str, Any]:
     )
 
     return data
+
+
+async def _handle_search_knowledge(args: dict) -> str:
+    """Search project knowledge entries via cloud API."""
+    import subprocess
+
+    query = args.get("query", "")
+    entry_type = args.get("entry_type")
+    limit = int(args.get("limit", 10))
+
+    # Detect git remote
+    git_remote = ""
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            git_remote = result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    if not git_remote:
+        return "No git repository detected. Cannot search knowledge base."
+
+    from sessionfs.server.github_app import normalize_git_remote
+    normalized = normalize_git_remote(git_remote)
+    if not normalized:
+        return "Could not parse git remote URL."
+
+    try:
+        from sessionfs.daemon.config import load_config
+        config = load_config()
+        if not config.sync.api_key:
+            return "Not authenticated with SessionFS cloud. Run 'sfs auth login' first."
+
+        import httpx
+
+        # First get project ID
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                f"{config.sync.api_url.rstrip('/')}/api/v1/projects/{normalized}",
+                headers={"Authorization": f"Bearer {config.sync.api_key}"},
+            )
+        if resp.status_code == 404:
+            return f"No project found for {normalized}."
+        if resp.status_code >= 400:
+            return f"Error fetching project: {resp.status_code}"
+
+        project_data = resp.json()
+        project_id = project_data.get("id", "")
+
+        # Search entries
+        params = f"?search={query}&limit={limit}"
+        if entry_type:
+            params += f"&type={entry_type}"
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(
+                f"{config.sync.api_url.rstrip('/')}/api/v1/projects/{project_id}/entries{params}",
+                headers={"Authorization": f"Bearer {config.sync.api_key}"},
+            )
+        if resp.status_code >= 400:
+            return f"Error searching entries: {resp.status_code}"
+
+        entries = resp.json()
+        if not entries:
+            return f"No knowledge entries found matching '{query}'."
+
+        # Format as readable markdown
+        type_badges = {
+            "decision": "\U0001f3af",
+            "pattern": "\U0001f504",
+            "discovery": "\U0001f50d",
+            "convention": "\U0001f4cf",
+            "bug": "\U0001f41b",
+            "dependency": "\U0001f4e6",
+        }
+
+        lines = [f"# Knowledge Search: \"{query}\"", f"_{len(entries)} result(s)_\n"]
+        for e in entries:
+            etype = e.get("entry_type", "unknown")
+            badge = type_badges.get(etype, "\u2022")
+            confidence = e.get("confidence", 0)
+            created = e.get("created_at", "")[:10]
+            session_id = e.get("session_id", "unknown")
+
+            lines.append(f"### {badge} [{etype.upper()}] (confidence: {confidence:.0%})")
+            lines.append(f"{e.get('content', '')}")
+            lines.append(f"_Source session: {session_id} | {created}_\n")
+
+        return "\n".join(lines)
+
+    except Exception as exc:
+        logger.warning("Knowledge search failed: %s", exc)
+        return f"Knowledge search failed: {exc}"
+
+
+async def _handle_ask_project(args: dict) -> str:
+    """Research a question using project context and knowledge entries."""
+    question = args.get("question", "")
+    if not question:
+        return "Please provide a question."
+
+    # Get project context
+    context_result = await _handle_get_project_context({})
+    if not isinstance(context_result, str):
+        context_result = json.dumps(context_result, indent=2, default=str)
+
+    # Search knowledge entries for the question
+    search_result = await _handle_search_knowledge({"query": question, "limit": 15})
+    if not isinstance(search_result, str):
+        search_result = json.dumps(search_result, indent=2, default=str)
+
+    # Search local sessions for additional context
+    local_results = ""
+    try:
+        search = _get_search()
+        hits = search.search(question, limit=5)
+        if hits:
+            local_lines = ["\n## Related Local Sessions"]
+            for hit in hits:
+                sid = hit.get("session_id", "")
+                title = hit.get("title", "Untitled")
+                tool = hit.get("source_tool", "")
+                local_lines.append(f"- **{title}** ({tool}) — `{sid}`")
+            local_results = "\n".join(local_lines)
+    except RuntimeError:
+        pass  # Search index not available
+
+    # Assemble research material
+    lines = [
+        f"# Research: {question}\n",
+        "## Project Context",
+        context_result,
+        "\n## Knowledge Base Matches",
+        search_result,
+    ]
+
+    if local_results:
+        lines.append(local_results)
+
+    lines.append(
+        "\n---\n"
+        "*This is research material gathered from the project knowledge base "
+        "and session history. Check the referenced sessions for more detail.*"
+    )
+
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------

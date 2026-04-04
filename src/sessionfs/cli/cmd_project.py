@@ -426,6 +426,99 @@ def project_health() -> None:
         console.print(f"[bold]Health Score:[/bold] [{color}]{score}%[/{color}]")
 
 
+@project_app.command("ask")
+def ask_project(
+    question: str = typer.Argument(help="Question about the project"),
+) -> None:
+    """Ask a question about the project using the knowledge base."""
+    from rich.markdown import Markdown
+    from rich.panel import Panel
+
+    git_remote = _get_git_remote()
+    if not git_remote:
+        err_console.print("[red]Not a git repository.[/red]")
+        raise typer.Exit(1)
+
+    normalized = _normalize_remote(git_remote)
+    api_url, api_key = _get_project_client()
+
+    # 1. Get project context
+    result = asyncio.run(_api_request("GET", f"/api/v1/projects/{normalized}", api_url, api_key))
+    if result.get("_status") == 404:
+        err_console.print("[yellow]No project context found. Run 'sfs project init' first.[/yellow]")
+        raise typer.Exit(1)
+
+    project_id = result["id"]
+    context_doc = result.get("context_document", "")
+
+    # 2. Search knowledge entries for the question
+    search_params = f"?search={question}&limit=10"
+    entries_result = asyncio.run(_api_request(
+        "GET", f"/api/v1/projects/{project_id}/entries{search_params}",
+        api_url, api_key,
+    ))
+
+    entries = entries_result if isinstance(entries_result, list) else entries_result.get("entries", [])
+
+    # 3. Format context
+    console.print(Panel(f"[bold]Question:[/bold] {question}", border_style="blue"))
+    console.print()
+
+    if context_doc.strip():
+        console.print("[bold]Project Context (excerpt):[/bold]")
+        # Show first 500 chars of context
+        excerpt = context_doc[:500]
+        if len(context_doc) > 500:
+            excerpt += "..."
+        console.print(Markdown(excerpt))
+        console.print()
+
+    # 4. Show matching entries
+    if entries:
+        type_colors = {
+            "decision": "green", "pattern": "blue", "discovery": "magenta",
+            "convention": "cyan", "bug": "red", "dependency": "yellow",
+        }
+        console.print(f"[bold]Matching Knowledge Entries ({len(entries)}):[/bold]")
+        for entry in entries:
+            etype = entry.get("entry_type", "unknown")
+            color = type_colors.get(etype, "white")
+            confidence = entry.get("confidence", 0)
+            session_id = entry.get("session_id", "")
+            created = entry.get("created_at", "")[:10]
+            unverified = " (unverified)" if confidence < 0.5 else ""
+            console.print(
+                f"  [{color}][{etype}][/{color}]{unverified} {entry.get('content', '')}"
+            )
+            console.print(f"    [dim]Session: {session_id} | {created} | confidence: {confidence:.0%}[/dim]")
+        console.print()
+
+        # 5. Show relevant session links
+        session_ids = list({e.get("session_id", "") for e in entries if e.get("session_id")})
+        if session_ids:
+            console.print("[bold]Related Sessions:[/bold]")
+            for sid in session_ids[:5]:
+                console.print(f"  sfs show {sid}")
+            console.print()
+    else:
+        console.print("[dim]No matching knowledge entries found.[/dim]")
+        console.print()
+
+    # 6. Optionally save as a discovery entry
+    if typer.confirm("Save this question as a discovery entry?", default=False):
+        asyncio.run(_api_request(
+            "POST", f"/api/v1/projects/{project_id}/entries",
+            api_url, api_key,
+            json_data={
+                "entry_type": "discovery",
+                "content": f"Question researched: {question}",
+                "session_id": "cli",
+                "confidence": 0.5,
+            },
+        ))
+        console.print("[green]Saved as discovery entry.[/green]")
+
+
 @project_app.command("dismiss")
 def project_dismiss(
     entry_id: int = typer.Argument(help="Entry ID to dismiss"),

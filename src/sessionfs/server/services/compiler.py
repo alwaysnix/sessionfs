@@ -16,6 +16,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("sessionfs.compiler")
 
+SECTION_MAP = {
+    "decision": "## Key Decisions",
+    "pattern": "## Patterns & Conventions",
+    "discovery": "## Discoveries",
+    "convention": "## Coding Conventions",
+    "bug": "## Known Issues & Workarounds",
+    "dependency": "## Dependencies & Integrations",
+}
+
 _COMPILE_SYSTEM_PROMPT = """\
 You are a project context compiler. Given the current project context document \
 and a set of new knowledge entries grouped by type, produce an updated context \
@@ -94,7 +103,7 @@ async def compile_project_context(
 
     if not api_key:
         # Without an API key, do a simple append-based compilation
-        context_after = _simple_compile(context_before, grouped)
+        context_after = _simple_compile(context_before, grouped, entries=pending)
     else:
         from sessionfs.judge.providers import call_llm
 
@@ -111,7 +120,7 @@ async def compile_project_context(
             context_after = context_after.strip()
         except Exception:
             logger.warning("LLM compilation failed, falling back to simple compile", exc_info=True)
-            context_after = _simple_compile(context_before, grouped)
+            context_after = _simple_compile(context_before, grouped, entries=pending)
 
     # 5. Save updated context
     now = datetime.now(timezone.utc)
@@ -144,13 +153,53 @@ async def compile_project_context(
     return compilation
 
 
-def _simple_compile(context: str, grouped: dict[str, list[str]]) -> str:
-    """Simple append-based compilation without LLM."""
+def _simple_compile(
+    context: str,
+    grouped: dict[str, list[str]],
+    entries: list | None = None,
+) -> str:
+    """Simple append-based compilation without LLM.
+
+    Uses SECTION_MAP for proper section names, merges similar entries,
+    marks low-confidence entries as (unverified), and adds a Recent Changes
+    section at the bottom.
+    """
     lines = [context.rstrip()] if context.strip() else ["# Project Context"]
 
     for entry_type, contents in sorted(grouped.items()):
-        lines.append(f"\n## {entry_type.title()}")
+        section_heading = SECTION_MAP.get(entry_type, f"## {entry_type.title()}")
+        # Check if section already exists in the context
+        if section_heading not in "\n".join(lines):
+            lines.append(f"\n{section_heading}")
+
+        # Deduplicate similar entries (case-insensitive)
+        seen: set[str] = set()
         for c in contents:
-            lines.append(f"- {c}")
+            normalized = c.strip().lower()
+            if normalized not in seen:
+                seen.add(normalized)
+                lines.append(f"- {c}")
+
+    # Mark low-confidence entries if we have the raw entry objects
+    if entries:
+        low_conf = [e for e in entries if e.confidence < 0.5]
+        if low_conf:
+            lines.append("\n## Unverified")
+            for e in low_conf:
+                lines.append(f"- (unverified) {e.content}")
+
+    # Add Recent Changes section with dated changelog
+    if entries:
+        dated_entries: dict[str, list[str]] = defaultdict(list)
+        for e in entries:
+            date_str = e.created_at.strftime("%Y-%m-%d") if e.created_at else "unknown"
+            dated_entries[date_str].append(f"[{e.entry_type}] {e.content}")
+
+        if dated_entries:
+            lines.append("\n## Recent Changes")
+            for date_key in sorted(dated_entries.keys(), reverse=True):
+                lines.append(f"\n### {date_key}")
+                for item in dated_entries[date_key]:
+                    lines.append(f"- {item}")
 
     return "\n".join(lines) + "\n"
