@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.7] - 2026-04-04
+
+### Added
+- **Living Project Context** — auto-summarize on sync, knowledge entries (6 types), structured compilation, section pages, concept auto-generation, regenerate.
+- **3 MCP write tools** — `add_knowledge`, `update_wiki_page`, `list_wiki_pages` (12 MCP tools total).
+- **MCP search tools** — `search_project_knowledge`, `ask_project`.
+- **Wiki pages** — `knowledge_pages` + `knowledge_links` tables, multi-document structure, backlinks.
+- **Auto-narrative toggle** per project (runs LLM narrative on sync when enabled).
+- **Self-healing SQLite index** — auto-deletes corrupted `index.db`, rebuilds from `.sfs` files.
+- **`handle_errors` decorator** on all CLI commands (no raw tracebacks).
+- **`sfs doctor`** — 8 health checks with auto-repair.
+- **Message pagination** — newest-first default, order toggle, sidechain/empty filtering.
+- **Multi-select bulk delete + Find Duplicates** in session list.
+- **Delete session from session detail.**
+- **CLI commands** — `sfs project compile`, `entries`, `health`, `dismiss`, `ask`, `pages`, `page`, `regenerate`, `set`.
+- Database migration 018: `knowledge_entries` + `context_compilations`.
+- Database migration 019: `knowledge_pages` + `knowledge_links` + `auto_narrative`.
+
+### Changed
+- `get_project_context` MCP tool includes wiki pages + pending entries + contribution instructions.
+- Compilation creates separate section pages per entry type.
+- Dashboard: Knowledge Entries, Pages, History tabs on project detail.
+- Session titles skip system/developer prompts, filter "You are " prefix.
+- Hide `<synthetic>` model and zero token counts from dashboard.
+- Billing page handles API errors gracefully.
+- Footer version v0.9.7.
+- Project cards show session count.
+- Project context renders as formatted markdown (ReactMarkdown).
+
+### Fixed
+- Search endpoint uses `check_feature()` not raw `user.tier` (Baptist Health fix).
+- Cross-tool resume: full transcript via `--append-system-prompt-file`, CWD-based scope.
+- Codex watcher skips `sessionfs_import` sessions.
+- All Sessions count uses real API total (not folder count).
+- Bulk delete reports partial failures.
+- Stronger duplicate detection key (includes etag).
+- Project access control on all knowledge + wiki routes (security fix).
+- 6 API/dashboard contract mismatches fixed.
+- Bookmark icon state wired through prop chain.
+
+### Security
+- Project-level access control on all 13 knowledge + wiki routes.
+- `dismiss_entry` route access check added.
+
 ## [0.9.6] - 2026-03-30
 
 ### Added

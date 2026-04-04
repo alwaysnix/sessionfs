@@ -86,6 +86,9 @@ Sessions are indexed locally for fast browsing via the CLI. Cloud sync is opt-in
 | `sfs project init\|edit\|show` | Manage shared project context for your team |
 | `sfs project set-context FILE` | Set project context from a file |
 | `sfs project get-context` | Output raw project context to stdout |
+| `sfs project compile\|entries\|health\|dismiss` | Living Project Context — compile, browse, and manage knowledge |
+| `sfs project ask\|pages\|page\|regenerate\|set` | Query knowledge, manage wiki pages, configure project |
+| `sfs doctor` | Run 8 health checks with auto-repair |
 | `sfs storage` | Show local disk usage and retention policy |
 | `sfs storage prune` | Prune old sessions to free disk space |
 | `sfs daemon start\|stop\|restart\|status\|logs` | Manage the background daemon |
@@ -93,7 +96,7 @@ Sessions are indexed locally for fast browsing via the CLI. Cloud sync is opt-in
 | `sfs watcher list\|enable\|disable` | Manage tool watchers |
 | `sfs auth login\|signup\|status` | Manage cloud authentication |
 | `sfs config show\|set` | Manage configuration |
-| `sfs mcp serve` | Start MCP server for AI tool integration |
+| `sfs mcp serve` | Start MCP server (12 tools) for AI tool integration |
 | `sfs mcp install --for TOOL` | Auto-configure MCP for all 8 supported tools |
 | `sfs init` | Interactive setup wizard — auto-detects tools, optional sync |
 | `sfs security scan\|fix` | Audit config permissions, API key exposure, dependencies |
@@ -194,16 +197,20 @@ All file paths are relative to workspace root. Sessions are append-only — conf
 
 ## Status
 
-**v0.9.6 — Public Beta.** 958 tests passing.
+**v0.9.7 — Public Beta.** 993 tests passing.
 
 What works today:
 - Eight-tool session capture (Claude Code, Codex, Gemini, Cursor, Copilot CLI, Amp, Cline, Roo Code)
 - Cross-tool resume between Claude Code, Codex, Gemini, and Copilot CLI (auto-launches native tool, full transcript via --append-system-prompt-file with 50-message trim)
 - Shared project context — one document per repo, shared across the team, readable via MCP, manageable from dashboard
+- Living Project Context — auto-summarize on sync, knowledge entries (6 types), wiki pages, structured compilation
 - Local storage management with configurable retention, pruning, and disk warnings
 - Full-text search across all sessions (CLI + dashboard + API)
-- MCP server with 7 tools — search, context, recent, related, project context, summary, and audit report
+- Living Project Context — auto-summarize on sync, knowledge entries, wiki pages, structured compilation
+- MCP server with 12 tools — search, context, recent, related, project context, summary, audit report, add_knowledge, update_wiki_page, list_wiki_pages, search_project_knowledge, ask_project
 - MCP install for all 8 tools (codex mcp add, gemini mcp add)
+- Self-healing SQLite index with auto-rebuild
+- `sfs doctor` with 8 health checks and auto-repair
 - LLM-as-a-Judge with confidence scores (0-100), CWE mapping, evidence linking, dismiss/confirm findings
 - Narrative session summaries — LLM-powered what_happened, key_decisions, outcome, open_issues
 - GitHub PR App + GitLab MR integration — auto-comment AI session context on pull requests and merge requests
@@ -224,6 +231,11 @@ What works today:
 - Security pipeline (GitHub Action with pip-audit, Trivy, Bandit), Dependabot, SECURITY.md
 - Multi-select bulk delete + Find Duplicates in dashboard
 - Skill/slash command detection across all converters
+- Self-healing SQLite index with auto-rebuild from .sfs files
+- `sfs doctor` with 8 health checks and auto-repair
+- `handle_errors` decorator on all CLI commands (no raw tracebacks)
+- Message pagination with newest-first default, order toggle, sidechain/empty filtering
+- Database migrations 001–019
 
 On the roadmap:
 - Session similarity and duplicate detection

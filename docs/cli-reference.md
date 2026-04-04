@@ -917,7 +917,7 @@ Start the MCP server on stdio transport.
 sfs mcp serve
 ```
 
-Tools exposed: `search_sessions`, `get_session_context`, `list_recent_sessions`, `find_related_sessions`, `get_project_context`, `get_session_summary`, `get_audit_report`.
+Tools exposed (12): `search_sessions`, `get_session_context`, `list_recent_sessions`, `find_related_sessions`, `get_project_context`, `get_session_summary`, `get_audit_report`, `add_knowledge`, `update_wiki_page`, `list_wiki_pages`, `search_project_knowledge`, `ask_project`.
 
 ---
 
@@ -1020,6 +1020,148 @@ sfs admin revoke LICENSE_ID
 | Argument | Required | Description |
 |----------|----------|-------------|
 | `LICENSE_ID` | yes | License ID to revoke |
+
+---
+
+## `sfs doctor`
+
+Run health checks on the local SessionFS installation with auto-repair for common issues.
+
+```
+sfs doctor
+```
+
+Checks performed (8): daemon running, index integrity, watcher health, config validity, disk space, MCP config, auth status, session format.
+
+**Example:**
+
+```bash
+$ sfs doctor
+
+SessionFS Health Check
+  ✓ Daemon running (PID 12345)
+  ✓ Index integrity OK (47 sessions)
+  ✓ Watchers healthy (4/4)
+  ✓ Config valid
+  ✓ Disk space OK (2.1 GB free)
+  ✗ MCP config missing for codex — auto-repaired
+  ✓ Auth status OK
+  ✓ Session format OK
+
+7/8 passed, 1 auto-repaired.
+```
+
+---
+
+## `sfs project compile`
+
+Compile project knowledge entries into a structured context document with section pages.
+
+```
+sfs project compile
+```
+
+---
+
+## `sfs project entries`
+
+List knowledge entries for the current project.
+
+```
+sfs project entries [OPTIONS]
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--type` | string | — | Filter by entry type |
+| `--json` | flag | `false` | Output as JSON |
+
+---
+
+## `sfs project health`
+
+Check project context health — pending entries, stale compilations, missing pages.
+
+```
+sfs project health
+```
+
+---
+
+## `sfs project dismiss`
+
+Dismiss a pending knowledge entry.
+
+```
+sfs project dismiss ENTRY_ID
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `ENTRY_ID` | yes | Knowledge entry ID to dismiss |
+
+---
+
+## `sfs project ask`
+
+Ask a question about the project using compiled knowledge.
+
+```
+sfs project ask QUESTION
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `QUESTION` | yes | Question to ask about the project |
+
+---
+
+## `sfs project pages`
+
+List wiki pages for the current project.
+
+```
+sfs project pages
+```
+
+---
+
+## `sfs project page`
+
+Show a specific wiki page by slug.
+
+```
+sfs project page SLUG
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `SLUG` | yes | Wiki page slug |
+
+---
+
+## `sfs project regenerate`
+
+Regenerate the compiled project context from current knowledge entries.
+
+```
+sfs project regenerate
+```
+
+---
+
+## `sfs project set`
+
+Set a project configuration value (e.g., auto-narrative toggle).
+
+```
+sfs project set KEY VALUE
+```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `KEY` | yes | Setting key (e.g., `auto_narrative`) |
+| `VALUE` | yes | Setting value |
 
 ---
 

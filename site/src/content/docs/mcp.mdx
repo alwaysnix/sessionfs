@@ -20,7 +20,7 @@ sfs mcp install --for cursor
 
 ## Available tools
 
-The MCP server exposes 7 tools:
+The MCP server exposes 12 tools:
 
 | Tool | Description |
 |------|-------------|
@@ -28,9 +28,14 @@ The MCP server exposes 7 tools:
 | `get_session_context` | Get full conversation context from a specific session |
 | `list_recent_sessions` | List recent sessions with filtering |
 | `find_related_sessions` | Find sessions related to specific files or errors |
-| `get_project_context` | Get shared project context document for a repository |
+| `get_project_context` | Get shared project context document for a repository (includes wiki pages, pending entries, contribution instructions) |
 | `get_session_summary` | Get the deterministic or narrative summary for a session |
 | `get_audit_report` | Get the LLM Judge audit report for a session |
+| `add_knowledge` | Add a knowledge entry to the project (6 types: decision, convention, pattern, dependency, issue, note) |
+| `update_wiki_page` | Create or update a wiki page in the project knowledge base |
+| `list_wiki_pages` | List all wiki pages for a project |
+| `search_project_knowledge` | Search across knowledge entries and wiki pages |
+| `ask_project` | Ask a question about the project using compiled knowledge |
 
 ## How agents use it
 
