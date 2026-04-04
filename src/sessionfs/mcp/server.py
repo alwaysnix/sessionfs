@@ -602,6 +602,20 @@ async def _handle_get_project_context(args: dict) -> str:
         except Exception:
             pass  # Don't fail if entries unavailable
 
+        # Append contribution instructions so agents know how to write back
+        context += """
+
+---
+## Contributing to This Knowledge Base
+If you discover something important during this session, write it back:
+- `add_knowledge("what you learned", "type")` — types: decision, pattern, discovery, convention, bug, dependency
+- `update_wiki_page("slug", "full markdown content")` — create or update a wiki page
+- `list_wiki_pages()` — see existing pages
+- `search_project_knowledge("query")` — search the knowledge base
+
+Your contributions are immediately available to the next AI agent in this repo.
+"""
+
         return context
     except Exception as e:
         logger.warning("Failed to fetch project context: %s", e)
