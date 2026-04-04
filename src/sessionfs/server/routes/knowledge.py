@@ -196,6 +196,8 @@ async def dismiss_entry(
     db: AsyncSession = Depends(get_db),
 ) -> KnowledgeEntryResponse:
     """Dismiss or un-dismiss a knowledge entry."""
+    await _get_project_or_404(project_id, db, user.id)
+
     result = await db.execute(
         select(KnowledgeEntry).where(
             KnowledgeEntry.id == entry_id,
