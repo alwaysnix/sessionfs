@@ -267,9 +267,10 @@ export default function SessionList() {
     )[0];
   }, [data]);
 
-  // Folder selection is handled by clicking folders directly in the sidebar
+  // Clear folder selection when switching to "all"
   useEffect(() => {
-  }, [navFilter, selectedFolderId, allFolders]);
+    if (navFilter === 'all') setSelectedFolderId(null);
+  }, [navFilter]);
 
   // Auto-expand group if the most recent session is a child
   useEffect(() => {
@@ -306,7 +307,10 @@ export default function SessionList() {
   }, [filteredSessions]);
 
   const hasMore = selectedFolderId ? false : (data?.has_more ?? false);
+  // totalSessions for analytics = current view count
   const totalSessions = selectedFolderId ? (folderSessionsData?.total ?? 0) : (data?.total ?? 0);
+  // allSessionsCount for sidebar "All Sessions" label = always the real total from API
+  const allSessionsCount = data?.total ?? 0;
 
   // Insights strip data
   const insights = useMemo(() => {
@@ -367,7 +371,7 @@ export default function SessionList() {
       <BookmarkSidebar
         selectedFilter={navFilter}
         onSelectFilter={(f) => { setNavFilter(f); setPage(1); }}
-        totalCount={totalSessions}
+        totalCount={allSessionsCount}
         bookmarkedCount={totalBookmarked}
         inRepoCount={0}
         inRepoLabel={null}
@@ -381,7 +385,7 @@ export default function SessionList() {
         <MobileNavChips
           selectedFilter={navFilter}
           onSelectFilter={(f) => { setNavFilter(f); setPage(1); }}
-          totalCount={totalSessions}
+          totalCount={allSessionsCount}
           bookmarkedCount={totalBookmarked}
           inRepoCount={0}
           inRepoLabel={null}
@@ -923,15 +927,20 @@ function SessionRow({
 
 /* ── Bookmark dropdown (unchanged logic) ── */
 
-function BookmarkDropdown({ sessionId }: { sessionId: string }) {
+function BookmarkDropdown({ sessionId, isBookmarked: initialBookmarked }: { sessionId: string; isBookmarked?: boolean }) {
   const [open, setOpen] = useState(false);
   const [popping, setPopping] = useState(false);
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(initialBookmarked ?? false);
   const ref = useRef<HTMLDivElement>(null);
   const { data: foldersData } = useFolders();
   const addBookmark = useAddBookmark();
 
   const folders = foldersData?.folders ?? [];
+
+  // Update when prop changes
+  useEffect(() => {
+    if (initialBookmarked !== undefined) setBookmarked(initialBookmarked);
+  }, [initialBookmarked]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

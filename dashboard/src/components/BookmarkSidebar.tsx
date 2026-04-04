@@ -315,7 +315,7 @@ export function MobileNavChips({
   selectedFilter,
   onSelectFilter,
   totalCount,
-  bookmarkedCount,
+  bookmarkedCount: _mobileBookmarkedCount,
   inRepoCount,
   inRepoLabel,
   handoffCount,
@@ -354,14 +354,6 @@ export function MobileNavChips({
           This Repo ({inRepoCount})
         </button>
       )}
-      <button
-        onClick={() => { onSelectFilter('bookmarked'); onSelectFolder(null); }}
-        className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-          isActive('bookmarked') ? 'bg-[var(--brand)] text-white' : 'bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)]'
-        }`}
-      >
-        Bookmarked ({bookmarkedCount})
-      </button>
       <button
         onClick={() => navigate('/handoffs')}
         className="shrink-0 px-3 py-1.5 rounded-full text-xs font-medium bg-[var(--surface)] text-[var(--text-secondary)] border border-[var(--border)] transition-colors"
