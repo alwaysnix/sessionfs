@@ -224,9 +224,9 @@ def _uninstall_json_config(config_path: Path, display_name: str) -> None:
 
     try:
         data = json.loads(config_path.read_text())
-    except (json.JSONDecodeError, OSError):
-        console.print(f"[yellow]Could not parse {config_path}. Skipping.[/yellow]")
-        return
+    except (json.JSONDecodeError, OSError) as e:
+        console.print(f"[yellow]Could not parse {config_path}: {e}. Skipping.[/yellow]")
+        raise RuntimeError(f"Cannot parse {config_path}") from e
 
     servers = data.get("mcpServers", {})
     if "sessionfs" not in servers:
@@ -332,8 +332,12 @@ def _install_claude_code(mcp_config: dict) -> None:
     if config_path.exists():
         try:
             data = json.loads(config_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
+        except json.JSONDecodeError:
+            err_console.print(f"[red]Cannot parse {config_path} — fix the JSON manually before installing.[/red]")
+            raise SystemExit(1)
+        except OSError as e:
+            err_console.print(f"[red]Cannot read {config_path}: {e}[/red]")
+            raise SystemExit(1)
 
     servers = data.setdefault("mcpServers", {})
 
@@ -362,8 +366,12 @@ def _install_cursor(mcp_config: dict) -> None:
     if config_path.exists():
         try:
             data = json.loads(config_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
+        except json.JSONDecodeError:
+            err_console.print("[red]Cannot parse config file — fix the JSON manually before installing.[/red]")
+            raise SystemExit(1)
+        except OSError as e:
+            err_console.print(f"[red]Cannot read config: {e}[/red]")
+            raise SystemExit(1)
 
     servers = data.setdefault("mcpServers", {})
 
@@ -388,8 +396,12 @@ def _install_copilot(mcp_config: dict) -> None:
     if config_path.exists():
         try:
             data = json.loads(config_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
+        except json.JSONDecodeError:
+            err_console.print("[red]Cannot parse config file — fix the JSON manually before installing.[/red]")
+            raise SystemExit(1)
+        except OSError as e:
+            err_console.print(f"[red]Cannot read config: {e}[/red]")
+            raise SystemExit(1)
 
     servers = data.setdefault("mcpServers", {})
 
@@ -486,8 +498,12 @@ def _install_amp(mcp_config: dict) -> None:
     if config_path.exists():
         try:
             data = json.loads(config_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
+        except json.JSONDecodeError:
+            err_console.print("[red]Cannot parse config file — fix the JSON manually before installing.[/red]")
+            raise SystemExit(1)
+        except OSError as e:
+            err_console.print(f"[red]Cannot read config: {e}[/red]")
+            raise SystemExit(1)
 
     servers = data.setdefault("mcpServers", {})
 
@@ -534,8 +550,12 @@ def _install_vscode_extension(mcp_config: dict, tool: str = "cline") -> None:
     if config_path.exists():
         try:
             data = json.loads(config_path.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
+        except json.JSONDecodeError:
+            err_console.print("[red]Cannot parse config file — fix the JSON manually before installing.[/red]")
+            raise SystemExit(1)
+        except OSError as e:
+            err_console.print(f"[red]Cannot read config: {e}[/red]")
+            raise SystemExit(1)
 
     servers = data.setdefault("mcpServers", {})
 
