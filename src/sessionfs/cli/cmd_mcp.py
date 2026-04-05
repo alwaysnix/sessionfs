@@ -272,8 +272,10 @@ def _uninstall_codex() -> None:
             console.print("[green]Removed SessionFS MCP server from Codex.[/green]")
         else:
             err_console.print(f"[yellow]codex mcp remove failed: {result.stderr.strip()}[/yellow]")
+            raise RuntimeError(f"codex mcp remove failed: {result.stderr.strip()}")
     except FileNotFoundError:
         console.print("[dim]'codex' command not found. Skipping.[/dim]")
+        raise RuntimeError("codex not found")
 
 
 def _uninstall_gemini() -> None:
@@ -289,8 +291,10 @@ def _uninstall_gemini() -> None:
             console.print("[green]Removed SessionFS MCP server from Gemini CLI.[/green]")
         else:
             err_console.print(f"[yellow]gemini mcp remove failed: {result.stderr.strip()}[/yellow]")
+            raise RuntimeError(f"gemini mcp remove failed: {result.stderr.strip()}")
     except FileNotFoundError:
         console.print("[dim]'gemini' command not found. Skipping.[/dim]")
+        raise RuntimeError("gemini not found")
 
 
 def _uninstall_vscode_extension(tool: str = "cline") -> None:
