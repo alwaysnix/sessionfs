@@ -113,7 +113,13 @@ async def create_organization(
         except Exception:
             pass  # Fall back to default seats on any Stripe error
 
-    storage = seats * 1024 * 1024 * 1024  # 1GB per seat
+    # Enterprise gets unlimited storage (0 = unlimited in check_storage)
+    if tier == "enterprise":
+        storage = 0  # unlimited
+        if seats == 5:
+            seats = 25  # enterprise default
+    else:
+        storage = seats * 1024 * 1024 * 1024  # 1GB per seat for team
 
     org = Organization(
         id=org_id,
