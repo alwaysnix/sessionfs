@@ -59,6 +59,8 @@ class BillingStatusResponse(BaseModel):
     storage_limit_bytes: int
     stripe_customer_id: str | None
     has_subscription: bool
+    is_org_member: bool = False
+    org_role: str | None = None
 
 
 # --- Routes ---
@@ -81,12 +83,19 @@ async def create_checkout(
     if not price_id:
         raise HTTPException(400, f"Stripe price not configured for tier: {data.tier}")
 
-    # Org members cannot buy personal plans — they inherit from the org
+    # Org billing restrictions
     if ctx.is_org_user and ctx.org:
+        # Org members can't buy personal plans
         if data.tier in ("starter", "pro"):
             raise HTTPException(
                 400,
                 {"error": "org_member_restriction", "message": "Organization members cannot purchase individual plans. Your tier is managed by the organization admin."},
+            )
+        # Only org admins can change org subscription (team/enterprise)
+        if data.tier in ("team",) and ctx.role != "admin":
+            raise HTTPException(
+                403,
+                {"error": "admin_required", "message": "Only organization admins can change the subscription."},
             )
 
     # Prevent duplicate subscriptions — check both user and org
@@ -177,6 +186,8 @@ async def billing_status(
             storage_limit_bytes=ctx.org.storage_limit_bytes or get_storage_limit(ctx.effective_tier),
             stripe_customer_id=ctx.org.stripe_customer_id,
             has_subscription=ctx.org.stripe_subscription_id is not None,
+            is_org_member=True,
+            org_role=ctx.role,
         )
 
     return BillingStatusResponse(
@@ -185,6 +196,8 @@ async def billing_status(
         storage_limit_bytes=get_storage_limit(ctx.effective_tier),
         stripe_customer_id=user.stripe_customer_id,
         has_subscription=user.stripe_subscription_id is not None,
+        is_org_member=False,
+        org_role=None,
     )
 
 
