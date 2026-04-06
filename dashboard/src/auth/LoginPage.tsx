@@ -2,6 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import { signup, ApiError } from '../api/client';
+import { loginSchema, signupSchema, fieldErrorsFromZod, type FieldErrors } from '../utils/validation';
+import FieldError from '../components/FieldError';
+import Wordmark from '../components/Wordmark';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -18,10 +21,43 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [signupKey, setSignupKey] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  function clearFieldError(field: string) {
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+  }
+
+  function validateLoginField(field: 'apiKey' | 'baseUrl') {
+    const data = { apiKey, baseUrl };
+    const result = loginSchema.safeParse(data);
+    if (!result.success) {
+      const errs = fieldErrorsFromZod(result.error);
+      setFieldErrors((prev) => ({ ...prev, [field]: errs[field] }));
+    } else {
+      setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  }
+
+  function validateSignupField(field: 'email' | 'baseUrl') {
+    const data = { email, baseUrl };
+    const result = signupSchema.safeParse(data);
+    if (!result.success) {
+      const errs = fieldErrorsFromZod(result.error);
+      setFieldErrors((prev) => ({ ...prev, [field]: errs[field] }));
+    } else {
+      setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  }
 
   async function handleLogin(e: FormEvent) {
     e.preventDefault();
     setError('');
+    const result = loginSchema.safeParse({ apiKey, baseUrl });
+    if (!result.success) {
+      setFieldErrors(fieldErrorsFromZod(result.error));
+      return;
+    }
+    setFieldErrors({});
     setLoading(true);
     try {
       await login(baseUrl, apiKey);
@@ -36,11 +72,17 @@ export default function LoginPage() {
   async function handleSignup(e: FormEvent) {
     e.preventDefault();
     setError('');
+    const result = signupSchema.safeParse({ email, baseUrl });
+    if (!result.success) {
+      setFieldErrors(fieldErrorsFromZod(result.error));
+      return;
+    }
+    setFieldErrors({});
     setLoading(true);
     try {
-      const result = await signup(baseUrl, email);
-      setSignupKey(result.raw_key);
-      setApiKey(result.raw_key);
+      const signupResult = await signup(baseUrl, email);
+      setSignupKey(signupResult.raw_key);
+      setApiKey(signupResult.raw_key);
       setMode('login');
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -54,15 +96,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-full max-w-sm p-8 bg-bg-secondary rounded-lg border border-border">
-        <div className="flex justify-center mb-6">
-          <svg viewBox="0 0 200 60" className="h-10" xmlns="http://www.w3.org/2000/svg">
-            <path d="M28,10 Q18,10 18,20 L18,40 Q18,50 28,50" fill="none" stroke="#4f9cf7" strokeWidth="3.5" strokeLinecap="round"/>
-            <path d="M52,10 Q62,10 62,20 L62,40 Q62,50 52,50" fill="none" stroke="#3ddc84" strokeWidth="3.5" strokeLinecap="round"/>
-            <circle cx="40" cy="30" r="6" fill="#4f9cf7"/>
-            <text x="76" y="37" fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" fontSize="22" fontWeight="500" fill="#e6edf3" letterSpacing="-0.5">Session<tspan fill="#4f9cf7">FS</tspan></text>
-          </svg>
+    <div className="relative flex items-center justify-center min-h-screen px-4">
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-72 opacity-80"
+        style={{
+          background: 'radial-gradient(48rem 20rem at 50% -10%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 72%)',
+        }}
+      />
+      <div className="w-full max-w-sm p-8 bg-bg-secondary rounded-lg border border-border shadow-[var(--shadow-md)] relative">
+        <div className="flex flex-col items-center mb-6 text-center">
+          <div className="brand-badge rounded-2xl px-4 py-3">
+            <Wordmark size="lg" />
+          </div>
+          <p className="mt-4 max-w-xs text-sm text-text-secondary">
+            Resume work, build project memory, and hand off AI sessions without losing context.
+          </p>
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-text-primary mb-1 sr-only">SessionFS</h1>
         <p className="text-text-secondary text-sm mb-6">
@@ -92,20 +140,24 @@ export default function LoginPage() {
               <input
                 type="url"
                 value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
+                onChange={(e) => { setBaseUrl(e.target.value); clearFieldError('baseUrl'); }}
+                onBlur={() => validateLoginField('baseUrl')}
                 className="mt-1 block w-full px-3 py-2 bg-bg-primary border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent"
               />
+              <FieldError message={fieldErrors.baseUrl} />
             </label>
             <label className="block mb-6">
               <span className="text-[var(--text-secondary)] text-[14px] font-medium">API Key</span>
               <input
                 type="password"
                 value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                onChange={(e) => { setApiKey(e.target.value); clearFieldError('apiKey'); }}
+                onBlur={() => { if (apiKey) validateLoginField('apiKey'); }}
                 placeholder="sk_sfs_..."
                 className="mt-1 block w-full px-3 py-2 bg-bg-primary border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent"
                 autoFocus
               />
+              <FieldError message={fieldErrors.apiKey} />
             </label>
             <button
               type="submit"
@@ -116,7 +168,7 @@ export default function LoginPage() {
             </button>
             <p className="mt-4 text-center text-text-muted text-sm">
               No account?{' '}
-              <button type="button" onClick={() => setMode('signup')} className="text-accent hover:underline">
+              <button type="button" onClick={() => { setMode('signup'); setFieldErrors({}); }} className="text-accent hover:underline">
                 Sign up
               </button>
             </p>
@@ -128,20 +180,24 @@ export default function LoginPage() {
               <input
                 type="url"
                 value={baseUrl}
-                onChange={(e) => setBaseUrl(e.target.value)}
+                onChange={(e) => { setBaseUrl(e.target.value); clearFieldError('baseUrl'); }}
+                onBlur={() => validateSignupField('baseUrl')}
                 className="mt-1 block w-full px-3 py-2 bg-bg-primary border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent"
               />
+              <FieldError message={fieldErrors.baseUrl} />
             </label>
             <label className="block mb-6">
               <span className="text-[var(--text-secondary)] text-[14px] font-medium">Email</span>
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); clearFieldError('email'); }}
+                onBlur={() => { if (email) validateSignupField('email'); }}
                 placeholder="you@example.com"
                 className="mt-1 block w-full px-3 py-2 bg-bg-primary border border-border rounded text-sm text-text-primary focus:outline-none focus:border-accent"
                 autoFocus
               />
+              <FieldError message={fieldErrors.email} />
             </label>
             <button
               type="submit"
@@ -152,7 +208,7 @@ export default function LoginPage() {
             </button>
             <p className="mt-4 text-center text-text-muted text-sm">
               Have an API key?{' '}
-              <button type="button" onClick={() => setMode('login')} className="text-accent hover:underline">
+              <button type="button" onClick={() => { setMode('login'); setFieldErrors({}); }} className="text-accent hover:underline">
                 Sign in
               </button>
             </p>

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.7.2] - 2026-04-06
+
+### Added
+- **Command palette search** — Cmd/Ctrl+K shortcut, arrow key navigation, grouped results, ARIA combobox semantics.
+- **Mobile nav drawer** — slide-in hamburger menu with all navigation links, backdrop, ARIA dialog.
+- **Mobile search filters** — sheet-style filter panel with staged changes, apply/clear, active filter chips.
+- **Focus trapping** — shared `useFocusTrap` hook on all 4 modal dialogs.
+- **ARIA live regions** — toast notifications, background task status, handoff badges announce to screen readers.
+- **Zod form validation** — create project, handoff, login/signup, judge settings forms validated on blur/submit.
+- **Shared wordmark component** — consistent SessionFS branding across shell and login.
+- **App-level UI tests** — Vitest + Testing Library setup with route-level tests for search, layout, login.
+
+### Changed
+- **Code splitting** — all routes lazy-loaded, main bundle 676KB → 262KB, no chunk size warning.
+- **Sessions hero** — compact action-oriented layout with prominent Resume button, inline handoff/project chips.
+- **Session rows** — stronger titles, dimmer metadata, solid Resume button on hover.
+- **Project cards** — health badges (sessions, auto-narrative), name as title, skeleton loading.
+- **Project detail tabs** — fade transitions, sliding underline, workflow hints, context tab as hero artifact.
+- **Typography** — stronger light-mode contrast, 6-level type scale, tuned brand color.
+- **Product identity** — site-aligned typography and tokens, updated shell and login branding.
+- Deduplicated `formatBytes`, `getAvatarColor`, `TOOL_COLORS` into shared utils.
+
+### Fixed
+- MCP remote server "No read stream writer available" race condition — `asyncio.Event` ensures transport connected before handling requests.
+
 ## [0.9.7.1] - 2026-04-06
 
 ### Added

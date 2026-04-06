@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useSearch, type SearchResult } from '../hooks/useSearch';
 import { abbreviateTool } from '../utils/models';
 import { renderSnippet } from '../utils/highlight';
 import RelativeDate from '../components/RelativeDate';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const TOOLS = [
   { label: 'All Tools', value: '' },
@@ -19,6 +20,147 @@ const DATE_RANGES = [
   { label: 'Last 90 days', value: 90 },
 ] as const;
 
+interface MobileFilterSheetProps {
+  open: boolean;
+  initialTool: string;
+  initialDays: number;
+  onApply: (tool: string, days: number) => void;
+  onClose: () => void;
+}
+
+function MobileFilterSheet({
+  open,
+  initialTool,
+  initialDays,
+  onApply,
+  onClose,
+}: MobileFilterSheetProps) {
+  const [draftTool, setDraftTool] = useState(initialTool);
+  const [draftDays, setDraftDays] = useState(initialDays);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(dialogRef);
+
+  useEffect(() => {
+    if (!open) return;
+    setDraftTool(initialTool);
+    setDraftDays(initialDays);
+  }, [open, initialTool, initialDays]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-labelledby="search-filter-title">
+      <div className="absolute inset-0 bg-black/45" onClick={onClose} />
+      <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[var(--shadow-lg)]">
+        <div ref={dialogRef} className="px-4 pb-5 pt-4">
+          <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[var(--border)]" />
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
+                Search Filters
+              </p>
+              <h2 id="search-filter-title" className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+                Refine results
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)]"
+              aria-label="Close filters"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                <line x1="4" y1="4" x2="12" y2="12" />
+                <line x1="12" y1="4" x2="4" y2="12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Tool</span>
+              <select
+                value={draftTool}
+                onChange={(e) => setDraftTool(e.target.value)}
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--brand)] focus:outline-none"
+              >
+                {TOOLS.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-[var(--text-secondary)]">Date range</span>
+              <select
+                value={draftDays}
+                onChange={(e) => setDraftDays(Number(e.target.value))}
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-sm text-[var(--text-primary)] focus:border-[var(--brand)] focus:outline-none"
+              >
+                {DATE_RANGES.map((d) => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setDraftTool('');
+                setDraftDays(0);
+                onApply('', 0);
+                onClose();
+              }}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-secondary)]"
+            >
+              Clear all
+            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text-secondary)] transition-colors hover:bg-[var(--surface-hover)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onApply(draftTool, draftDays);
+                  onClose();
+                }}
+                className="rounded-lg bg-[var(--brand)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[var(--brand-hover)]"
+              >
+                Apply filters
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SearchResults() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -27,6 +169,7 @@ export default function SearchResults() {
   const [tool, setTool] = useState('');
   const [days, setDays] = useState(0);
   const [page, setPage] = useState(1);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Reset page when filters change
   useEffect(() => { setPage(1); }, [tool, days, queryParam]);
@@ -45,6 +188,9 @@ export default function SearchResults() {
   }
 
   const totalPages = data ? Math.ceil(data.total / data.page_size) : 0;
+  const activeFilterCount = Number(Boolean(tool)) + Number(days > 0);
+  const activeDateLabel = DATE_RANGES.find((d) => d.value === days)?.label;
+  const activeToolLabel = TOOLS.find((t) => t.value === tool)?.label;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-4 flex gap-6">
@@ -77,6 +223,46 @@ export default function SearchResults() {
 
       {/* Results */}
       <div className="flex-1 min-w-0">
+        <div className="mb-3 md:hidden">
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2 text-sm font-medium text-[var(--text-secondary)] shadow-[var(--shadow-sm)] transition-colors hover:bg-[var(--surface-hover)]"
+            aria-haspopup="dialog"
+            aria-expanded={mobileFiltersOpen}
+            aria-label="Open search filters"
+          >
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+              <line x1="2" y1="4" x2="13" y2="4" />
+              <line x1="4" y1="8" x2="11" y2="8" />
+              <line x1="6" y1="12" x2="9" y2="12" />
+            </svg>
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-[var(--brand)] px-1.5 py-0.5 text-[11px] font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          {activeFilterCount > 0 && (
+            <div
+              className="mt-2 flex flex-wrap gap-2"
+              aria-label="Active search filters"
+            >
+              {tool && (
+                <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+                  {activeToolLabel}
+                </span>
+              )}
+              {days > 0 && (
+                <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs font-medium text-[var(--text-secondary)]">
+                  {activeDateLabel}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="mb-4">
           <h2 className="text-sm text-text-secondary">
             {data ? (
@@ -183,6 +369,17 @@ export default function SearchResults() {
           </div>
         )}
       </div>
+
+      <MobileFilterSheet
+        open={mobileFiltersOpen}
+        initialTool={tool}
+        initialDays={days}
+        onApply={(nextTool, nextDays) => {
+          setTool(nextTool);
+          setDays(nextDays);
+        }}
+        onClose={() => setMobileFiltersOpen(false)}
+      />
     </div>
   );
 }
