@@ -98,7 +98,7 @@ export default function BillingPage() {
 
   const currentTier = billing?.tier || 'free';
   const hasSubscription = billing?.has_subscription;
-  const isBeta = !hasSubscription || isError; // During beta (or no Stripe), all features are free
+  const isBeta = billing?.is_beta ?? isError; // Server determines if Stripe is configured
   const isOrgMember = billing?.is_org_member ?? false;
   const isOrgAdmin = billing?.org_role === 'admin';
   const storagePct = billing?.storage_limit_bytes > 0
@@ -197,12 +197,12 @@ export default function BillingPage() {
               <div className="mt-6">
                 {isCurrent ? (
                   <span className="block text-center py-2 text-[var(--text-tertiary)] text-sm">Current plan</span>
-                ) : t.tier === 'free' ? null : isBeta ? (
-                  <span className="block text-center py-2 text-[var(--text-tertiary)] text-sm">Coming soon</span>
-                ) : isOrgMember && (t.tier === 'starter' || t.tier === 'pro') ? (
+                ) : t.tier === 'free' ? null : isOrgMember && (t.tier === 'starter' || t.tier === 'pro') ? (
                   <span className="block text-center py-2 text-[var(--text-tertiary)] text-sm">Managed by org</span>
                 ) : isOrgMember && !isOrgAdmin && t.tier === 'team' ? (
                   <span className="block text-center py-2 text-[var(--text-tertiary)] text-sm">Admin only</span>
+                ) : isBeta ? (
+                  <span className="block text-center py-2 text-[var(--text-tertiary)] text-sm">Coming soon</span>
                 ) : hasSubscription ? (
                   <button
                     onClick={() => portalMutation.mutate()}
