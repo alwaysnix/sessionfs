@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 /* === Tab Panel Transitions === */
@@ -54,6 +55,9 @@
 }
 
 :root {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --brand: #4f9cf7;
   --brand-hover: #3d8ce6;
   --accent: #3ddc84;
@@ -126,21 +130,43 @@ body {
   margin: 0;
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  position: relative;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58rem 28rem at 12% -8%, color-mix(in srgb, var(--brand) 20%, transparent), transparent 72%),
+    radial-gradient(42rem 24rem at 92% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 74%);
+  z-index: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
 }
 
 h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.2; }
 h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
 h3 { font-size: 16px; font-weight: 600; }
 
+code, pre, kbd, samp {
+  font-family: var(--font-mono);
+}
+
 #root {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -179,3 +205,21 @@ h3 { font-size: 16px; font-weight: 600; }
 
 .card-elevated { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .card-primary { background: var(--bg-primary); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+
+.shell-divider {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--brand) 48%, transparent) 24%,
+    color-mix(in srgb, var(--accent) 42%, transparent) 76%,
+    transparent 100%
+  );
+}
+
+.brand-badge {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--brand) 12%, transparent), transparent),
+    var(--surface);
+  border: 1px solid color-mix(in srgb, var(--brand) 26%, var(--border));
+  box-shadow: var(--shadow-sm);
+}

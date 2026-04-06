@@ -6,6 +6,7 @@ import { useMe } from '../hooks/useMe';
 import SearchBar from './SearchBar';
 import ThemeToggle from './ThemeToggle';
 import { Badge } from './Badge';
+import Wordmark from './Wordmark';
 
 const NAV_LINKS = [
   { to: '/', label: 'Sessions', match: (p: string) => p === '/' },
@@ -71,13 +72,14 @@ export default function Layout() {
   return (
     <div className="flex flex-col min-h-screen">
       <header
-        className="flex items-center justify-between px-5"
+        className="relative flex items-center justify-between px-5 overflow-hidden"
         style={{
           height: 56,
           borderBottom: '1px solid var(--border)',
           backgroundColor: 'var(--bg-secondary)',
         }}
       >
+        <div className="shell-divider pointer-events-none absolute inset-x-10 top-0 h-px" />
         {/* Left: Hamburger (mobile) + Logo */}
         <div className="flex items-center gap-2 shrink-0">
           <button
@@ -91,11 +93,12 @@ export default function Layout() {
               <line x1="3" y1="15" x2="17" y2="15" />
             </svg>
           </button>
-          <Link to="/" className="flex items-center hover:opacity-90 transition-opacity">
-            <span className="text-[17px] tracking-tight">
-              <span className="text-[var(--text-primary)] font-bold">Session</span>
-              <span className="text-[var(--brand)] font-bold">FS</span>
-            </span>
+          <Link
+            to="/"
+            className="flex items-center hover:opacity-90 transition-opacity"
+            aria-label="SessionFS home"
+          >
+            <Wordmark size="sm" showTagline />
           </Link>
         </div>
 
@@ -215,10 +218,7 @@ export default function Layout() {
         >
           {/* Drawer header */}
           <div className="flex items-center justify-between px-4" style={{ height: 56 }}>
-            <span className="text-[17px] tracking-tight">
-              <span className="text-[var(--text-primary)] font-bold">Session</span>
-              <span className="text-[var(--brand)] font-bold">FS</span>
-            </span>
+            <Wordmark size="sm" />
             <button
               onClick={() => setDrawerOpen(false)}
               className="flex items-center justify-center w-8 h-8 rounded-[var(--radius-md)] transition-colors hover:bg-[var(--surface-hover)]"
@@ -266,13 +266,30 @@ export default function Layout() {
           </div>
         </nav>
       </div>
-      <main className="flex-1 bg-[var(--bg-primary)]">
-        <div key={location.pathname} className="page-enter flex flex-col flex-1 min-h-0">
+      <main className="relative flex-1 bg-[var(--bg-primary)] overflow-x-clip">
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-48 opacity-80"
+          style={{
+            background: 'radial-gradient(60rem 24rem at 18% -8%, color-mix(in srgb, var(--brand) 12%, transparent), transparent 72%)',
+          }}
+        />
+        <div
+          className="pointer-events-none absolute right-0 top-0 h-56 w-96 opacity-70"
+          style={{
+            background: 'radial-gradient(22rem 18rem at 85% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 76%)',
+          }}
+        />
+        <div key={location.pathname} className="page-enter relative flex flex-col flex-1 min-h-0">
           <Outlet />
         </div>
       </main>
       <footer className="text-center py-8 text-[11px] text-[var(--text-tertiary)] border-t border-[var(--border)]">
-        SessionFS v0.9.7.1 &middot;{' '}
+        <span className="font-semibold text-[var(--text-secondary)]">SessionFS</span>
+        <span className="mx-2 text-[var(--text-tertiary)]">·</span>
+        Memory layer for AI coding agents
+        <span className="mx-2 text-[var(--text-tertiary)]">·</span>
+        v0.9.7.2
+        <span className="mx-2 text-[var(--text-tertiary)]">·</span>
         <a href={siteHref('/quickstart/')} className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">Docs</a> &middot;{' '}
         <a href={siteHref('/')} className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">Status</a> &middot;{' '}
         <a href="mailto:support@sessionfs.dev" className="text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors">Support</a>
