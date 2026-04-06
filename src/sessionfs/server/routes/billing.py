@@ -179,8 +179,13 @@ async def billing_status(
     """Get current subscription status."""
     user = ctx.user
 
-    # Beta = Stripe not configured for this deployment (no price IDs set)
-    stripe_configured = any(TIER_PRICE_MAP.values())
+    # Beta = Stripe not fully configured (need secret key + at least starter and pro prices)
+    stripe_key = os.environ.get("SFS_STRIPE_SECRET_KEY", "")
+    stripe_configured = bool(
+        stripe_key
+        and TIER_PRICE_MAP.get("starter")
+        and TIER_PRICE_MAP.get("pro")
+    )
 
     # For org members, use org billing state
     if ctx.is_org_user and ctx.org:
