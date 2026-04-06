@@ -247,29 +247,30 @@ async def _sync_billing_to_org(
     if not org:
         return
 
-    org.tier = tier
+    # Orgs only support team/enterprise/free — if Stripe sends starter/pro, treat as downgrade
+    effective_org_tier = tier if tier in ("team", "enterprise", "free") else "free"
+    org.tier = effective_org_tier
     org.stripe_subscription_id = subscription_id
     if customer_id:
         org.stripe_customer_id = customer_id
 
     # Always sync seats and storage — including on downgrade/cancel
-    if tier == "free":
+    if effective_org_tier == "free":
         org.seats_limit = 0
         org.storage_limit_bytes = 0
-    elif tier == "enterprise":
-        # Enterprise = unlimited storage (0), update seats if provided
+    elif effective_org_tier == "enterprise":
         if seats and seats > 0:
             org.seats_limit = seats
         elif not org.seats_limit:
             org.seats_limit = 25
         org.storage_limit_bytes = 0  # unlimited
-    elif seats and seats > 0:
-        # Team tier = seats * 1GB
-        org.seats_limit = seats
-        org.storage_limit_bytes = seats * 1024 * 1024 * 1024
-    elif tier == "team" and not org.seats_limit:
-        org.seats_limit = 5
-        org.storage_limit_bytes = 5 * 1024 * 1024 * 1024
+    elif effective_org_tier == "team":
+        if seats and seats > 0:
+            org.seats_limit = seats
+            org.storage_limit_bytes = seats * 1024 * 1024 * 1024
+        elif not org.seats_limit:
+            org.seats_limit = 5
+            org.storage_limit_bytes = 5 * 1024 * 1024 * 1024
 
 
 async def _handle_checkout_completed(event, db: AsyncSession) -> None:
