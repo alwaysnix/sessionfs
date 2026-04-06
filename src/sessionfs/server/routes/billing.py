@@ -61,6 +61,7 @@ class BillingStatusResponse(BaseModel):
     has_subscription: bool
     is_org_member: bool = False
     org_role: str | None = None
+    is_beta: bool = True  # True when Stripe billing is not yet active for this deployment
 
 
 # --- Routes ---
@@ -178,6 +179,9 @@ async def billing_status(
     """Get current subscription status."""
     user = ctx.user
 
+    # Beta = Stripe not configured for this deployment (no price IDs set)
+    stripe_configured = any(TIER_PRICE_MAP.values())
+
     # For org members, use org billing state
     if ctx.is_org_user and ctx.org:
         return BillingStatusResponse(
@@ -188,6 +192,7 @@ async def billing_status(
             has_subscription=ctx.org.stripe_subscription_id is not None,
             is_org_member=True,
             org_role=ctx.role,
+            is_beta=not stripe_configured,
         )
 
     return BillingStatusResponse(
@@ -198,6 +203,7 @@ async def billing_status(
         has_subscription=user.stripe_subscription_id is not None,
         is_org_member=False,
         org_role=None,
+        is_beta=not stripe_configured,
     )
 
 
