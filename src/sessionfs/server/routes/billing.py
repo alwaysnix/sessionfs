@@ -256,11 +256,19 @@ async def _sync_billing_to_org(
     if tier == "free":
         org.seats_limit = 0
         org.storage_limit_bytes = 0
+    elif tier == "enterprise":
+        # Enterprise = unlimited storage (0), update seats if provided
+        if seats and seats > 0:
+            org.seats_limit = seats
+        elif not org.seats_limit:
+            org.seats_limit = 25
+        org.storage_limit_bytes = 0  # unlimited
     elif seats and seats > 0:
+        # Team tier = seats * 1GB
         org.seats_limit = seats
-        org.storage_limit_bytes = seats * 1024 * 1024 * 1024  # 1GB per seat
-    elif tier in ("team", "enterprise") and not org.seats_limit:
-        org.seats_limit = 5  # default if no seats specified
+        org.storage_limit_bytes = seats * 1024 * 1024 * 1024
+    elif tier == "team" and not org.seats_limit:
+        org.seats_limit = 5
         org.storage_limit_bytes = 5 * 1024 * 1024 * 1024
 
 
