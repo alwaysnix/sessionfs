@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.7.3] - 2026-04-06
+
+### Added
+- **Knowledge base docs** — new page covering the full knowledge loop, entries, compile, wiki, MCP write tools, API endpoints, best practices.
+- **Dashboard user guide** — new page covering all 9 dashboard pages and keyboard shortcuts.
+- **Organizations docs** — new page covering org creation, invites, roles, seats, billing.
+- **Billing & tiers docs** — new page covering 5 tiers, Stripe integration, beta mode.
+
+### Changed
+- **CLI reference** — added ~15 missing commands (project *, doctor, init, security, mcp install/uninstall).
+- **MCP docs** — all 12 tools documented in 3 categories with full parameter tables.
+- **API reference** — added 16 missing endpoints across auth, sessions, share links, handoffs, settings.
+- **Quickstart** — added `sfs init` wizard, project knowledge setup, `sfs doctor`.
+- **Project context docs** — compile workflow, auto-narrative, knowledge loop integration.
+- **Environment vars** — added Stripe, URL, and storage/retention variables.
+- **Docs landing** — "memory layer" tagline, knowledge base and dashboard cards, 70+ commands.
+- **Site sidebar** — Knowledge Base in Features, new Platform section (Dashboard, Organizations, Billing).
+- **Pro tier features** — added "Living knowledge base", "Agent write-back (MCP)", "Project context + wiki".
+
+### Fixed
+- `sfs project ask` URL-encodes search queries (spaces in questions broke API calls).
+- `sfs project ask` uses keyword-based search instead of exact phrase matching.
+- Site knowledge base page: corrected tool names (`update_wiki_page`, `list_wiki_pages`).
+- Site footer tagline: "Portable AI coding sessions" → "Memory layer for AI coding agents".
+- Docs: removed nonexistent `POST /auth/login` endpoint from self-hosted guide.
+- Docs: DLP and enterprise features marked as planned/coming (not shipped).
+- Docs: resume `--in` targets corrected to 4 bidirectional tools only.
+
 ## [0.9.7.2] - 2026-04-06
 
 ### Added
