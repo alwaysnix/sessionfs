@@ -502,24 +502,59 @@ def _handle_find_related(args: dict) -> dict[str, Any]:
     }
 
 
+async def _resolve_workspace_git_remote() -> str:
+    """Try to detect the git remote from the MCP client's workspace roots."""
+    import subprocess
+    from urllib.parse import urlparse
+
+    # 1. Try MCP roots (the proper way — asks the client for workspace dirs)
+    try:
+        ctx = app.request_context
+        session = ctx.session
+        roots_result = await session.list_roots()
+        if roots_result and roots_result.roots:
+            for root in roots_result.roots:
+                root_uri = str(root.uri)
+                # Convert file:// URI to path
+                if root_uri.startswith("file://"):
+                    root_path = urlparse(root_uri).path
+                else:
+                    root_path = root_uri
+                try:
+                    result = subprocess.run(
+                        ["git", "remote", "get-url", "origin"],
+                        capture_output=True, text=True, timeout=5,
+                        cwd=root_path,
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        return result.stdout.strip()
+                except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+                    continue
+    except Exception:
+        pass  # Roots not supported or no session context
+
+    # 2. Fallback: try CWD (works if MCP server was started from the project dir)
+    try:
+        result = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    return ""
+
+
 async def _handle_get_project_context(args: dict) -> str:
     """Get shared project context from the cloud API."""
-    import subprocess
-
     git_remote = args.get("git_remote", "")
     if not git_remote:
-        try:
-            result = subprocess.run(
-                ["git", "remote", "get-url", "origin"],
-                capture_output=True, text=True, timeout=5,
-            )
-            if result.returncode == 0:
-                git_remote = result.stdout.strip()
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            pass
+        git_remote = await _resolve_workspace_git_remote()
 
     if not git_remote:
-        return "No git repository detected. Cannot look up project context."
+        return "No git repository detected. Pass git_remote explicitly or ensure the MCP server can access workspace roots."
 
     from sessionfs.server.github_app import normalize_git_remote
     normalized = normalize_git_remote(git_remote)
@@ -691,23 +726,11 @@ def _handle_get_audit(args: dict) -> dict[str, Any]:
 
 async def _handle_search_knowledge(args: dict) -> str:
     """Search project knowledge entries via cloud API."""
-    import subprocess
-
     query = args.get("query", "")
     entry_type = args.get("entry_type")
     limit = int(args.get("limit", 10))
 
-    # Detect git remote
-    git_remote = ""
-    try:
-        result = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0:
-            git_remote = result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+    git_remote = await _resolve_workspace_git_remote()
 
     if not git_remote:
         return "No git repository detected. Cannot search knowledge base."
@@ -790,21 +813,10 @@ async def _resolve_project_id() -> tuple[str, str, str]:
 
     Raises Exception with a user-friendly message on failure.
     """
-    import subprocess
-
-    git_remote = ""
-    try:
-        result = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0:
-            git_remote = result.stdout.strip()
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+    git_remote = await _resolve_workspace_git_remote()
 
     if not git_remote:
-        raise Exception("No git repository detected.")
+        raise Exception("No git repository detected. Pass git_remote explicitly or ensure workspace roots are available.")
 
     from sessionfs.server.github_app import normalize_git_remote
     normalized = normalize_git_remote(git_remote)
