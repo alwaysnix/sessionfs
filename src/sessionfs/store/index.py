@@ -85,6 +85,11 @@ class SessionIndex:
         files and recreates the schema from scratch.
         """
         try:
+            # Detect 0-byte (truncated) DB and delete it so it gets recreated
+            if self._db_path.exists() and self._db_path.stat().st_size == 0:
+                logger.warning("Index DB is 0 bytes (truncated). Deleting for rebuild.")
+                self._db_path.unlink()
+
             self._conn = sqlite3.connect(str(self._db_path))
             self._conn.row_factory = sqlite3.Row
             self._conn.execute("PRAGMA journal_mode=WAL")
@@ -92,6 +97,11 @@ class SessionIndex:
             self._conn.execute("PRAGMA foreign_keys=ON")
             self._conn.executescript(_SCHEMA_SQL)
             self._conn.commit()
+
+            # Check if index is empty but sessions exist on disk — trigger reindex
+            count = self._conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+            if count == 0:
+                self._needs_reindex = True
         except (sqlite3.DatabaseError, sqlite3.OperationalError) as exc:
             logger.warning(
                 "Index was corrupted. Rebuilding automatically... (%s)", exc
