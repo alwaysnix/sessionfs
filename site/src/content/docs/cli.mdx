@@ -104,9 +104,9 @@ sfs resume SESSION_ID [OPTIONS]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--project` | path | — | Target project path (overrides workspace) |
-| `--in` | string | `claude-code` | Target tool: `claude-code`, `codex`, `gemini`, or `cursor` |
+| `--in` | string | `claude-code` | Target tool: `claude-code`, `codex`, `copilot`, or `gemini` |
 
-Converts the session to the target tool's native format and injects it into that tool's session storage. Cursor is capture-only — use `--in` with another tool to resume Cursor sessions.
+Converts the session to the target tool's native format and injects it into that tool's session storage. Cursor, Cline, Roo Code, and Amp are capture-only — `--in cursor` (and the others) is rejected with an error. Use `--in` with one of the four supported resume targets instead.
 
 **Example:**
 

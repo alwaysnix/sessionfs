@@ -27,6 +27,8 @@ Authorization: Bearer sk_sfs_...
 | GET | `/api/v1/auth/me` | Bearer | Current user profile |
 | POST | `/api/v1/auth/keys` | Bearer | Create API key |
 | GET | `/api/v1/auth/keys` | Bearer | List API keys |
+| DELETE | `/api/v1/auth/keys/{key_id}` | Bearer | Delete an API key |
+| GET | `/api/v1/auth/verify/{token}` | None | Verify email address |
 
 ### Sessions
 
@@ -39,6 +41,14 @@ Authorization: Bearer sk_sfs_...
 | GET | `/api/v1/sessions/{id}/messages` | Bearer | Get paginated messages |
 | GET | `/api/v1/sessions/{id}/summary` | Bearer | Get session summary |
 | POST | `/api/v1/sessions/{id}/summary` | Bearer | Generate session summary |
+| POST | `/api/v1/sessions` | Bearer | Upload/create a session |
+| DELETE | `/api/v1/sessions/{id}` | Bearer | Soft-delete a session |
+| PUT | `/api/v1/sessions/{id}/alias` | Bearer | Set session alias |
+| DELETE | `/api/v1/sessions/{id}/alias` | Bearer | Clear session alias |
+| POST | `/api/v1/sessions/{id}/share` | Bearer | Create share link |
+| DELETE | `/api/v1/sessions/{id}/share/{link_id}` | Bearer | Revoke share link |
+| GET | `/api/v1/sessions/share/{token}` | None | Access shared session (public) |
+| POST | `/api/v1/sessions/share/{token}` | None | Access password-protected share link |
 | GET | `/api/v1/sessions/search` | Bearer | Full-text search |
 
 ### Audit
@@ -59,6 +69,7 @@ Authorization: Bearer sk_sfs_...
 | POST | `/api/v1/handoffs/{id}/claim` | Bearer | Claim handoff (copies session) |
 | GET | `/api/v1/handoffs/inbox` | Bearer | Handoffs received |
 | GET | `/api/v1/handoffs/sent` | Bearer | Handoffs sent |
+| GET | `/api/v1/handoffs/{id}/summary` | None | Get handoff session summary |
 
 ### Sync
 
@@ -82,6 +93,11 @@ Authorization: Bearer sk_sfs_...
 | GET | `/api/v1/settings/judge/models` | Bearer | Discover models from custom endpoint |
 | GET | `/api/v1/settings/audit-trigger` | Bearer | Get auto-audit trigger |
 | PUT | `/api/v1/settings/audit-trigger` | Bearer | Set auto-audit trigger |
+| GET | `/api/v1/settings/github` | Bearer | GitHub installation settings |
+| PUT | `/api/v1/settings/github` | Bearer | Update GitHub settings |
+| GET | `/api/v1/settings/gitlab` | Bearer | GitLab integration settings |
+| PUT | `/api/v1/settings/gitlab` | Bearer | Update GitLab settings |
+| DELETE | `/api/v1/settings/gitlab` | Bearer | Remove GitLab integration |
 
 ### Projects
 
