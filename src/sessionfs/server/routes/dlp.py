@@ -100,6 +100,8 @@ async def get_dlp_policy(
         enabled=policy.get("enabled", False),
         mode=policy.get("mode", "warn"),
         categories=policy.get("categories", ["secrets"]),
+        custom_patterns=policy.get("custom_patterns", []),
+        allowlist=policy.get("allowlist", []),
     )
 
 
