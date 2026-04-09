@@ -25,6 +25,7 @@ export interface SessionDetail extends SessionSummary {
   parent_session_id: string | null;
   uploaded_at: string;
   git_remote_normalized?: string;
+  dlp_scan_results?: string | null;
 }
 
 export interface SessionListResponse {

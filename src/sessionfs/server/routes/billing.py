@@ -534,6 +534,7 @@ async def _handle_subscription_updated(event, db: AsyncSession) -> None:
         from datetime import datetime, timezone
         if org:
             org.tier = "free"
+            org.stripe_subscription_id = None
             org.seats_limit = 0
             org.storage_limit_bytes = 0
         elif user:
@@ -542,10 +543,11 @@ async def _handle_subscription_updated(event, db: AsyncSession) -> None:
                 .where(User.id == user.id)
                 .values(
                     tier="free",
+                    stripe_subscription_id=None,
                     tier_updated_at=datetime.now(timezone.utc),
                 )
             )
-            await _sync_billing_to_org(user.id, "free", subscription.id, db)
+            await _sync_billing_to_org(user.id, "free", None, db)
         await db.commit()
 
 
