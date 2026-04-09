@@ -361,10 +361,12 @@ async def _sync_billing_to_org(
         return
     if customer_id != org.stripe_customer_id:
         return
-    # Check 2: if the org already has a subscription, the incoming subscription
-    # must match it. This prevents the legacy same-customer case where a personal
-    # subscription shares the customer_id but has a different subscription_id.
-    if subscription_id and org.stripe_subscription_id and subscription_id != org.stripe_subscription_id:
+    # Check 2: subscription must match the org's. Refuse when subscription_id
+    # is missing or doesn't match — prevents legacy same-customer personal
+    # subscriptions from touching org state.
+    if not subscription_id or not org.stripe_subscription_id:
+        return
+    if subscription_id != org.stripe_subscription_id:
         return
 
     # Orgs only support team/enterprise/free — if Stripe sends starter/pro, treat as downgrade
@@ -575,7 +577,7 @@ async def _handle_subscription_updated(event, db: AsyncSession) -> None:
                     tier_updated_at=datetime.now(timezone.utc),
                 )
             )
-            await _sync_billing_to_org(user.id, "free", None, db, customer_id=customer_id)
+            await _sync_billing_to_org(user.id, "free", subscription.id, db, customer_id=customer_id)
         await db.commit()
 
 
@@ -607,7 +609,7 @@ async def _handle_subscription_deleted(event, db: AsyncSession) -> None:
                 tier_updated_at=datetime.now(timezone.utc),
             )
         )
-        await _sync_billing_to_org(user.id, "free", None, db, customer_id=customer_id)
+        await _sync_billing_to_org(user.id, "free", subscription.id, db, customer_id=customer_id)
 
     await db.commit()
 
