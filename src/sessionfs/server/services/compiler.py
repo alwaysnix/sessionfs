@@ -355,14 +355,41 @@ isn't supported by the entries. Use clear headings and bullet points where \
 appropriate."""
 
 
+_STOP_WORDS = frozenset({
+    "the", "and", "for", "are", "but", "not", "you", "all", "can", "had",
+    "her", "was", "one", "our", "out", "has", "have", "been", "from", "with",
+    "they", "this", "that", "what", "when", "make", "like", "than", "each",
+    "which", "their", "will", "other", "about", "many", "then", "them",
+    "these", "some", "would", "into", "more", "also", "must", "should",
+    "does", "only", "just", "where", "after", "before", "still", "every",
+    "both", "same", "through", "using", "used", "uses", "instead", "already",
+    "between", "because", "without", "during", "while", "however", "since",
+    "being", "very", "most", "such", "well", "back", "even", "over",
+    "need", "take", "come", "could", "good", "new", "now", "way", "may",
+    "first", "also", "any", "those", "see", "how", "its", "two", "set",
+    "get", "via", "per", "run", "let", "add", "use", "put", "try",
+})
+
+
 def _extract_phrases(content: str) -> list[str]:
-    """Extract 2+ word lowercase phrases from content for deterministic clustering."""
+    """Extract meaningful 2-3 word phrases from content for clustering.
+
+    Filters stop words and requires at least one word >= 4 chars
+    to avoid trivial bigrams like 'from the' or 'in the'.
+    """
     words = re.findall(r"[a-z][a-z0-9_]+", content.lower())
+    # Filter stop words
+    meaningful = [w for w in words if w not in _STOP_WORDS and len(w) >= 3]
     phrases = []
-    for i in range(len(words) - 1):
-        phrase = f"{words[i]} {words[i + 1]}"
-        if len(phrase) >= 5:
+    for i in range(len(meaningful) - 1):
+        phrase = f"{meaningful[i]} {meaningful[i + 1]}"
+        # Require at least one word >= 4 chars
+        if any(len(w) >= 4 for w in (meaningful[i], meaningful[i + 1])):
             phrases.append(phrase)
+        # Also try trigrams for more specific topics
+        if i + 2 < len(meaningful):
+            trigram = f"{meaningful[i]} {meaningful[i + 1]} {meaningful[i + 2]}"
+            phrases.append(trigram)
     return phrases
 
 
@@ -486,11 +513,13 @@ def _deterministic_concept_candidates(entries: list[KnowledgeEntry]) -> list[dic
             continue
 
         slug = re.sub(r"[^a-z0-9]+", "-", phrase.lower()).strip("-")
+        # Generate a meaningful topic name from the phrase
+        topic = phrase.replace("_", " ").title()
         candidates.append({
-            "topic": phrase.title(),
+            "topic": topic,
             "slug": slug,
             "entry_count": len(new_entries),
-            "summary": f"Cluster of {len(new_entries)} entries related to '{phrase}'.",
+            "summary": f"{len(new_entries)} knowledge entries about {topic.lower()}.",
         })
         for e in new_entries:
             used_entry_ids.add(e.id)
