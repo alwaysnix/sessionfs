@@ -236,10 +236,10 @@ def _resume_in_claude_code(
             # Fallback: read file content and pass inline (may truncate on very large sessions)
             with open(transcript_file.name) as f:
                 prompt_text = f.read()[:100_000]
-            subprocess.run(
-                [claude_bin, "--append-system-prompt", prompt_text],
-                cwd=target_path,
-            )
+            fallback_cmd = [claude_bin, "--append-system-prompt", prompt_text]
+            if model:
+                fallback_cmd.extend(["--model", model])
+            subprocess.run(fallback_cmd, cwd=target_path)
     else:
         console.print(f"Transcript saved to: {transcript_file.name}")
         console.print(f"Open Claude Code in [bold]{target_path}[/bold] and load the transcript.")
@@ -295,6 +295,9 @@ def _resume_in_copilot(
     from sessionfs.converters.copilot_injector import inject_session as copilot_inject
 
     cwd = target_path or "/tmp"
+
+    if model:
+        console.print("[yellow]Note: Copilot CLI does not support --model override. Using Copilot default.[/yellow]")
 
     # Convert .sfs → Copilot events.jsonl
     result = convert_sfs_to_copilot(session_dir, cwd=cwd)
