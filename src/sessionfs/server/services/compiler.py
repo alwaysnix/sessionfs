@@ -88,16 +88,21 @@ async def compile_project_context(
         logger.warning("Project %s not found for compilation", project_id)
         return None
 
-    # Decay: reduce confidence of old unreferenced entries
+    # Decay: reduce confidence of entries not referenced recently.
+    # "Not recent" = last_relevant_at is NULL and created > 90 days ago,
+    # OR last_relevant_at itself is > 90 days ago.
+    from sqlalchemy import or_
     decay_cutoff = datetime.now(timezone.utc) - timedelta(days=90)
     await db.execute(
         update(KnowledgeEntry)
         .where(
             KnowledgeEntry.project_id == project_id,
             KnowledgeEntry.dismissed == False,  # noqa: E712
-            KnowledgeEntry.last_relevant_at.is_(None),
-            KnowledgeEntry.created_at < decay_cutoff,
             KnowledgeEntry.confidence > 0.1,
+            or_(
+                KnowledgeEntry.last_relevant_at.is_(None) & (KnowledgeEntry.created_at < decay_cutoff),
+                KnowledgeEntry.last_relevant_at < decay_cutoff,
+            ),
         )
         .values(confidence=KnowledgeEntry.confidence * 0.8)
         .execution_options(synchronize_session=False)
@@ -176,6 +181,7 @@ async def compile_project_context(
     for entry in pending:
         entry.compiled_at = now
         entry.last_relevant_at = now
+        entry.reference_count = (entry.reference_count or 0) + 1
 
     # 7. Save compilation record
     compilation = ContextCompilation(

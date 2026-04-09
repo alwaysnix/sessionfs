@@ -519,9 +519,10 @@ async def project_health(
         recommendations.append(
             f"Run compile to process {pending_entries} pending entries"
         )
-    if word_count > 6000:
+    max_budget = getattr(project, "kb_max_context_words", 8000) or 8000
+    if word_count > int(max_budget * 0.75):
         recommendations.append(
-            f"Context document is {word_count} words — approaching 8,000 word budget"
+            f"Context document is {word_count} words — approaching {max_budget:,} word budget"
         )
     if total_entries > 0 and total_compilations == 0:
         recommendations.append(
