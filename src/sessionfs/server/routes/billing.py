@@ -353,9 +353,16 @@ async def _sync_billing_to_org(
     if not org:
         return
 
-    # Guard: only sync if the customer belongs to this org.
-    # A personal subscription (different Stripe customer) must not touch the org.
-    if customer_id and org.stripe_customer_id and customer_id != org.stripe_customer_id:
+    # Guard: only sync if we can confirm the subscription belongs to this org.
+    # A personal subscription must NEVER touch org state.
+    #
+    # Positive match required: customer_id must be present AND match the org's.
+    # If customer_id is None or org has no customer yet, refuse to sync —
+    # org billing is only set via the org-specific checkout path (which has org_id
+    # in metadata and updates the org directly, never through _sync_billing_to_org).
+    if not customer_id or not org.stripe_customer_id:
+        return
+    if customer_id != org.stripe_customer_id:
         return
 
     # Orgs only support team/enterprise/free — if Stripe sends starter/pro, treat as downgrade
@@ -556,7 +563,7 @@ async def _handle_subscription_updated(event, db: AsyncSession) -> None:
                     tier_updated_at=datetime.now(timezone.utc),
                 )
             )
-            await _sync_billing_to_org(user.id, "free", None, db)
+            await _sync_billing_to_org(user.id, "free", None, db, customer_id=customer_id)
         await db.commit()
 
 
@@ -588,7 +595,7 @@ async def _handle_subscription_deleted(event, db: AsyncSession) -> None:
                 tier_updated_at=datetime.now(timezone.utc),
             )
         )
-        await _sync_billing_to_org(user.id, "free", None, db)
+        await _sync_billing_to_org(user.id, "free", None, db, customer_id=customer_id)
 
     await db.commit()
 
