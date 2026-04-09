@@ -314,6 +314,8 @@ class Project(Base):
         String(64), ForeignKey("users.id"), nullable=False
     )
     auto_narrative: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    kb_retention_days: Mapped[int] = mapped_column(Integer, default=180, server_default="180")
+    kb_section_page_limit: Mapped[int] = mapped_column(Integer, default=30, server_default="30")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -471,6 +473,9 @@ class KnowledgeEntry(Base):
     )
     compiled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     dismissed: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    last_relevant_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reference_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    superseded_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class ContextCompilation(Base):
