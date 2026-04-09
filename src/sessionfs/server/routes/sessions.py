@@ -586,7 +586,7 @@ async def list_sessions(
 
     total = (await db.execute(count_query)).scalar() or 0
 
-    query = query.order_by(Session.created_at.desc())
+    query = query.order_by(Session.updated_at.desc())
     query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
     sessions = result.scalars().all()
