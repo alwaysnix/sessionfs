@@ -202,6 +202,7 @@ def _session_to_detail(s: Session) -> SessionDetail:
         created_at=s.created_at,
         updated_at=s.updated_at,
         uploaded_at=s.uploaded_at,
+        dlp_scan_results=getattr(s, "dlp_scan_results", None),
     )
 
 
@@ -585,7 +586,7 @@ async def list_sessions(
 
     total = (await db.execute(count_query)).scalar() or 0
 
-    query = query.order_by(Session.created_at.desc())
+    query = query.order_by(Session.updated_at.desc())
     query = query.offset((page - 1) * page_size).limit(page_size)
     result = await db.execute(query)
     sessions = result.scalars().all()
@@ -953,6 +954,71 @@ async def sync_push(
     meta = _extract_manifest_metadata(data)
     messages_text = _extract_messages_text(data)
 
+    # DLP scan (after extraction, before blob storage)
+    # Scan ALL archive text: messages + workspace + tools + manifest
+    dlp_scan_results = None
+    if ctx.is_org_user and ctx.org:
+        from sessionfs.server.dlp import get_org_dlp_policy, redact_and_repack
+
+        dlp_policy = get_org_dlp_policy(ctx.org)
+        if dlp_policy and dlp_policy.get("enabled"):
+            from sessionfs.security.secrets import scan_dlp
+
+            # Scan ALL .json/.jsonl files from the archive directly
+            import io as _io
+            import tarfile as _tarfile
+            scan_text_parts: list[str] = []
+            try:
+                with _tarfile.open(fileobj=_io.BytesIO(data), mode="r:gz") as _tar:
+                    for _member in _tar.getmembers():
+                        if _member.name.endswith((".json", ".jsonl")):
+                            _f = _tar.extractfile(_member)
+                            if _f:
+                                scan_text_parts.append(_f.read().decode("utf-8", errors="replace"))
+            except Exception:
+                # Fallback to pre-extracted messages_text if tar reading fails
+                if not scan_text_parts:
+                    scan_text_parts.append(messages_text)
+            full_scan_text = "\n".join(scan_text_parts)
+
+            findings = scan_dlp(
+                full_scan_text,
+                categories=dlp_policy.get("categories", ["secrets"]),
+                custom_patterns=dlp_policy.get("custom_patterns"),
+                allowlist=dlp_policy.get("allowlist"),
+            )
+            # Always record scan results (even 0 findings clears stale data)
+            mode = dlp_policy.get("mode", "warn")
+            dlp_scan_results = {
+                "scanned_at": datetime.now(timezone.utc).isoformat(),
+                "findings_count": len(findings),
+                "mode": mode,
+                "finding_types": list({f.pattern_name for f in findings}),
+                "action_taken": mode if findings else "clean",
+                "categories_scanned": dlp_policy.get("categories", ["secrets"]),
+            }
+            if findings:
+                if mode == "block":
+                    raise HTTPException(
+                        status_code=403,
+                        detail={
+                            "error": "dlp_blocked",
+                            "message": f"DLP policy blocked sync: {len(findings)} finding(s)",
+                            "findings": [
+                                {
+                                    "pattern": f.pattern_name,
+                                    "category": f.category,
+                                    "severity": f.severity,
+                                    "line": f.line_number,
+                                }
+                                for f in findings
+                            ],
+                        },
+                    )
+                elif mode == "redact":
+                    data = redact_and_repack(data, findings)
+                    messages_text = _extract_messages_text(data)  # re-extract after redaction
+
     # Extract git metadata for PR matching
     workspace_data = _extract_workspace_from_archive(data)
     git_remote_normalized = ""
@@ -1022,6 +1088,8 @@ async def sync_push(
                 git_branch=git_branch,
                 git_commit=git_commit,
             )
+            if dlp_scan_results and hasattr(session, "dlp_scan_results"):
+                session.dlp_scan_results = json.dumps(dlp_scan_results)
             db.add(session)
             await db.commit()
             await db.refresh(session)
@@ -1078,6 +1146,8 @@ async def sync_push(
     existing.git_remote_normalized = git_remote_normalized
     existing.git_branch = git_branch
     existing.git_commit = git_commit
+    if dlp_scan_results and hasattr(existing, "dlp_scan_results"):
+        existing.dlp_scan_results = json.dumps(dlp_scan_results)
     await db.commit()
     await db.refresh(existing)
 

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.8] - 2026-04-09
+
+### Added
+- **DLP / Secret Scrubbing** — pre-sync content protection with 14 PHI patterns (SSN, MRN, DOB, NPI, patient name, etc.) and 22 secret patterns. Three enforcement modes: BLOCK, REDACT, WARN. Server-side scan of all archive files, org policy via settings JSON, custom patterns and allowlist support.
+- **DLP CLI** — `sfs dlp scan <session_id>` for local scanning, `sfs dlp policy` to view org policy. `sfs push` shows DLP preview when org policy is enabled.
+- **DLP Dashboard** — Settings > DLP tab for org admins (enable, mode, categories). Session detail shows DLP findings section with pattern types and action taken.
+- **DLP API** — `GET/PUT /dlp/policy`, `POST /dlp/scan` (dry-run), `GET /dlp/stats`. Feature-gated to Pro+ tier.
+- Database migration 024: `dlp_scan_results` column on sessions.
+- 43 new DLP tests (PHI patterns, false negatives, category filtering, allowlist, custom patterns, redaction, policy validation).
+
+### Changed
+- Session list sorts by `updated_at` instead of `created_at` — most recently active sessions appear first.
+- `pack_session()` snapshots file contents into memory before tarring — handles active sessions with concurrent daemon writes.
+
+### Fixed
+- **Billing webhook isolation** — `_find_user_or_org_by_customer()` uses `subscription_id` to disambiguate legacy same-customer data. `_sync_billing_to_org()` requires positive match on both `customer_id` AND `subscription_id` — personal subscription webhooks can never mutate org state.
+- **Billing non-active downgrade** — `past_due`/`unpaid`/`paused`/`incomplete_expired` now clears `stripe_subscription_id` on both org and user rows.
+- **DLP pre-scan** — only runs when org DLP policy is enabled, not unconditionally on every push.
+- **Dashboard type safety** — `SessionDetail` type includes `dlp_scan_results`, `BillingPage` uses typed `BillingStatus` interface.
+
+### Security
+- DLP scanning runs server-side at the sync chokepoint — even modified clients cannot bypass it.
+- Redacted content (`[REDACTED:TYPE]`) replaces matches in ALL `.json`/`.jsonl` archive files. Original text never stored.
+- Org DLP policy changes are admin-only and merge (don't overwrite custom_patterns/allowlist).
+
 ## [0.9.7.4] - 2026-04-07
 
 ### Fixed

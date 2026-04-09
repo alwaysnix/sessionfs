@@ -316,6 +316,9 @@ export default function SessionDetail() {
           </div>
         )}
 
+        {/* DLP Scan Results */}
+        <DLPScanSection session={session} />
+
         {/* Quick preview */}
         {previewData && previewData.length > 0 && (
           <div className="px-5 mt-3 pb-1">
@@ -493,6 +496,70 @@ function BookmarksSection({ sessionId }: { sessionId: string }) {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+interface DLPScanResult {
+  findings_count: number;
+  finding_types: string[];
+  action_taken: string;
+  mode: string;
+  scanned_at: string;
+  categories_scanned?: string[];
+}
+
+function DLPScanSection({ session }: { session: object }) {
+  const raw = (session as { dlp_scan_results?: string | DLPScanResult | null }).dlp_scan_results;
+  if (!raw) return null;
+
+  let scanResult: DLPScanResult;
+  try {
+    scanResult = typeof raw === 'string' ? JSON.parse(raw) : raw as DLPScanResult;
+  } catch {
+    return null;
+  }
+
+  if (!scanResult.findings_count || scanResult.findings_count === 0) return null;
+
+  const actionLabel =
+    scanResult.action_taken === 'redact' ? 'Redacted'
+    : scanResult.action_taken === 'block' ? 'Blocked'
+    : scanResult.action_taken === 'warn' ? 'Warned'
+    : 'Scanned';
+
+  const timeAgo = scanResult.scanned_at
+    ? (() => {
+        const diff = Date.now() - new Date(scanResult.scanned_at).getTime();
+        if (diff < 60000) return 'just now';
+        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+        return `${Math.floor(diff / 86400000)}d ago`;
+      })()
+    : null;
+
+  return (
+    <div className="px-5 mt-3">
+      <div className="border border-red-500/20 bg-red-500/5 rounded-lg p-3">
+        <div className="flex items-center gap-2 mb-2">
+          <svg className="w-4 h-4 text-red-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          <span className="text-sm font-semibold text-[var(--text-primary)]">DLP Scan</span>
+        </div>
+        <div className="text-xs text-[var(--text-tertiary)] mb-2">
+          {scanResult.findings_count} finding{scanResult.findings_count !== 1 ? 's' : ''}
+          {' \u00b7 '}{actionLabel}
+          {timeAgo && <>{' \u00b7 '}Scanned {timeAgo}</>}
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {scanResult.finding_types.map((type) => (
+            <span key={type} className="px-2 py-0.5 text-xs font-mono bg-red-500/10 text-red-500 rounded">
+              {type}
+            </span>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

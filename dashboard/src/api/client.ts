@@ -25,6 +25,7 @@ export interface SessionDetail extends SessionSummary {
   parent_session_id: string | null;
   uploaded_at: string;
   git_remote_normalized?: string;
+  dlp_scan_results?: string | null;
 }
 
 export interface SessionListResponse {
@@ -810,6 +811,16 @@ export function createApiClient(baseUrl: string, apiKey: string) {
       request<{ status: string }>(`/api/v1/projects/${projectId}/settings`, {
         method: 'PUT',
         body: JSON.stringify(settings),
+      }),
+
+    // DLP policy
+    getDLPPolicy: () =>
+      request<{ enabled: boolean; mode: string; categories: string[] }>('/api/v1/dlp/policy'),
+
+    updateDLPPolicy: (policy: { enabled?: boolean; mode?: string; categories?: string[] }) =>
+      request<{ enabled: boolean; mode: string; categories: string[] }>('/api/v1/dlp/policy', {
+        method: 'PUT',
+        body: JSON.stringify(policy),
       }),
   };
 }

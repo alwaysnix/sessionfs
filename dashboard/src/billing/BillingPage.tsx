@@ -50,7 +50,19 @@ export default function BillingPage() {
   const headers = { Authorization: `Bearer ${auth?.apiKey ?? ''}` };
   const apiBase = auth?.baseUrl || (window as any).__SFS_API_URL__ || '';
 
-  const { data: billing, isLoading, isError } = useQuery({
+  interface BillingStatus {
+    tier: string;
+    storage_used_bytes: number;
+    storage_limit_bytes: number;
+    stripe_customer_id: string | null;
+    has_subscription: boolean;
+    has_personal_subscription: boolean;
+    is_org_member: boolean;
+    org_role: string | null;
+    is_beta: boolean;
+  }
+
+  const { data: billing, isLoading, isError } = useQuery<BillingStatus>({
     queryKey: ['billing-status'],
     queryFn: async () => {
       const res = await fetch(`${apiBase}/api/v1/billing/status`, { headers });
@@ -113,8 +125,8 @@ export default function BillingPage() {
   const isBeta = billing?.is_beta ?? isError; // Server determines if Stripe is configured
   const isOrgMember = billing?.is_org_member ?? false;
   const isOrgAdmin = billing?.org_role === 'admin';
-  const storagePct = billing?.storage_limit_bytes > 0
-    ? Math.min(100, ((billing.storage_used_bytes ?? 0) / billing.storage_limit_bytes) * 100)
+  const storagePct = (billing?.storage_limit_bytes ?? 0) > 0
+    ? Math.min(100, ((billing?.storage_used_bytes ?? 0) / (billing?.storage_limit_bytes ?? 1)) * 100)
     : 0;
 
   return (
@@ -140,11 +152,11 @@ export default function BillingPage() {
               )}
             </div>
           </div>
-          {billing?.storage_limit_bytes > 0 && (
+          {(billing?.storage_limit_bytes ?? 0) > 0 && billing && (
             <div className="text-right">
               <p className="text-sm text-[var(--text-tertiary)] mb-1">Storage</p>
               <p className="text-lg font-medium text-[var(--text-primary)]">
-                {formatBytes(billing.storage_used_bytes)} / {formatBytes(billing.storage_limit_bytes)}
+                {formatBytes(billing.storage_used_bytes ?? 0)} / {formatBytes(billing.storage_limit_bytes ?? 0)}
               </p>
               <div className="w-48 h-2 bg-[var(--border)] rounded-full mt-2 overflow-hidden">
                 <div
