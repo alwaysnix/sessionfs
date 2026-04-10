@@ -1095,31 +1095,32 @@ async def sync_push(
                     return await _do_phase3_writes(db2)
 
         async def _do_phase3_writes(db2: AsyncSession) -> Response | SyncPushResponse:
-            # Move blob from temp key to final key
-            # (safe: if Phase 3 fails, temp blob is orphaned but final key is untouched)
-            try:
-                temp_data = await blob_store.get(temp_blob_key)
-                if temp_data:
-                    await blob_store.put(key, temp_data)
-            except Exception:
-                pass  # If copy fails, we still have data in temp_blob_key
-
-            # Clean up temp blob (best-effort)
-            try:
-                await blob_store.delete(temp_blob_key)
-            except Exception:
-                pass
-
+            # Step 1: Validate BEFORE promoting the blob
             if existing is None and not is_undelete:
                 # Re-verify session doesn't exist (race protection)
                 existing_check = await db2.execute(
                     select(Session).where(Session.id == session_id)
                 )
                 if existing_check.scalar_one_or_none() is not None:
+                    # Clean up temp blob on race loss
+                    try:
+                        await blob_store.delete(temp_blob_key)
+                    except Exception:
+                        pass
                     raise HTTPException(
                         status_code=409,
                         detail="Session created by another request during upload",
                     )
+                # Promote blob from temp to final key (after validation passed)
+                temp_data = await blob_store.get(temp_blob_key)
+                if not temp_data:
+                    raise HTTPException(500, "Blob upload lost during sync — please retry")
+                await blob_store.put(key, temp_data)
+                try:
+                    await blob_store.delete(temp_blob_key)
+                except Exception:
+                    pass
+
                 # Truly new session -> create
                 session = Session(
                     id=session_id,
@@ -1218,6 +1219,22 @@ async def sync_push(
                             "current_etag": sess.etag,
                         },
                     )
+
+            # ── Validation passed — promote blob from temp to final key ──
+            # This happens AFTER create-recheck and ETag-recheck, so the
+            # blob is only written to the final key for the winning request.
+            temp_data = await blob_store.get(temp_blob_key)
+            if not temp_data:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Blob upload lost during sync — please retry",
+                )
+            await blob_store.put(key, temp_data)
+            # Clean up temp (best-effort)
+            try:
+                await blob_store.delete(temp_blob_key)
+            except Exception:
+                pass
 
             # Update metadata on existing session
             sess.title = meta["title"]
