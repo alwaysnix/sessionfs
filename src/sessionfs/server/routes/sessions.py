@@ -1094,32 +1094,34 @@ async def sync_push(
                 async for db2 in _get_db_gen():
                     return await _do_phase3_writes(db2)
 
+        async def _cleanup_temp_blob():
+            """Best-effort cleanup of temp blob on any exit path."""
+            try:
+                await blob_store.delete(temp_blob_key)
+            except Exception:
+                pass
+
+        async def _promote_blob():
+            """Copy temp blob to final key. Raises on failure."""
+            temp_data = await blob_store.get(temp_blob_key)
+            if not temp_data:
+                raise HTTPException(500, "Blob upload lost during sync — please retry")
+            await blob_store.put(key, temp_data)
+            await _cleanup_temp_blob()
+
         async def _do_phase3_writes(db2: AsyncSession) -> Response | SyncPushResponse:
-            # Step 1: Validate BEFORE promoting the blob
+          try:
             if existing is None and not is_undelete:
-                # Re-verify session doesn't exist (race protection)
+                # Lock-based create check: SELECT FOR UPDATE SKIP LOCKED
+                # prevents two concurrent creates from both passing
                 existing_check = await db2.execute(
-                    select(Session).where(Session.id == session_id)
+                    select(Session).where(Session.id == session_id).with_for_update(skip_locked=True)
                 )
                 if existing_check.scalar_one_or_none() is not None:
-                    # Clean up temp blob on race loss
-                    try:
-                        await blob_store.delete(temp_blob_key)
-                    except Exception:
-                        pass
-                    raise HTTPException(
-                        status_code=409,
-                        detail="Session created by another request during upload",
-                    )
-                # Promote blob from temp to final key (after validation passed)
-                temp_data = await blob_store.get(temp_blob_key)
-                if not temp_data:
-                    raise HTTPException(500, "Blob upload lost during sync — please retry")
-                await blob_store.put(key, temp_data)
-                try:
-                    await blob_store.delete(temp_blob_key)
-                except Exception:
-                    pass
+                    await _cleanup_temp_blob()
+                    raise HTTPException(409, "Session created by another request during upload")
+
+                await _promote_blob()
 
                 # Truly new session -> create
                 session = Session(
@@ -1172,12 +1174,11 @@ async def sync_push(
                     media_type="application/json",
                 )
 
-            # Un-delete or update existing session
+            # Un-delete or update existing session (row locked via FOR UPDATE)
             if is_undelete:
-                # Re-fetch the soft-deleted session in fresh DB context
                 from sessionfs.server.db.models import Handoff, ShareLink
                 result2 = await db2.execute(
-                    select(Session).where(Session.id == session_id, Session.user_id == user_id)
+                    select(Session).where(Session.id == session_id, Session.user_id == user_id).with_for_update()
                 )
                 sess = result2.scalar_one_or_none()
                 if sess is None:
@@ -1196,13 +1197,13 @@ async def sync_push(
                 sess.is_deleted = False
                 sess.deleted_at = None
             else:
-                # Re-fetch existing session in fresh DB context
+                # Re-fetch with FOR UPDATE lock to prevent concurrent updates
                 result2 = await db2.execute(
                     select(Session).where(
                         Session.id == session_id,
                         Session.user_id == user_id,
                         Session.is_deleted == False,  # noqa: E712
-                    )
+                    ).with_for_update()
                 )
                 sess = result2.scalar_one_or_none()
                 if sess is None:
@@ -1220,21 +1221,8 @@ async def sync_push(
                         },
                     )
 
-            # ── Validation passed — promote blob from temp to final key ──
-            # This happens AFTER create-recheck and ETag-recheck, so the
-            # blob is only written to the final key for the winning request.
-            temp_data = await blob_store.get(temp_blob_key)
-            if not temp_data:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Blob upload lost during sync — please retry",
-                )
-            await blob_store.put(key, temp_data)
-            # Clean up temp (best-effort)
-            try:
-                await blob_store.delete(temp_blob_key)
-            except Exception:
-                pass
+            # Promote blob (update/undelete path — after FOR UPDATE lock + ETag check)
+            await _promote_blob()
 
             # Update metadata on existing session
             sess.title = meta["title"]
@@ -1274,6 +1262,13 @@ async def sync_push(
                 blob_size_bytes=sess.blob_size_bytes,
                 synced_at=now,
             )
+          except HTTPException:
+            # Clean up temp blob on validation failure, then re-raise
+            await _cleanup_temp_blob()
+            raise
+          except Exception:
+            await _cleanup_temp_blob()
+            raise
 
         return await _phase3_writes()
     finally:
