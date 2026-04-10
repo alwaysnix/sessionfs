@@ -20,6 +20,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from fastapi.responses import Response
 from pydantic import BaseModel as _BaseModel
 from sqlalchemy import func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sessionfs.server.auth.dependencies import get_current_user, require_verified_user
@@ -1102,12 +1103,12 @@ async def sync_push(
                 pass
 
         async def _promote_blob():
-            """Copy temp blob to final key. Raises on failure."""
+            """Copy temp blob to final key. Does NOT delete temp — caller
+            must call _cleanup_temp_blob() after second commit succeeds."""
             temp_data = await blob_store.get(temp_blob_key)
             if not temp_data:
                 raise HTTPException(500, "Blob upload lost during sync — please retry")
             await blob_store.put(key, temp_data)
-            await _cleanup_temp_blob()
 
         async def _do_phase3_writes(db2: AsyncSession) -> Response | SyncPushResponse:
           try:
@@ -1148,7 +1149,7 @@ async def sync_push(
                 db2.add(session)
                 try:
                     await db2.commit()
-                except Exception:
+                except IntegrityError:
                     # PK violation = another request created the session first
                     await _cleanup_temp_blob()
                     raise HTTPException(409, "Session created by another request during upload")
@@ -1158,6 +1159,8 @@ async def sync_push(
                 await _promote_blob()
                 session.blob_key = key
                 await db2.commit()
+                # Both commits succeeded — safe to clean up temp blob
+                await _cleanup_temp_blob()
 
                 if meta["message_count"] >= 5 and git_remote_normalized:
                     background_tasks.add_task(
@@ -1254,6 +1257,8 @@ async def sync_push(
             await _promote_blob()
             sess.blob_key = key
             await db2.commit()
+            # Both commits succeeded — safe to clean up temp blob
+            await _cleanup_temp_blob()
             await db2.refresh(sess)
 
             if meta["message_count"] >= 5 and git_remote_normalized:
