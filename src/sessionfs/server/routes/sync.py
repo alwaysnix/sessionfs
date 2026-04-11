@@ -250,10 +250,15 @@ async def get_sync_status(
     )
     failed = failed_result.scalar() or 0
 
-    # Storage limit based on tier
+    # Storage limit based on effective tier — org members inherit their org's
+    # tier instead of being limited by personal user.tier.
+    from sessionfs.server.tier_gate import get_effective_tier
+    from sessionfs.server.tiers import Tier
+
     free_limit = int(os.environ.get("SFS_MAX_SYNC_BYTES_FREE", str(50 * 1024 * 1024)))
     paid_limit = int(os.environ.get("SFS_MAX_SYNC_BYTES_PAID", str(300 * 1024 * 1024)))
-    limit = paid_limit if user.tier in ("pro", "team", "enterprise", "admin") else free_limit
+    effective_tier = await get_effective_tier(user, db)
+    limit = paid_limit if effective_tier in (Tier.PRO, Tier.TEAM, Tier.ENTERPRISE) else free_limit
 
     return SyncStatusResponse(
         mode=user.sync_mode or "off",

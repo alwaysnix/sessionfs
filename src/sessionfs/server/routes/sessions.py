@@ -58,9 +58,17 @@ _user_sync_semaphores: dict[str, asyncio.Semaphore] = defaultdict(
     lambda: asyncio.Semaphore(3)
 )
 
-def _sync_limit_for_user(user) -> int:
-    """Return sync byte limit based on user tier."""
-    if user.tier in ("pro", "team", "enterprise", "admin"):
+def _sync_limit_for_tier(tier) -> int:
+    """Return sync byte limit based on a resolved effective Tier enum value.
+
+    Use `get_effective_tier(user, db)` from tier_gate to resolve the tier first
+    so org members inherit their org's tier instead of being limited by their
+    personal user.tier field.
+    """
+    # Import locally to avoid circular imports at module load time
+    from sessionfs.server.tiers import Tier
+
+    if tier in (Tier.PRO, Tier.TEAM, Tier.ENTERPRISE):
         return SFS_MAX_SYNC_BYTES_PAID
     return SFS_MAX_SYNC_BYTES_FREE
 
@@ -918,8 +926,11 @@ async def sync_push(
             user.last_client_device = _client_device[:100] if _client_device else None
             user.last_sync_at = datetime.now(timezone.utc)
 
-        # Tier-based sync limit
-        sync_limit = _sync_limit_for_user(user)
+        # Tier-based sync limit — resolve effective tier so org members
+        # inherit their org's tier instead of being limited by user.tier.
+        from sessionfs.server.tier_gate import get_effective_tier
+        effective_tier = await get_effective_tier(user, db)
+        sync_limit = _sync_limit_for_tier(effective_tier)
         limit_str = _sync_limit_human(sync_limit)
 
         # Check content-length against sync limit
