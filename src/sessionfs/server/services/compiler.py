@@ -344,8 +344,11 @@ async def compile_project_context(
         "discovery": "discoveries",
     }
 
-    for entry_type, contents in grouped.items():
-        slug = slug_map.get(entry_type, entry_type)
+    # Rebuild section pages for ALL known types, not just types in the
+    # current pending batch. This ensures pages are true projections of
+    # the active-claim state — if a claim goes stale or is superseded,
+    # the page updates on the next compile even without new pending entries.
+    for entry_type, slug in slug_map.items():
         section_title = SECTION_MAP.get(entry_type, f"## {entry_type.title()}").lstrip("# ")
 
         # Build page content from active claims of this type (not just pending)
@@ -360,6 +363,18 @@ async def compile_project_context(
             ).order_by(KnowledgeEntry.created_at.desc())
         )
         type_entries = list(all_of_type.scalars().all())
+
+        # If zero active claims for this type, delete the section page
+        # (if it exists) and move on. No empty pages.
+        if not type_entries:
+            await db.execute(
+                delete(KnowledgePage).where(
+                    KnowledgePage.project_id == project_id,
+                    KnowledgePage.slug == slug,
+                    KnowledgePage.page_type == "section",
+                )
+            )
+            continue
 
         # Cap section pages: keep most recent + highest confidence
         section_limit = getattr(project, "kb_section_page_limit", 30) or 30
@@ -407,37 +422,8 @@ async def compile_project_context(
                 auto_generated=True,
             ))
 
-    # 9. Delete section pages whose entry type has zero active claims.
-    # The loop above only upserts for types present in the current batch.
-    # If a type drops to zero active claims, its old section page lingers.
-    all_section_slugs = set(slug_map.values())
-    active_slugs = set(slug_map.get(t, t) for t in grouped.keys())
-    dead_slugs = all_section_slugs - active_slugs
-
-    if dead_slugs:
-        for slug in dead_slugs:
-            # Verify the type truly has zero active claims (not just zero pending)
-            active_check = await db.execute(
-                select(func.count(KnowledgeEntry.id)).where(
-                    KnowledgeEntry.project_id == project_id,
-                    KnowledgeEntry.entry_type == next(
-                        (k for k, v in slug_map.items() if v == slug), ""
-                    ),
-                    KnowledgeEntry.dismissed == False,  # noqa: E712
-                    KnowledgeEntry.claim_class == "claim",
-                    KnowledgeEntry.freshness_class.in_(["current", "aging"]),
-                    KnowledgeEntry.superseded_by.is_(None),
-                )
-            )
-            if (active_check.scalar() or 0) == 0:
-                await db.execute(
-                    delete(KnowledgePage).where(
-                        KnowledgePage.project_id == project_id,
-                        KnowledgePage.slug == slug,
-                        KnowledgePage.page_type == "section",
-                    )
-                )
-                logger.info("Removed empty section page %s for project %s", slug, project_id)
+    # (Step 9 cleanup is now redundant — the loop above iterates ALL known
+    # types and handles zero-claim deletion inline via the `continue` path.)
 
     await db.commit()
 
