@@ -117,13 +117,17 @@ def stop() -> None:
     if not _is_running(pid):
         console.print("[yellow]Daemon not running (stale PID file). Cleaning up.[/yellow]")
         _pid_path().unlink(missing_ok=True)
+        _status_path().unlink(missing_ok=True)
         return
 
     os.kill(pid, signal.SIGTERM)
     console.print(f"[green]Sent SIGTERM to daemon (PID {pid}).[/green]")
 
-    # Clean up PID file
+    # Clean up both PID file and status file so repeated `stop` calls
+    # don't keep hitting the same stale metadata, and `status` doesn't
+    # show dead daemon info after a successful stop.
     _pid_path().unlink(missing_ok=True)
+    _status_path().unlink(missing_ok=True)
 
 
 @daemon_app.command()
