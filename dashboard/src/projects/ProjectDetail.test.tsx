@@ -38,6 +38,7 @@ const { hooks, mockAddToast } = vi.hoisted(() => ({
     useDeleteWikiPage: vi.fn(),
     useRegenerateWikiPage: vi.fn(),
     useUpdateProjectSettings: vi.fn(),
+    useProjectHealth: vi.fn(),
   },
   mockAddToast: vi.fn(),
 }));
@@ -113,6 +114,7 @@ describe('ProjectDetail', () => {
     hooks.useDeleteWikiPage.mockReturnValue(makeMutation());
     hooks.useRegenerateWikiPage.mockReturnValue(makeMutation());
     hooks.useUpdateProjectSettings.mockReturnValue(makeMutation());
+    hooks.useProjectHealth.mockReturnValue({ data: null, isLoading: false });
   });
 
   it('shows loading state while the project fetches', () => {

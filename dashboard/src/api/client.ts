@@ -291,16 +291,19 @@ export interface ContextCompilation {
   compiled_at: string;
 }
 
-export interface ProjectHealthCheck {
-  name: string;
-  status: 'pass' | 'fail';
-  detail: string | null;
-}
-
 export interface ProjectHealthResponse {
-  checks: ProjectHealthCheck[];
-  suggestions: string[];
-  score: number;
+  project_id: string;
+  total_entries: number;
+  pending_entries: number;
+  compiled_entries: number;
+  dismissed_entries: number;
+  total_compilations: number;
+  last_compilation_at: string | null;
+  potentially_stale: boolean;
+  recommendations: string[];
+  stale_entry_count: number;
+  low_confidence_count: number;
+  decayed_count: number;
 }
 
 export class ApiError extends Error {
