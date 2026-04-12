@@ -303,11 +303,17 @@ async def dismiss_stale_entries(
     from sqlalchemy import or_
     ninety_days_ago = datetime.now(timezone.utc) - timedelta(days=90)
 
+    # Only dismiss entries that are BOTH stale (old/unreferenced) AND
+    # low-confidence (< 0.5). High-confidence stale entries are likely
+    # real decisions/patterns that just haven't been referenced recently
+    # — they should decay naturally via the compile-time 0.8x multiplier,
+    # not be bulk-dismissed.
     result = await db.execute(
         update(KnowledgeEntry)
         .where(
             KnowledgeEntry.project_id == project_id,
             KnowledgeEntry.dismissed == False,  # noqa: E712
+            KnowledgeEntry.confidence < 0.5,
             or_(
                 KnowledgeEntry.last_relevant_at.is_(None) & (KnowledgeEntry.created_at < ninety_days_ago),
                 KnowledgeEntry.last_relevant_at < ninety_days_ago,

@@ -425,18 +425,28 @@ class TestBulkDismissStale:
         project.owner_id = test_user.id
         await db_session.commit()
 
-        # One stale entry (old, never referenced)
+        # 1. Old + low-confidence → SHOULD be dismissed
         await _mk_entry(
             db_session,
             project_id=project.id,
-            content="Very old stale finding from months ago",
+            content="Very old stale low-confidence finding",
+            confidence=0.3,
             created_ago_days=120,
         )
-        # One fresh entry (should NOT be dismissed)
+        # 2. Old + high-confidence → should NOT be dismissed (valuable decision)
+        await _mk_entry(
+            db_session,
+            project_id=project.id,
+            content="Old but high-confidence architecture decision",
+            confidence=0.9,
+            created_ago_days=120,
+        )
+        # 3. Fresh entry → should NOT be dismissed
         await _mk_entry(
             db_session,
             project_id=project.id,
             content="Fresh new discovery from today",
+            confidence=0.8,
             created_ago_days=0,
         )
 
@@ -449,17 +459,24 @@ class TestBulkDismissStale:
         )
         data = resp.json()
         assert data["dismissed_count"] == 1, (
-            f"Expected 1 stale entry dismissed, got {data['dismissed_count']}"
+            f"Expected 1 low-confidence stale entry dismissed, got {data['dismissed_count']}"
         )
 
-        # Verify the stale entry is now dismissed
-        all_entries = (await db_session.execute(
-            select(KnowledgeEntry).where(
-                KnowledgeEntry.project_id == project.id,
-            )
-        )).scalars().all()
-        dismissed = [e for e in all_entries if e.dismissed]
-        active = [e for e in all_entries if not e.dismissed]
-        assert len(dismissed) == 1, "Only the stale entry should be dismissed"
-        assert len(active) == 1, "The fresh entry should remain active"
-        assert "Very old stale" in dismissed[0].content
+        # Verify ONLY the low-confidence stale entry was dismissed.
+        # Use raw SQL to bypass the stale identity map (same pattern as
+        # the decay test — synchronize_session=False bulk UPDATEs don't
+        # update in-memory ORM objects).
+        from sqlalchemy import text
+        rows = (await db_session.execute(
+            text("SELECT content, dismissed FROM knowledge_entries WHERE project_id = :pid"),
+            {"pid": project.id},
+        )).all()
+        dismissed = [r for r in rows if r[1]]
+        active = [r for r in rows if not r[1]]
+        assert len(dismissed) == 1, f"Only the low-confidence stale entry should be dismissed, got {len(dismissed)}"
+        assert len(active) == 2, f"High-confidence stale + fresh should remain, got {len(active)}"
+        assert "low-confidence" in dismissed[0][0]
+        active_contents = [r[0] for r in active]
+        assert any("architecture decision" in c for c in active_contents), (
+            "High-confidence stale entry should NOT be bulk-dismissed"
+        )
