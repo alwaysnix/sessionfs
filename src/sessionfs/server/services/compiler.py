@@ -732,7 +732,7 @@ async def _prune_dead_concept_pages(project_id: str, db: AsyncSession) -> int:
         select(KnowledgePage).where(
             KnowledgePage.project_id == project_id,
             KnowledgePage.slug.like("concept/%"),
-            KnowledgePage.page_type == "auto",
+            KnowledgePage.page_type == "concept",
         )
     )
     concept_pages = list(result.scalars().all())

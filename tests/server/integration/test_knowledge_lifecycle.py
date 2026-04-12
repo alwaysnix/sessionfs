@@ -299,3 +299,167 @@ class TestSimilarityRejection:
         assert resp.status_code == 409, (
             f"Expected 409 for near-duplicate, got {resp.status_code}: {resp.text[:200]}"
         )
+
+
+# ---------- Concept page pruning ----------
+
+
+class TestConceptPagePruning:
+    @pytest.mark.asyncio
+    async def test_prune_deletes_concept_page_when_all_entries_dismissed(
+        self, db_session: AsyncSession
+    ):
+        """_prune_dead_concept_pages should delete a concept page whose
+        linked entries are ALL dismissed.
+        """
+        from sessionfs.server.db.models import KnowledgeLink, KnowledgePage
+        from sessionfs.server.services.compiler import _prune_dead_concept_pages
+
+        project = await _mk_project(db_session)
+
+        # Create and dismiss an entry
+        entry = await _mk_entry(
+            db_session,
+            project_id=project.id,
+            content="Old pattern that got dismissed",
+            dismissed=True,
+        )
+
+        # Create a concept page linked to that entry
+        page = KnowledgePage(
+            id=f"kp_{uuid.uuid4().hex[:12]}",
+            project_id=project.id,
+            slug="concept/old-pattern",
+            title="Old Pattern",
+            content="Article about old pattern",
+            page_type="concept",
+            entry_count=1,
+        )
+        db_session.add(page)
+        await db_session.commit()
+        await db_session.refresh(page)
+
+        link = KnowledgeLink(
+            project_id=project.id,
+            source_id=str(entry.id),
+            source_type="entry",
+            target_id=page.id,
+            target_type="page",
+        )
+        db_session.add(link)
+        await db_session.commit()
+
+        deleted = await _prune_dead_concept_pages(project.id, db_session)
+
+        assert deleted == 1, f"Expected 1 page deleted, got {deleted}"
+
+        # Page should be gone from DB
+        check = (await db_session.execute(
+            select(KnowledgePage).where(KnowledgePage.id == page.id)
+        )).scalar_one_or_none()
+        assert check is None, "Concept page should have been deleted"
+
+    @pytest.mark.asyncio
+    async def test_prune_does_not_delete_page_with_active_entries(
+        self, db_session: AsyncSession
+    ):
+        """_prune_dead_concept_pages must NOT delete concept pages that
+        still have at least one non-dismissed linked entry.
+        """
+        from sessionfs.server.db.models import KnowledgeLink, KnowledgePage
+        from sessionfs.server.services.compiler import _prune_dead_concept_pages
+
+        project = await _mk_project(db_session)
+
+        active_entry = await _mk_entry(
+            db_session,
+            project_id=project.id,
+            content="Still-relevant pattern",
+            dismissed=False,
+        )
+
+        page = KnowledgePage(
+            id=f"kp_{uuid.uuid4().hex[:12]}",
+            project_id=project.id,
+            slug="concept/active-pattern",
+            title="Active Pattern",
+            content="Article about active pattern",
+            page_type="concept",
+            entry_count=1,
+        )
+        db_session.add(page)
+        await db_session.commit()
+        await db_session.refresh(page)
+
+        link = KnowledgeLink(
+            project_id=project.id,
+            source_id=str(active_entry.id),
+            source_type="entry",
+            target_id=page.id,
+            target_type="page",
+        )
+        db_session.add(link)
+        await db_session.commit()
+
+        deleted = await _prune_dead_concept_pages(project.id, db_session)
+
+        assert deleted == 0, "Active page should not be deleted"
+
+
+# ---------- Bulk dismiss-stale endpoint ----------
+
+
+class TestBulkDismissStale:
+    @pytest.mark.asyncio
+    async def test_dismiss_stale_entries_via_api(
+        self,
+        client,
+        auth_headers: dict,
+        db_session: AsyncSession,
+        test_user,
+    ):
+        """POST /entries/dismiss-stale should dismiss old unreferenced entries
+        and return the count.
+        """
+        project = await _mk_project(db_session)
+        project.owner_id = test_user.id
+        await db_session.commit()
+
+        # One stale entry (old, never referenced)
+        await _mk_entry(
+            db_session,
+            project_id=project.id,
+            content="Very old stale finding from months ago",
+            created_ago_days=120,
+        )
+        # One fresh entry (should NOT be dismissed)
+        await _mk_entry(
+            db_session,
+            project_id=project.id,
+            content="Fresh new discovery from today",
+            created_ago_days=0,
+        )
+
+        resp = await client.post(
+            f"/api/v1/projects/{project.id}/entries/dismiss-stale",
+            headers=auth_headers,
+        )
+        assert resp.status_code == 200, (
+            f"Expected 200, got {resp.status_code}: {resp.text[:200]}"
+        )
+        data = resp.json()
+        assert data["dismissed_count"] == 1, (
+            f"Expected 1 stale entry dismissed, got {data['dismissed_count']}"
+        )
+
+        # Verify the stale entry is now dismissed
+        all_entries = (await db_session.execute(
+            select(KnowledgeEntry).where(
+                KnowledgeEntry.project_id == project.id,
+            )
+        )).scalars().all()
+        dismissed = [e for e in all_entries if e.dismissed]
+        active = [e for e in all_entries if not e.dismissed]
+        assert len(dismissed) == 1, "Only the stale entry should be dismissed"
+        assert len(active) == 1, "The fresh entry should remain active"
+        assert "Very old stale" in dismissed[0].content
