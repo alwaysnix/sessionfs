@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.8.6] - 2026-04-13
+
+### Added
+- **Knowledge Base v2 — claim model** — three-layer lifecycle: evidence (raw facts from sync) → claim (promoted active truth) → note (rejected or dismissed). New columns on `knowledge_entries`: `claim_class`, `entity_ref`, `entity_type`, `freshness_class`, `supersession_reason`, `promoted_at`, `promoted_by`, `retrieved_count`, `used_in_answer_count`, `compiled_count` (migration 027).
+- **Per-type freshness decay** — new `src/sessionfs/server/services/freshness.py` applies per-type windows: bug 30d, dependency 60d, pattern/discovery 90d, convention 180d, decision 365d. Entries decay from `current` → `stale` → `archived` based on `last_relevant_at`.
+- **Auto-promotion at compile** — evidence with `confidence >= 0.5` and `content >= 30 chars` is automatically promoted to `claim` at the start of each compile pass, so compile pulls from a stable active-claim pool.
+- **Supersession** — `PUT /api/v1/projects/{id}/entries/{entry_id}/supersede` retires an old claim and links it to a superseding entry with a reason. Superseded entries remain readable for audit but are excluded from compile.
+- **Refresh endpoint** — `PUT /api/v1/projects/{id}/entries/{entry_id}/refresh` updates `last_relevant_at` and resets `freshness_class` to `current`; replaces the old "Still valid" no-op (which called undismiss on non-dismissed entries).
+- **Rebuild endpoint** — `POST /api/v1/projects/{id}/rebuild` resets `compiled_at=NULL` on all active claims and clears `context_document`, forcing a full compile on settled projects where `compile` would otherwise be a no-op.
+- **`sfs project rebuild` CLI** — new command mirrors the rebuild endpoint.
+- **Writeback gates for agent contributions** — `add_knowledge` (MCP + API) defaults to `claim_class="note"`. Auto-promotes to `claim` only if specificity gate, semantic dedup (Jaccard-min ≥ 0.85), and rate limit pass. Returns classification feedback so agents know when their entry was rejected vs accepted vs promoted.
+- **Section pages as true projections** — compile iterates ALL known types from `slug_map`, not just types in the pending batch. Section pages with zero active claims are deleted inline (previously went stale indefinitely).
+- **`used_in_answer_count` tracking** — MCP `ask_project` and API search expose a `_used_in_answer` flag that increments this counter on retrieval, feeding the freshness signal.
+- **Dashboard `KnowledgeEntriesTab` v2** — health banner with stale review queue, claim/freshness badges, filter controls, provenance blocks (entity ref + promoted_by + retrieved/used counts), promote/supersede/refresh/dismiss actions, rebuild button.
+
+### Changed
+- **Compile default budget lowered to 2000 words** (from 8000) — active-truth-per-token principle produces sharper context documents. Migration 027 backfills existing projects with `kb_max_context_words = 8000 OR NULL` to the new default.
+- **Search filters to active claims by default** — `GET /api/v1/projects/{id}/entries/search` excludes evidence, notes, and superseded entries unless `include_stale=true`.
+- **MCP `search_project_knowledge`** — same default; returns active-claim results with provenance.
+- **MCP `get_project_context`** — filters to active claims when constructing the compiled document.
+
+### Fixed
+- **Concept page prune filter** — compile filtered dead pages by `page_type == "auto"`, but concept pages are stored as `page_type == "concept"`. Dead pages were never pruned.
+- **`dismiss-stale` safety guard** — added `confidence < 0.5` constraint to prevent bulk-dismissing medium-confidence entries that haven't been referenced recently.
+- **Daemon startup order** — `_fetch_remote_settings()` now runs before `full_scan()`. Previously a slow settings fetch blocked watcher startup by ~95 seconds on fresh installs.
+- **Codex watcher NoneType crash** — `payload.get("content") or []` pattern in 4 places (content, summary, action blocks); prior code crashed when Codex emitted null fields, halting the entire watcher loop.
+- **Daemon PID resolution fallback** — `sfs daemon stop` now falls back to `daemon.json` when `sfsd.pid` is missing, fixing orphaned daemon processes after crashes.
+
+### Documentation
+- **`sfs dlp scan/policy` in site CLI docs** — added to `site/src/content/docs/cli.mdx`.
+
 ## [0.9.8.5] - 2026-04-12
 
 ### Added

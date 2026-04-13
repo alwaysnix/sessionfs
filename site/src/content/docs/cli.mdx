@@ -701,6 +701,22 @@ Compiling pending entries...
 Project context updated. 12 entries compiled.
 ```
 
+### `sfs project rebuild`
+
+Force a full re-compile of the project context. Resets `compiled_at=NULL` on all active claims and clears `context_document`, so the next compile pass pulls every active claim from scratch. Useful on settled projects where normal `compile` would be a no-op.
+
+```
+sfs project rebuild
+```
+
+**Example:**
+
+```bash
+$ sfs project rebuild
+
+Project context reset. Run `sfs project compile` to regenerate.
+```
+
 ### `sfs project entries`
 
 List knowledge entries for this project.

@@ -17,14 +17,41 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <section class="relative py-16 sm:py-20 px-5 noise">
     <div class="max-w-3xl mx-auto space-y-0">
 
-      <!-- v0.9.8.5 -->
+      <!-- v0.9.8.6 -->
       <article class="fade-up pb-12 pt-10">
         <div class="flex items-center gap-3 mb-4">
           <span class="pulse-badge inline-flex items-center gap-1.5 bg-surface border border-brand/30 rounded-full px-4 py-1.5 font-mono text-sm">
+            <span class="text-brand font-semibold">v0.9.8.6</span>
+          </span>
+          <span class="text-sm text-muted-dim font-mono">April 13, 2026</span>
+          <span class="ml-auto inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-accent/10 text-accent uppercase tracking-wide">Latest</span>
+        </div>
+        <h2 class="font-heading text-xl font-bold mb-4">Knowledge Base v2 — Three-Layer Claim Model, Per-Type Freshness, Writeback Gates</h2>
+        <ul class="space-y-2 text-base text-muted">
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Three-layer claim model</strong> — every knowledge entry is now evidence (raw fact from sync), claim (promoted active truth), or note (rejected/dismissed). Migration 027 adds claim_class, entity_ref, freshness_class, supersession_reason, promoted_at, retrieved_count, used_in_answer_count, compiled_count.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Per-type freshness decay</strong> — bug 30d, dependency 60d, pattern/discovery 90d, convention 180d, decision 365d. Entries decay current &rarr; stale &rarr; archived from last_relevant_at.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Auto-promotion at compile</strong> — evidence with confidence &ge; 0.5 and content &ge; 30 chars is promoted to claim at the start of every compile pass.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Writeback gates for agent contributions</strong> — add_knowledge defaults to note. Auto-promotes to claim only if specificity gate, semantic dedup (Jaccard-min &ge; 0.85), and rate limit pass. Agents see classification feedback.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Supersession + refresh + rebuild endpoints</strong> — PUT /entries/:id/supersede retires a claim with a reason and links it to the replacement. PUT /entries/:id/refresh resets last_relevant_at (replaces the old "Still valid" no-op). POST /projects/:id/rebuild + sfs project rebuild force a full re-compile on settled projects.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Section pages as true projections</strong> — compile iterates ALL slug_map types, not just types in the pending batch. Pages with zero active claims are deleted inline.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>used_in_answer tracking</strong> — MCP ask_project and API search expose a _used_in_answer flag that increments on retrieval, feeding the freshness signal.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Dashboard KnowledgeEntriesTab v2</strong> — health banner with stale review queue, claim/freshness badges, filter controls, provenance blocks (entity ref, promoter, retrieved/used counts), promote/supersede/refresh/dismiss actions, rebuild button.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Compile default budget lowered to 2,000 words</strong> (from 8,000) — active-truth-per-token principle produces sharper context documents.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Concept page prune fix</strong> — page_type filter was looking for "auto" but concept pages store as "concept", so dead pages were never pruned.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Daemon fixes</strong> — startup order (settings fetch before full_scan), Codex watcher NoneType crash, sfs daemon stop PID resolution fallback to daemon.json.</li>
+          <li class="flex items-start gap-2"><span class="text-muted-dim mt-0.5 shrink-0">&#9679;</span><span class="text-muted-dim">1,091 backend tests + 76 dashboard UI tests passing &middot; 27 migrations</span></li>
+        </ul>
+      </article>
+
+      <div class="grad-divider"></div>
+
+      <!-- v0.9.8.5 -->
+      <article class="fade-up pb-12 pt-10">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="inline-flex items-center gap-1.5 bg-surface border border-border rounded-full px-4 py-1.5 font-mono text-sm">
             <span class="text-brand font-semibold">v0.9.8.5</span>
           </span>
           <span class="text-sm text-muted-dim font-mono">April 12, 2026</span>
-          <span class="ml-auto inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-accent/10 text-accent uppercase tracking-wide">Latest</span>
         </div>
         <h2 class="font-heading text-xl font-bold mb-4">Security Fixes, Lifecycle Hardening, Dashboard Help, 93 New Tests</h2>
         <ul class="space-y-2 text-base text-muted">

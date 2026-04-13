@@ -8,16 +8,45 @@ Every AI coding session generates insights — architecture decisions, bug worka
 ## The Knowledge Loop
 
 ```
-Sessions → Extract → Entries → Compile → Wiki → Agents read & write back
+Sessions → Extract (evidence) → Promote (claim) → Compile → Wiki → Agents read & write back
 ```
 
 1. AI agents discover facts during coding sessions
 2. Facts are saved as **knowledge entries** (via MCP tools or CLI)
-3. **Compilation** merges pending entries into the project context document
-4. **Section pages** and **concept articles** are auto-generated in the wiki
-5. Future agents read the wiki via `get_project_context` and contribute back
+3. Each entry is classified as **evidence** (raw, from sync), **claim** (promoted active truth), or **note** (rejected/dismissed)
+4. **Compilation** auto-promotes qualifying evidence to claim, merges active claims into the project context document
+5. **Section pages** and **concept articles** are auto-generated from active claims only
+6. Future agents read the wiki via `get_project_context` and contribute back
 
 The loop is self-reinforcing: the more sessions you run, the richer the knowledge base becomes.
+
+## The Claim Model (v0.9.8.6+)
+
+Every knowledge entry has a `claim_class` that controls its lifecycle:
+
+| Class | Meaning | When |
+|-------|---------|------|
+| `evidence` | Raw fact extracted from a session or submitted by an agent that didn't meet promotion gates | Default for sync-extracted entries and agent `add_knowledge` calls |
+| `claim` | Promoted active truth | Evidence auto-promoted at compile (confidence &ge; 0.5, content &ge; 30 chars), or agent entries that pass specificity + dedup + rate-limit gates |
+| `note` | Rejected or dismissed — audit-visible but excluded from compile | Manual dismiss, or agent submissions that failed all gates |
+
+**Freshness decay.** Each type has its own decay window applied from `last_relevant_at`:
+
+| Type | Window before `stale` |
+|------|----------------------|
+| `bug` | 30 days |
+| `dependency` | 60 days |
+| `pattern`, `discovery` | 90 days |
+| `convention` | 180 days |
+| `decision` | 365 days |
+
+Past the window, `freshness_class` moves `current` &rarr; `stale` &rarr; `archived`. Stale entries are surfaced in the dashboard review queue; only `current` active claims feed compile by default.
+
+**Supersession.** Retire an old claim in favor of a new one with `PUT /api/v1/projects/{id}/entries/{entry_id}/supersede`. The old entry remains readable for audit but is excluded from compile.
+
+**Refresh.** Extend an entry's validity window with `PUT /api/v1/projects/{id}/entries/{entry_id}/refresh` — updates `last_relevant_at` and resets `freshness_class` to `current`.
+
+**Rebuild.** `POST /api/v1/projects/{id}/rebuild` (or `sfs project rebuild`) resets `compiled_at=NULL` on all active claims and clears `context_document`, forcing a full re-compile on settled projects.
 
 ## Getting Started
 
@@ -167,6 +196,7 @@ sfs project page architecture
 |---------|-------------|
 | `sfs project init` | Initialize project context for the current repo |
 | `sfs project compile` | Compile pending entries into the context document |
+| `sfs project rebuild` | Force a full re-compile (reset `compiled_at=NULL` + clear context document) |
 | `sfs project entries` | List knowledge entries (supports `--pending`, `--type`, `--limit`) |
 | `sfs project ask "question"` | Search the knowledge base and show matching entries |
 | `sfs project pages` | List all wiki pages |
@@ -232,17 +262,22 @@ All endpoints are under `/api/v1/projects/{project_id}` and require authenticati
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/entries` | List entries. Query params: `type`, `pending`, `search`, `limit` |
-| POST | `/entries/add` | Add a single entry. Body: `content`, `entry_type`, `confidence`, `session_id` |
+| GET | `/entries/search` | Search active claims by default. Pass `include_stale=true` to include evidence, notes, and superseded entries |
+| POST | `/entries/add` | Add a single entry. Body: `content`, `entry_type`, `confidence`, `session_id`, `claim_class` (default: `note`) |
 | PUT | `/entries/{entry_id}` | Dismiss or un-dismiss an entry |
-| POST | `/compile` | Compile pending entries. Optional body: `llm_api_key`, `model`, `provider` |
+| PUT | `/entries/{entry_id}/refresh` | Reset `last_relevant_at` and `freshness_class=current`. Replaces the old "Still valid" no-op |
+| PUT | `/entries/{entry_id}/supersede` | Retire an old claim and link it to a superseding entry. Body: `superseded_by_id`, `reason` |
+| POST | `/entries/dismiss-stale` | Bulk-dismiss low-confidence stale entries (`confidence < 0.5` + > 90 days unreferenced) |
+| POST | `/compile` | Compile pending entries. Auto-promotes evidence &ge; 0.5 confidence to claim before merging |
+| POST | `/rebuild` | Reset `compiled_at=NULL` on all active claims and clear `context_document` to force a full re-compile |
 | GET | `/compilations` | List compilation history |
-| GET | `/health` | Health status: entry counts, staleness, word count, score inputs |
+| GET | `/health` | Health status: entry counts, staleness, word count, score inputs, stale review queue |
 | GET | `/pages` | List wiki pages |
 | GET | `/pages/{slug}` | Get page content with backlinks |
 | PUT | `/pages/{slug}` | Create or update a page. Body: `content`, `title` |
 | DELETE | `/pages/{slug}` | Delete a wiki page |
 | POST | `/pages/{slug}/regenerate` | Regenerate an auto-generated page |
-| PUT | `/settings` | Update project settings (e.g., `auto_narrative`) |
+| PUT | `/settings` | Update project settings (e.g., `auto_narrative`, `kb_max_context_words` — default 2000) |
 
 ## Best Practices
 
