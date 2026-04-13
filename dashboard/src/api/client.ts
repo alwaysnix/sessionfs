@@ -276,6 +276,16 @@ export interface KnowledgeEntry {
   created_at: string;
   compiled_at: string | null;
   dismissed: boolean;
+  claim_class: 'evidence' | 'claim' | 'note';
+  freshness_class: 'current' | 'aging' | 'stale' | 'superseded';
+  entity_ref: string | null;
+  entity_type: string | null;
+  superseded_by: number | null;
+  supersession_reason: string | null;
+  promoted_at: string | null;
+  retrieved_count: number;
+  used_in_answer_count: number;
+  compiled_count: number;
 }
 
 export interface KnowledgeEntryListResponse {
@@ -783,6 +793,28 @@ export function createApiClient(baseUrl: string, apiKey: string) {
       request<{ dismissed_count: number }>(
         `/api/v1/projects/${projectId}/entries/dismiss-stale`,
         { method: 'POST' },
+      ),
+
+    promoteEntry: (projectId: string, entryId: number) =>
+      request<KnowledgeEntry>(`/api/v1/projects/${projectId}/entries/${entryId}/promote`, {
+        method: 'PUT',
+      }),
+
+    supersedeEntry: (projectId: string, entryId: number, body: { superseding_id: number; reason: string }) =>
+      request<KnowledgeEntry>(`/api/v1/projects/${projectId}/entries/${entryId}/supersede`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }),
+
+    rebuildProject: (projectId: string) =>
+      request<{ status: string }>(`/api/v1/projects/${projectId}/rebuild`, {
+        method: 'POST',
+      }),
+
+    refreshEntry: (projectId: string, entryId: number) =>
+      request<{ id: number; freshness_class: string; last_relevant_at: string }>(
+        `/api/v1/projects/${projectId}/entries/${entryId}/refresh`,
+        { method: 'PUT' },
       ),
 
     // Wiki pages

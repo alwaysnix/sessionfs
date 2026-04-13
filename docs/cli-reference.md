@@ -673,6 +673,14 @@ Output raw project context markdown to stdout.
 sfs project get-context
 ```
 
+### `sfs project rebuild`
+
+Force a full rebuild of the project's compiled context document from all active claims. Resets `compiled_at` on every active claim and clears the existing `context_document`, so the next compile pass produces a fresh document. Useful after significantly editing the knowledge base or when a settled project's context has drifted from current reality.
+
+```
+sfs project rebuild
+```
+
 ---
 
 ## `sfs storage`

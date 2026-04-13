@@ -10,7 +10,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 
 from sessionfs.server.db.models import (
     ContextCompilation,
@@ -59,6 +59,91 @@ def _build_compile_prompt(context: str, grouped_entries: dict[str, list[str]]) -
     return "\n".join(parts)
 
 
+async def _auto_supersede(project_id: str, db: AsyncSession) -> int:
+    """Conservative auto-supersession during compile.
+
+    Only supersedes when:
+    - Same entity_ref (non-null) + same entry_type
+    - Newer entry has confidence >= 0.8
+    - High lexical overlap (>0.9) between old and new content
+
+    If overlap is between 0.5 and 0.9, creates a 'contradicts' link instead.
+    Returns the number of entries superseded.
+    """
+    from sessionfs.server.services.knowledge import word_overlap as _wo
+
+    # Find entries with entity_ref set, grouped by (entity_ref, entry_type)
+    result = await db.execute(
+        select(KnowledgeEntry).where(
+            KnowledgeEntry.project_id == project_id,
+            KnowledgeEntry.entity_ref.isnot(None),
+            KnowledgeEntry.dismissed == False,  # noqa: E712
+            KnowledgeEntry.superseded_by.is_(None),
+        ).order_by(KnowledgeEntry.created_at.asc())
+    )
+    entries = list(result.scalars().all())
+
+    groups: dict[tuple[str, str], list[KnowledgeEntry]] = defaultdict(list)
+    for e in entries:
+        if e.entity_ref:
+            groups[(e.entity_ref, e.entry_type)].append(e)
+
+    superseded_count = 0
+    for (_ref, _type), group in groups.items():
+        if len(group) < 2:
+            continue
+
+        # Compare each pair: older vs newer
+        for i in range(len(group)):
+            older = group[i]
+            if older.superseded_by is not None:
+                continue
+            for j in range(i + 1, len(group)):
+                newer = group[j]
+                if newer.superseded_by is not None:
+                    continue
+                if newer.confidence < 0.8:
+                    continue
+
+                overlap = _wo(older.content, newer.content)
+                if overlap > 0.9:
+                    # Supersede
+                    older.superseded_by = newer.id
+                    older.supersession_reason = "Auto-superseded: same entity, high overlap"
+                    older.freshness_class = "superseded"
+                    link = KnowledgeLink(
+                        project_id=project_id,
+                        source_type="entry",
+                        source_id=str(newer.id),
+                        target_type="entry",
+                        target_id=str(older.id),
+                        link_type="supersedes",
+                        confidence=overlap,
+                    )
+                    db.add(link)
+                    superseded_count += 1
+                    break  # This older entry is done
+                elif overlap > 0.5:
+                    # Create contradicts link (don't supersede)
+                    link = KnowledgeLink(
+                        project_id=project_id,
+                        source_type="entry",
+                        source_id=str(newer.id),
+                        target_type="entry",
+                        target_id=str(older.id),
+                        link_type="contradicts",
+                        confidence=overlap,
+                    )
+                    db.add(link)
+
+    if superseded_count:
+        await db.flush()
+        logger.info(
+            "Auto-superseded %d entries in project %s", superseded_count, project_id
+        )
+    return superseded_count
+
+
 async def compile_project_context(
     project_id: str,
     user_id: str,
@@ -87,6 +172,13 @@ async def compile_project_context(
     if not project:
         logger.warning("Project %s not found for compilation", project_id)
         return None
+
+    # Refresh freshness classes before compile
+    from sessionfs.server.services.freshness import refresh_freshness_classes
+    await refresh_freshness_classes(project_id, db)
+
+    # Auto-supersession: same entity_ref + same entry_type + newer + high confidence + high overlap
+    await _auto_supersede(project_id, db)
 
     # Decay: reduce confidence of entries not referenced recently.
     # "Not recent" = last_relevant_at is NULL and created > 90 days ago,
@@ -123,12 +215,34 @@ async def compile_project_context(
         .execution_options(synchronize_session=False)
     )
 
-    # 2. Get pending entries
+    # 2a. Auto-promote eligible evidence to claims so the extraction pipeline
+    # feeds the compile path. Without this, synced sessions dead-end at
+    # claim_class='evidence' and never appear in compiled views.
+    # Criteria: confidence >= 0.5, content >= 30 chars, not dismissed.
+    # Deliberately looser than the manual writeback gate (0.8/50) because
+    # deterministic extraction already filters for meaningful content.
+    await db.execute(
+        update(KnowledgeEntry)
+        .where(
+            KnowledgeEntry.project_id == project_id,
+            KnowledgeEntry.claim_class == "evidence",
+            KnowledgeEntry.dismissed == False,  # noqa: E712
+            KnowledgeEntry.confidence >= 0.5,
+            func.length(KnowledgeEntry.content) >= 30,
+        )
+        .values(claim_class="claim")
+        .execution_options(synchronize_session=False)
+    )
+
+    # 2b. Get pending entries — only active claims
     result = await db.execute(
         select(KnowledgeEntry).where(
             KnowledgeEntry.project_id == project_id,
             KnowledgeEntry.compiled_at.is_(None),
             KnowledgeEntry.dismissed == False,  # noqa: E712
+            KnowledgeEntry.claim_class == "claim",
+            KnowledgeEntry.freshness_class.in_(["current", "aging"]),
+            KnowledgeEntry.superseded_by.is_(None),
         )
     )
     pending = list(result.scalars().all())
@@ -137,9 +251,14 @@ async def compile_project_context(
         logger.info("No pending entries for project %s", project_id)
         return None
 
-    # Sort by confidence DESC so high-priority entries appear first in each
-    # section — _trim_to_budget removes from the bottom (lowest priority).
-    pending.sort(key=lambda e: (e.confidence, e.created_at.timestamp()), reverse=True)
+    # Budget priority: confidence DESC, last_relevant_at DESC (recent first),
+    # entity_ref IS NOT NULL (prefer entity-bound), then trim lowest-priority.
+    def _priority_key(e: KnowledgeEntry) -> tuple:
+        rel_ts = (e.last_relevant_at or e.created_at).timestamp()
+        has_entity = 1 if getattr(e, "entity_ref", None) else 0
+        return (e.confidence, rel_ts, has_entity)
+
+    pending.sort(key=_priority_key, reverse=True)
 
     # 3. Group by type
     grouped: dict[str, list[str]] = defaultdict(list)
@@ -149,7 +268,7 @@ async def compile_project_context(
     # 4. Call LLM to merge
     context_before = project.context_document or ""
 
-    max_context_words = getattr(project, "kb_max_context_words", 8000) or 8000
+    max_context_words = getattr(project, "kb_max_context_words", 2000) or 2000
 
     if not api_key:
         # Without an API key, do a simple append-based compilation
@@ -188,11 +307,11 @@ async def compile_project_context(
     project.context_document = context_after
     project.updated_at = now
 
-    # 6. Mark entries as compiled and update relevance
+    # 6. Mark entries as compiled and update relevance + usage
     for entry in pending:
         entry.compiled_at = now
         entry.last_relevant_at = now
-        entry.reference_count = (entry.reference_count or 0) + 1
+        entry.compiled_count = (getattr(entry, "compiled_count", 0) or 0) + 1
 
     # 7. Save compilation record
     compilation = ContextCompilation(
@@ -225,19 +344,37 @@ async def compile_project_context(
         "discovery": "discoveries",
     }
 
-    for entry_type, contents in grouped.items():
-        slug = slug_map.get(entry_type, entry_type)
+    # Rebuild section pages for ALL known types, not just types in the
+    # current pending batch. This ensures pages are true projections of
+    # the active-claim state — if a claim goes stale or is superseded,
+    # the page updates on the next compile even without new pending entries.
+    for entry_type, slug in slug_map.items():
         section_title = SECTION_MAP.get(entry_type, f"## {entry_type.title()}").lstrip("# ")
 
-        # Build page content from all entries of this type (not just pending)
+        # Build page content from active claims of this type (not just pending)
         all_of_type = await db.execute(
             select(KnowledgeEntry).where(
                 KnowledgeEntry.project_id == project_id,
                 KnowledgeEntry.entry_type == entry_type,
                 KnowledgeEntry.dismissed == False,  # noqa: E712
+                KnowledgeEntry.claim_class == "claim",
+                KnowledgeEntry.freshness_class.in_(["current", "aging"]),
+                KnowledgeEntry.superseded_by.is_(None),
             ).order_by(KnowledgeEntry.created_at.desc())
         )
         type_entries = list(all_of_type.scalars().all())
+
+        # If zero active claims for this type, delete the section page
+        # (if it exists) and move on. No empty pages.
+        if not type_entries:
+            await db.execute(
+                delete(KnowledgePage).where(
+                    KnowledgePage.project_id == project_id,
+                    KnowledgePage.slug == slug,
+                    KnowledgePage.page_type == "section",
+                )
+            )
+            continue
 
         # Cap section pages: keep most recent + highest confidence
         section_limit = getattr(project, "kb_section_page_limit", 30) or 30
@@ -285,6 +422,9 @@ async def compile_project_context(
                 auto_generated=True,
             ))
 
+    # (Step 9 cleanup is now redundant — the loop above iterates ALL known
+    # types and handles zero-claim deletion inline via the `continue` path.)
+
     await db.commit()
 
     return compilation
@@ -294,7 +434,7 @@ def _simple_compile(
     context: str,
     grouped: dict[str, list[str]],
     entries: list | None = None,
-    max_context_words: int = 8000,
+    max_context_words: int = 2000,
 ) -> str:
     """Simple append-based compilation without LLM.
 
@@ -564,11 +704,14 @@ async def check_concept_candidates(
     if total < 15:
         return []
 
-    # Get non-dismissed entries
+    # Get active claims only
     result = await db.execute(
         select(KnowledgeEntry).where(
             KnowledgeEntry.project_id == project_id,
             KnowledgeEntry.dismissed == False,  # noqa: E712
+            KnowledgeEntry.claim_class == "claim",
+            KnowledgeEntry.freshness_class.in_(["current", "aging"]),
+            KnowledgeEntry.superseded_by.is_(None),
         )
     )
     entries = list(result.scalars().all())
@@ -813,12 +956,15 @@ async def auto_generate_concepts(
     for candidate in candidates:
         concept_slug = f"concept/{candidate['slug']}"
 
-        # Get entries for this concept (search by topic keywords)
+        # Get active claims for this concept (search by topic keywords)
         topic_words = candidate["topic"].lower().split()
         result = await db.execute(
             select(KnowledgeEntry).where(
                 KnowledgeEntry.project_id == project_id,
                 KnowledgeEntry.dismissed == False,  # noqa: E712
+                KnowledgeEntry.claim_class == "claim",
+                KnowledgeEntry.freshness_class.in_(["current", "aging"]),
+                KnowledgeEntry.superseded_by.is_(None),
             )
         )
         all_entries = list(result.scalars().all())
