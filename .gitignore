@@ -51,3 +51,8 @@ DOGFOOD.md
 .gemini/
 sessionfs-infra
 .claude/scheduled_tasks.lock
+
+# Implementation briefs — never public
+v*-implementation-brief
+v*-resume-*-brief
+v*-*-brief
