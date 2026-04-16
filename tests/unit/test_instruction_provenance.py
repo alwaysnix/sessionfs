@@ -101,3 +101,31 @@ def test_auxiliary_files_recorded(tmp_path: Path):
     prov = discover(tmp_path, tool="claude-code", home_dir=tmp_path / "home")
     kinds = {a.artifact_type for a in prov.instruction_artifacts}
     assert "agent" in kinds
+
+
+def test_nested_auxiliary_skill_files_recorded(tmp_path: Path):
+    skills_dir = tmp_path / ".claude/skills/python-review"
+    skills_dir.mkdir(parents=True)
+    (skills_dir / "SKILL.md").write_text("# nested skill\n")
+    prov = discover(tmp_path, tool="claude-code", home_dir=tmp_path / "home")
+    paths = {a.path for a in prov.instruction_artifacts if a.artifact_type == "skill"}
+    assert ".claude/skills/python-review/SKILL.md" in paths
+
+
+def test_auxiliary_dir_scan_is_recursive_but_bounded(tmp_path: Path):
+    agents_dir = tmp_path / ".agents"
+    for idx in range(35):
+        branch = agents_dir / f"group-{idx:02d}"
+        branch.mkdir(parents=True, exist_ok=True)
+        (branch / f"agent-{idx:02d}.md").write_text(f"# agent {idx}\n")
+
+    prov = discover(tmp_path, tool="claude-code", home_dir=tmp_path / "home")
+    agent_paths = sorted(
+        a.path for a in prov.instruction_artifacts
+        if a.artifact_type == "agent" and a.scope == "project"
+    )
+
+    assert len(agent_paths) == 30
+    assert ".agents/group-00/agent-00.md" in agent_paths
+    assert ".agents/group-29/agent-29.md" in agent_paths
+    assert ".agents/group-30/agent-30.md" not in agent_paths

@@ -111,6 +111,36 @@ def _global_rules_enabled() -> bool:
     return val not in ("off", "0", "false", "no")
 
 
+def _iter_aux_files(root: Path, limit: int = 30) -> list[Path]:
+    """Recursively collect project-local aux files in deterministic order.
+
+    We intentionally bound discovery so provenance capture stays cheap even in
+    repos with many nested skills/agents. Nested directories are included
+    because skills/agents are commonly organized by folder.
+    """
+    files: list[Path] = []
+    try:
+        for dirpath, dirnames, filenames in os.walk(root, topdown=True, followlinks=False):
+            # Deterministic directory traversal; skip symlinked subdirs.
+            dirnames[:] = sorted(
+                name for name in dirnames
+                if not Path(dirpath, name).is_symlink()
+            )
+            for name in sorted(filenames):
+                if len(files) >= limit:
+                    return files
+                child = Path(dirpath) / name
+                try:
+                    if child.is_symlink() or not child.is_file():
+                        continue
+                except (OSError, PermissionError):
+                    continue
+                files.append(child)
+    except (OSError, PermissionError):
+        return files
+    return files
+
+
 def _inspect_rules_file(path: Path) -> tuple[InstructionArtifact | None, bool, int | None]:
     """Return (artifact, is_managed, version)."""
     data = _safe_read(path)
@@ -220,26 +250,21 @@ def discover(
                     )
                     has_manual = True
             elif p.is_dir():
-                # Hash each file inside (bounded — up to 30 files).
-                count = 0
-                for child in sorted(p.iterdir()):
-                    if count >= 30:
-                        break
-                    if child.is_file() and not child.is_symlink():
-                        data = _safe_read(child)
-                        if data is None:
-                            continue
-                        prov.instruction_artifacts.append(
-                            InstructionArtifact(
-                                artifact_type=kind,
-                                hash=_sha256(data),
-                                source="manual",
-                                scope="project",
-                                path=str(Path(rel) / child.name),
-                            )
+                # Hash files recursively (bounded — up to 30 files per aux root).
+                for child in _iter_aux_files(p, limit=30):
+                    data = _safe_read(child)
+                    if data is None:
+                        continue
+                    prov.instruction_artifacts.append(
+                        InstructionArtifact(
+                            artifact_type=kind,
+                            hash=_sha256(data),
+                            source="manual",
+                            scope="project",
+                            path=str(Path(rel) / child.relative_to(p).as_posix()),
                         )
-                        has_manual = True
-                        count += 1
+                    )
+                    has_manual = True
         except (OSError, PermissionError):
             continue
 
