@@ -86,4 +86,15 @@ describe('SearchResults', () => {
     expect(within(activeFilters).getByText('Codex')).toBeInTheDocument();
     expect(within(activeFilters).getByText('Last 30 days')).toBeInTheDocument();
   });
+
+  it('exposes Gemini and Copilot in the tool filters', async () => {
+    const user = userEvent.setup();
+    renderSearchResults();
+
+    await user.click(screen.getByRole('button', { name: /open search filters/i }));
+    const dialog = screen.getByRole('dialog', { name: /refine results/i });
+
+    expect(within(dialog).getByRole('option', { name: 'Gemini CLI' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('option', { name: 'Copilot' })).toBeInTheDocument();
+  });
 });

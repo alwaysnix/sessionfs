@@ -17,14 +17,40 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <section class="relative py-16 sm:py-20 px-5 noise">
     <div class="max-w-3xl mx-auto space-y-0">
 
-      <!-- v0.9.9.4 -->
+      <!-- v0.9.9.5 -->
       <article class="fade-up pb-12 pt-10">
         <div class="flex items-center gap-3 mb-4">
           <span class="pulse-badge inline-flex items-center gap-1.5 bg-surface border border-brand/30 rounded-full px-4 py-1.5 font-mono text-sm">
+            <span class="text-brand font-semibold">v0.9.9.5</span>
+          </span>
+          <span class="text-sm text-muted-dim font-mono">April 17, 2026</span>
+          <span class="ml-auto inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-accent/10 text-accent uppercase tracking-wide">Latest</span>
+        </div>
+        <h2 class="font-heading text-xl font-bold mb-4">First-Run Onboarding, Unified Delete Propagation, Sort &amp; Filter Improvements</h2>
+        <ul class="space-y-2 text-base text-muted">
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>First-run onboarding</strong> — signup auto-authenticates and navigates to /getting-started. Three-step onboarding page (install tool, capture session, create project) with live completion indicators. State-based redirect gate: 0 sessions + 0 projects sends new users to onboarding. API key shown in dismissible banner after signup.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Sort direction toggle</strong> — ascending/descending on all sort modes in the dashboard. CLI adds --sort messages-asc and --sort tokens-asc for finding small sessions.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Tool sort mode</strong> — real "Sort: Tool" in the sessions list groups by tool label.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Tool filter alias normalization</strong> — gemini/gemini-cli and copilot/copilot-cli treated as the same family across list, search, and admin endpoints.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Unified 410 delete propagation</strong> — structured SyncDeletedError replaces string-based detection. Shared cleanup_deleted_session() helper wired into all three sync paths. Dashboard-deleted sessions are auto-cleaned locally on next sync instead of showing red 410 errors.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Full local cleanup on server 410</strong> — removes .sfs directory + SQLite index entry (sessions and tracked_sessions tables) + adds to exclusion list. No more orphaned local copies.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Cloud Run min-instances</strong> — API deployment now sets --min-instances 1 to eliminate cold-start latency.</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>Migration 030 cross-DB fix</strong> — replaced raw PostgreSQL-only INTERVAL syntax with SQLAlchemy Core queries (works on both PostgreSQL and SQLite).</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>sfs delete/restore prefix resolution</strong> — now resolves session ID prefixes via local store for all scopes (was only resolving for local/everywhere, not cloud).</li>
+          <li class="flex items-start gap-2"><span class="text-accent mt-0.5 shrink-0">&#10003;</span><strong>sfs rules init TTY guard</strong> — fails fast with clear message when stdin is not a TTY and --yes is not passed.</li>
+          <li class="flex items-start gap-2"><span class="text-muted-dim mt-0.5 shrink-0">&#9679;</span><span class="text-muted-dim">1,205 backend tests + 109 dashboard UI tests passing &middot; 30 migrations</span></li>
+        </ul>
+      </article>
+
+      <div class="grad-divider"></div>
+
+      <!-- v0.9.9.4 -->
+      <article class="fade-up pb-12 pt-10">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="inline-flex items-center gap-1.5 bg-surface border border-border rounded-full px-4 py-1.5 font-mono text-sm">
             <span class="text-brand font-semibold">v0.9.9.4</span>
           </span>
           <span class="text-sm text-muted-dim font-mono">April 16, 2026</span>
-          <span class="ml-auto inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-accent/10 text-accent uppercase tracking-wide">Latest</span>
         </div>
         <h2 class="font-heading text-xl font-bold mb-4">Session Delete Lifecycle — Three-Scope Delete, Trash/Restore, Admin Purge</h2>
         <ul class="space-y-2 text-base text-muted">

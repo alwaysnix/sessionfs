@@ -77,6 +77,24 @@ async def test_list_sessions_filter_source_tool(
 
 
 @pytest.mark.asyncio
+async def test_list_sessions_filter_source_tool_alias_family(
+    client: AsyncClient, auth_headers: dict, sample_sfs_tar: bytes
+):
+    await client.post(
+        "/api/v1/sessions",
+        headers=auth_headers,
+        params={"source_tool": "gemini-cli"},
+        files={"file": ("session.tar.gz", io.BytesIO(sample_sfs_tar), "application/gzip")},
+    )
+
+    resp = await client.get(
+        "/api/v1/sessions", headers=auth_headers, params={"source_tool": "gemini"}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["total"] == 1
+
+
+@pytest.mark.asyncio
 async def test_get_session(client: AsyncClient, auth_headers: dict, sample_sfs_tar: bytes):
     upload = await client.post(
         "/api/v1/sessions",

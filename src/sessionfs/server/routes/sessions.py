@@ -82,6 +82,13 @@ def _sync_limit_human(limit: int) -> str:
 _SESSION_ID_RE = re.compile(r"^ses_[a-z0-9]{8,40}$")
 MAX_UPLOAD_BYTES = 100 * 1024 * 1024  # 100 MB
 
+_SOURCE_TOOL_ALIASES: dict[str, tuple[str, ...]] = {
+    "gemini": ("gemini", "gemini-cli"),
+    "gemini-cli": ("gemini", "gemini-cli"),
+    "copilot": ("copilot", "copilot-cli"),
+    "copilot-cli": ("copilot", "copilot-cli"),
+}
+
 
 def _validate_session_id(session_id: str) -> str:
     """Validate and return session ID, or raise 400."""
@@ -103,6 +110,16 @@ def _validate_session_id_or_alias(session_id_or_alias: str) -> str:
     if re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{2,99}$", session_id_or_alias):
         return session_id_or_alias
     raise HTTPException(status_code=400, detail="Invalid session ID or alias format")
+
+
+def _source_tool_filter_values(source_tool: str) -> tuple[str, ...]:
+    """Return the source_tool values that should be treated as equivalent.
+
+    The dashboard uses friendlier filter values like ``gemini`` and ``copilot``,
+    while captured sessions may be stored as ``gemini-cli`` / ``copilot-cli``.
+    Treat those as one logical family so the filter behaves how users expect.
+    """
+    return _SOURCE_TOOL_ALIASES.get(source_tool.lower(), (source_tool,))
 
 
 async def _read_upload(file: UploadFile, max_bytes: int = MAX_UPLOAD_BYTES) -> bytes:
@@ -646,8 +663,13 @@ async def list_sessions(
     )
 
     if source_tool:
-        query = query.where(Session.source_tool == source_tool)
-        count_query = count_query.where(Session.source_tool == source_tool)
+        tool_values = _source_tool_filter_values(source_tool)
+        if len(tool_values) == 1:
+            query = query.where(Session.source_tool == source_tool)
+            count_query = count_query.where(Session.source_tool == source_tool)
+        else:
+            query = query.where(Session.source_tool.in_(tool_values))
+            count_query = count_query.where(Session.source_tool.in_(tool_values))
     if tag:
         # JSON text search — works for SQLite and PostgreSQL
         query = query.where(Session.tags.contains(f'"{tag}"'))
@@ -688,13 +710,21 @@ async def search_sessions(
     # Build the search query — use SQLite LIKE fallback for test environments,
     # PostgreSQL ts_vector for production
     dialect = db.bind.dialect.name if db.bind else "sqlite"
+    tool_values = _source_tool_filter_values(tool) if tool else ()
+    tool_params = {f"tool_{i}": value for i, value in enumerate(tool_values)}
+    if len(tool_values) == 1:
+        tool_clause = "AND source_tool = :tool_0"
+    elif len(tool_values) > 1:
+        placeholders = ", ".join(f":tool_{i}" for i in range(len(tool_values)))
+        tool_clause = f"AND source_tool IN ({placeholders})"
+    else:
+        tool_clause = ""
 
     if dialect == "postgresql":
         # PostgreSQL full-text search with ts_vector
         from sqlalchemy import text as sa_text
 
         # Build query dynamically to avoid asyncpg ambiguous param types
-        tool_clause = "AND source_tool = :tool" if tool else ""
         cutoff_clause = "AND updated_at >= CAST(:cutoff AS timestamptz)" if days else ""
 
         search_sql = sa_text(f"""
@@ -723,7 +753,6 @@ async def search_sessions(
         # SQLite fallback: simple LIKE-based search
         from sqlalchemy import text as sa_text
 
-        tool_clause = "AND source_tool = :tool" if tool else ""
         cutoff_clause = "AND updated_at >= :cutoff" if days else ""
 
         search_sql = sa_text(f"""
@@ -761,9 +790,8 @@ async def search_sessions(
         "offset": offset,
     }
     count_params: dict = {"q": q, "user_id": user.id}
-    if tool:
-        params["tool"] = tool
-        count_params["tool"] = tool
+    params.update(tool_params)
+    count_params.update(tool_params)
     if cutoff:
         params["cutoff"] = cutoff
         count_params["cutoff"] = cutoff

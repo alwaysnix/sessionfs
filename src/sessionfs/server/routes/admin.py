@@ -469,7 +469,13 @@ async def list_all_sessions(
     if user_id:
         query = query.where(Session.user_id == user_id)
     if source_tool:
-        query = query.where(Session.source_tool == source_tool)
+        from sessionfs.server.routes.sessions import _source_tool_filter_values
+
+        tool_values = _source_tool_filter_values(source_tool)
+        if len(tool_values) == 1:
+            query = query.where(Session.source_tool == source_tool)
+        else:
+            query = query.where(Session.source_tool.in_(tool_values))
 
     # Sort
     sort_col = {

@@ -238,7 +238,7 @@ def push(
 ) -> None:
     """Push a local session to the server."""
     from sessionfs.sync.archive import pack_session
-    from sessionfs.sync.client import SyncConflictError
+    from sessionfs.sync.client import SyncConflictError, SyncDeletedError
 
     store = open_store()
     client = _get_sync_client()
@@ -342,6 +342,14 @@ def push(
             f"  Size: {result.blob_size_bytes:,} bytes"
         )
 
+    except SyncDeletedError:
+        from sessionfs.sync.deleted_cleanup import cleanup_deleted_session
+        cleanup_deleted_session(full_id, session_dir, store)
+        err_console.print(
+            f"[yellow]Session {full_id[:12]} has been deleted on the server.[/yellow]\n"
+            f"Local copy cleaned up. Restore with: sfs restore {full_id}"
+        )
+        raise SystemExit(1)
     except SyncConflictError as exc:
         err_console.print(
             f"[red]Conflict: remote session was updated (etag={exc.current_etag[:16]}...).[/red]\n"
@@ -483,7 +491,7 @@ def list_remote(
 def sync_all() -> None:
     """Bidirectional sync: push local changes, pull remote-only sessions."""
     from sessionfs.sync.archive import pack_session, unpack_session
-    from sessionfs.sync.client import SyncConflictError
+    from sessionfs.sync.client import SyncConflictError, SyncDeletedError
 
     client = _get_sync_client()
     store = open_store()
@@ -544,6 +552,10 @@ def sync_all() -> None:
                         err_console.print(
                             f"[yellow]Conflict: {sid[:12]} — pull first[/yellow]"
                         )
+                    except SyncDeletedError:
+                        from sessionfs.sync.deleted_cleanup import cleanup_deleted_session
+                        cleanup_deleted_session(sid, session_dir, store)
+                        push_results[sid] = "skipped"
                     except Exception as exc:
                         push_results[sid] = "error"
                         err_console.print(f"[red]Push failed for {sid[:12]}: {exc}[/red]")
@@ -554,6 +566,7 @@ def sync_all() -> None:
             pushed = sum(1 for v in push_results.values() if v == "pushed")
             conflicts = sum(1 for v in push_results.values() if v == "conflict")
             push_errors = sum(1 for v in push_results.values() if v == "error")
+            push_skipped = sum(1 for v in push_results.values() if v == "skipped")
 
             # Pull remote sessions not present locally (also concurrency-limited)
             pull_sem = asyncio.Semaphore(5)
@@ -591,15 +604,17 @@ def sync_all() -> None:
             pull_errors = max(0, pull_errors)  # Don't count skipped sessions as errors
             total_errors = push_errors + pull_errors
 
-            return pushed, pulled, conflicts, total_errors
+            return pushed, pulled, conflicts, total_errors, push_skipped
         finally:
             await client.close()
 
     try:
         console.print("Fetching remote sessions...")
-        pushed, pulled, conflicts, errors = asyncio.run(_sync())
+        pushed, pulled, conflicts, errors, skipped = asyncio.run(_sync())
         color = "green" if errors == 0 else "yellow"
         summary = f"Sync complete: {pushed} pushed, {pulled} pulled, {conflicts} conflicts"
+        if skipped > 0:
+            summary += f", {skipped} skipped (deleted)"
         if errors > 0:
             summary += f", {errors} failed"
         console.print(f"[{color}]{summary}[/{color}]")

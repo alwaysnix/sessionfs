@@ -10,7 +10,12 @@ const TOOLS = [
   { label: 'All Tools', value: '' },
   { label: 'Claude Code', value: 'claude-code' },
   { label: 'Codex', value: 'codex' },
+  { label: 'Gemini CLI', value: 'gemini' },
+  { label: 'Copilot', value: 'copilot' },
   { label: 'Cursor', value: 'cursor' },
+  { label: 'Amp', value: 'amp' },
+  { label: 'Cline', value: 'cline' },
+  { label: 'Roo Code', value: 'roo-code' },
 ] as const;
 
 const DATE_RANGES = [
