@@ -545,15 +545,34 @@ def sync_all() -> None:
                             f"[yellow]Conflict: {sid[:12]} — pull first[/yellow]"
                         )
                     except Exception as exc:
-                        # If the server says 410 (session deleted), auto-exclude
-                        # locally so future syncs skip it silently. This handles
-                        # the case where a session was deleted from the dashboard
-                        # (which can't write ~/.sessionfs/deleted.json).
+                        # If the server says 410 (session deleted), clean up
+                        # the local copy + exclude from future syncs. This
+                        # handles dashboard deletes (which can't write to
+                        # ~/.sessionfs/deleted.json or remove local files).
+                        # The 30-day server retention is the recovery path:
+                        # sfs restore + sfs pull.
                         exc_str = str(exc)
                         if "410" in exc_str or "deleted" in exc_str.lower():
                             from sessionfs.store.deleted import is_excluded as _chk, mark_deleted
+                            import shutil
                             if not _chk(sid):
-                                mark_deleted(sid, "cloud")
+                                mark_deleted(sid, "everywhere")
+                            # Remove local .sfs directory
+                            if session_dir and session_dir.is_dir():
+                                try:
+                                    shutil.rmtree(session_dir)
+                                except OSError:
+                                    pass
+                            # Remove from SQLite index
+                            try:
+                                conn = store.index._conn
+                                if conn is not None:
+                                    conn.execute(
+                                        "DELETE FROM sessions WHERE session_id = ?", (sid,)
+                                    )
+                                    conn.commit()
+                            except Exception:
+                                pass
                             push_results[sid] = "skipped"
                         else:
                             push_results[sid] = "error"
