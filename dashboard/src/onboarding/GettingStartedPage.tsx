@@ -5,6 +5,17 @@ import { useAuth } from '../auth/AuthContext';
 import { setItem } from '../utils/storage';
 import Wordmark from '../components/Wordmark';
 
+/**
+ * Scope the dismissal flag to (baseUrl, apiKey-prefix) so different accounts
+ * on the same browser (or self-hosted vs cloud) each get their own flag.
+ */
+export function onboardingDismissedKey(baseUrl?: string, apiKey?: string): string {
+  const server = (baseUrl || 'default').replace(/[^a-z0-9]/gi, '_').slice(0, 30);
+  const user = (apiKey || '').slice(0, 8) || 'anon';
+  return `sfs-onboarding-dismissed-${server}-${user}`;
+}
+
+/** @deprecated Use onboardingDismissedKey() — kept for backward compat migration */
 export const ONBOARDING_DISMISSED_KEY = 'sfs-onboarding-dismissed';
 
 const TOOLS = [
@@ -43,7 +54,8 @@ export default function GettingStartedPage() {
   const hasProject = (projects.data?.length ?? 0) > 0;
 
   function handleSkip() {
-    setItem(ONBOARDING_DISMISSED_KEY, '1');
+    const key = onboardingDismissedKey(auth?.baseUrl, auth?.apiKey);
+    setItem(key, '1');
     navigate('/');
   }
 
@@ -69,7 +81,7 @@ export default function GettingStartedPage() {
           number={1}
           title="Connect your AI tool"
           description="Pick your tool and run the install command. This registers SessionFS as an MCP server."
-          done={false}
+          done={hasSession}
         >
           <div className="flex flex-wrap gap-2 mb-4" role="tablist" aria-label="AI tool selector">
             {TOOLS.map((tool) => {
