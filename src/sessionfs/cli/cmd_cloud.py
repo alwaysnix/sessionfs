@@ -238,7 +238,7 @@ def push(
 ) -> None:
     """Push a local session to the server."""
     from sessionfs.sync.archive import pack_session
-    from sessionfs.sync.client import SyncConflictError
+    from sessionfs.sync.client import SyncConflictError, SyncDeletedError
 
     store = open_store()
     client = _get_sync_client()
@@ -342,6 +342,14 @@ def push(
             f"  Size: {result.blob_size_bytes:,} bytes"
         )
 
+    except SyncDeletedError:
+        from sessionfs.sync.deleted_cleanup import cleanup_deleted_session
+        cleanup_deleted_session(full_id, session_dir, store)
+        err_console.print(
+            f"[yellow]Session {full_id[:12]} has been deleted on the server.[/yellow]\n"
+            f"Local copy cleaned up. Restore with: sfs restore {full_id}"
+        )
+        raise SystemExit(1)
     except SyncConflictError as exc:
         err_console.print(
             f"[red]Conflict: remote session was updated (etag={exc.current_etag[:16]}...).[/red]\n"
@@ -483,7 +491,7 @@ def list_remote(
 def sync_all() -> None:
     """Bidirectional sync: push local changes, pull remote-only sessions."""
     from sessionfs.sync.archive import pack_session, unpack_session
-    from sessionfs.sync.client import SyncConflictError
+    from sessionfs.sync.client import SyncConflictError, SyncDeletedError
 
     client = _get_sync_client()
     store = open_store()
@@ -544,39 +552,13 @@ def sync_all() -> None:
                         err_console.print(
                             f"[yellow]Conflict: {sid[:12]} — pull first[/yellow]"
                         )
+                    except SyncDeletedError:
+                        from sessionfs.sync.deleted_cleanup import cleanup_deleted_session
+                        cleanup_deleted_session(sid, session_dir, store)
+                        push_results[sid] = "skipped"
                     except Exception as exc:
-                        # If the server says 410 (session deleted), clean up
-                        # the local copy + exclude from future syncs. This
-                        # handles dashboard deletes (which can't write to
-                        # ~/.sessionfs/deleted.json or remove local files).
-                        # The 30-day server retention is the recovery path:
-                        # sfs restore + sfs pull.
-                        exc_str = str(exc)
-                        if "410" in exc_str or "deleted" in exc_str.lower():
-                            from sessionfs.store.deleted import is_excluded as _chk, mark_deleted
-                            import shutil
-                            if not _chk(sid):
-                                mark_deleted(sid, "everywhere")
-                            # Remove local .sfs directory
-                            if session_dir and session_dir.is_dir():
-                                try:
-                                    shutil.rmtree(session_dir)
-                                except OSError:
-                                    pass
-                            # Remove from SQLite index
-                            try:
-                                conn = store.index._conn
-                                if conn is not None:
-                                    conn.execute(
-                                        "DELETE FROM sessions WHERE session_id = ?", (sid,)
-                                    )
-                                    conn.commit()
-                            except Exception:
-                                pass
-                            push_results[sid] = "skipped"
-                        else:
-                            push_results[sid] = "error"
-                            err_console.print(f"[red]Push failed for {sid[:12]}: {exc}[/red]")
+                        push_results[sid] = "error"
+                        err_console.print(f"[red]Push failed for {sid[:12]}: {exc}[/red]")
 
             push_tasks = [_push_one(sid) for sid in local_by_id]
             await asyncio.gather(*push_tasks)

@@ -136,7 +136,7 @@ class DaemonSyncer:
     async def _sync_sessions(self, session_ids: set[str]) -> None:
         """Push pending sessions to the server."""
         from sessionfs.sync.archive import pack_session
-        from sessionfs.sync.client import SyncConflictError, SyncError
+        from sessionfs.sync.client import SyncConflictError, SyncDeletedError, SyncError
 
         client = self._get_client()
 
@@ -174,6 +174,17 @@ class DaemonSyncer:
 
                 # Auto-audit after sync if configured
                 await self._maybe_auto_audit(session_id, client)
+
+            except SyncDeletedError:
+                # Server says session is deleted — clean up locally.
+                # Recovery: sfs restore + sfs pull (30-day window).
+                from sessionfs.sync.deleted_cleanup import cleanup_deleted_session
+                cleanup_deleted_session(session_id, session_dir, self.store)
+                self._pending_sessions.discard(session_id)
+                logger.info(
+                    "Session %s deleted on server — local copy cleaned up",
+                    session_id[:12],
+                )
 
             except SyncConflictError as exc:
                 logger.warning(

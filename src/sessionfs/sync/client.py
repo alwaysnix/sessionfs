@@ -39,6 +39,14 @@ class SyncConflictError(SyncError):
         super().__init__(message)
 
 
+class SyncDeletedError(SyncError):
+    """Server says the session has been deleted (410 Gone)."""
+
+    def __init__(self, session_id: str, message: str = "Session deleted on server"):
+        self.session_id = session_id
+        super().__init__(message)
+
+
 class SyncAuthError(SyncError):
     """Authentication failed."""
 
@@ -222,6 +230,9 @@ class SyncClient:
                 current_etag=details.get("current_etag", ""),
                 message=error.get("message", "ETag mismatch"),
             )
+
+        if resp.status_code == 410:
+            raise SyncDeletedError(session_id)
 
         if resp.status_code not in (200, 201):
             # Parse friendly error message from server response
