@@ -30,18 +30,60 @@ def upgrade() -> None:
             )
         )
 
-    # Backfill pre-existing soft-deletes (is_deleted=True but no scope/purge)
-    # with scope='cloud' and purge_after = deleted_at + 30 days. If deleted_at
-    # is also NULL, use now() + 30 days as a safe default.
-    op.execute(
-        "UPDATE sessions SET delete_scope = 'cloud' "
-        "WHERE is_deleted = true AND delete_scope IS NULL"
+    # Backfill pre-existing soft-deletes (is_deleted=True but no scope/purge).
+    # Uses SQLAlchemy Core for cross-DB compatibility (PostgreSQL + SQLite).
+    from datetime import datetime, timedelta, timezone
+    from sqlalchemy import update, and_
+
+    sessions = sa.table(
+        "sessions",
+        sa.column("is_deleted", sa.Boolean),
+        sa.column("delete_scope", sa.String),
+        sa.column("purge_after", sa.DateTime),
+        sa.column("deleted_at", sa.DateTime),
     )
-    # PostgreSQL interval syntax; SQLite ignores this gracefully (no rows
-    # match in test DBs since tests start fresh).
+
+    # Set scope='cloud' for all legacy soft-deletes
     op.execute(
-        "UPDATE sessions SET purge_after = deleted_at + INTERVAL '30 days' "
-        "WHERE is_deleted = true AND purge_after IS NULL AND deleted_at IS NOT NULL"
+        update(sessions)
+        .where(and_(sessions.c.is_deleted == True, sessions.c.delete_scope.is_(None)))  # noqa: E712
+        .values(delete_scope="cloud")
+    )
+
+    # Set purge_after for legacy deletes that have a deleted_at.
+    # Can't do date arithmetic portably in raw SQL across PG + SQLite,
+    # so we read, compute in Python, and batch-update. Migration runs
+    # once; the row count is small (single-digit for most deployments).
+    conn = op.get_bind()
+    rows = conn.execute(
+        sa.text(
+            "SELECT id, deleted_at FROM sessions "
+            "WHERE is_deleted = 1 AND purge_after IS NULL AND deleted_at IS NOT NULL"
+        )
+    ).fetchall()
+    for row in rows:
+        sid, deleted_at = row[0], row[1]
+        if isinstance(deleted_at, str):
+            try:
+                deleted_at = datetime.fromisoformat(deleted_at)
+            except ValueError:
+                continue
+        if deleted_at is not None:
+            purge = deleted_at + timedelta(days=30)
+            conn.execute(
+                sa.text("UPDATE sessions SET purge_after = :pa WHERE id = :sid"),
+                {"pa": purge, "sid": sid},
+            )
+
+    # Handle legacy deletes with NULL deleted_at — set both to now + 30 days
+    now = datetime.now(timezone.utc)
+    purge_default = now + timedelta(days=30)
+    conn.execute(
+        sa.text(
+            "UPDATE sessions SET deleted_at = :now, purge_after = :pa "
+            "WHERE is_deleted = 1 AND purge_after IS NULL AND deleted_at IS NULL"
+        ),
+        {"now": now, "pa": purge_default},
     )
 
 

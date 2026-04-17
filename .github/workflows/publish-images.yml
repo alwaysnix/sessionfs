@@ -14,6 +14,9 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_PREFIX: ghcr.io/sessionfs
+  # Unified ref: workflow_run uses the triggering branch/tag;
+  # workflow_dispatch uses the explicit input (default: main).
+  BUILD_REF: ${{ github.event.workflow_run.head_branch || github.event.inputs.ref || 'main' }}
 
 permissions:
   contents: read
@@ -23,18 +26,21 @@ jobs:
   build-api:
     name: Build API Image
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # Run on: successful Release workflow OR manual dispatch
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
-      - name: Checkout tag
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ env.BUILD_REF }}
 
-      - name: Get version from tag
+      - name: Get version
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_REF_NAME: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          REF="${{ env.BUILD_REF }}"
+          echo "version=${REF#v}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -47,7 +53,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push API image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
@@ -65,23 +71,25 @@ jobs:
           image-ref: ${{ env.IMAGE_PREFIX }}/sessionfs-api:${{ steps.version.outputs.version }}
           format: table
           severity: CRITICAL,HIGH
-          exit-code: '0'  # Don't fail release, just report
+          exit-code: '0'
 
   build-mcp:
     name: Build MCP Image
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
-      - name: Checkout tag
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ env.BUILD_REF }}
 
-      - name: Get version from tag
+      - name: Get version
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_REF_NAME: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          REF="${{ env.BUILD_REF }}"
+          echo "version=${REF#v}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -94,7 +102,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push MCP image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile.mcp
@@ -117,18 +125,20 @@ jobs:
   build-dashboard:
     name: Build Dashboard Image
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
-      - name: Checkout tag
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ env.BUILD_REF }}
 
-      - name: Get version from tag
+      - name: Get version
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-        env:
-          GITHUB_REF_NAME: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          REF="${{ env.BUILD_REF }}"
+          echo "version=${REF#v}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -141,7 +151,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Dashboard image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./dashboard
           file: ./dashboard/Dockerfile
