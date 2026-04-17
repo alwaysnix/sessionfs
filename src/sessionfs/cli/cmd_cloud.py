@@ -545,8 +545,19 @@ def sync_all() -> None:
                             f"[yellow]Conflict: {sid[:12]} — pull first[/yellow]"
                         )
                     except Exception as exc:
-                        push_results[sid] = "error"
-                        err_console.print(f"[red]Push failed for {sid[:12]}: {exc}[/red]")
+                        # If the server says 410 (session deleted), auto-exclude
+                        # locally so future syncs skip it silently. This handles
+                        # the case where a session was deleted from the dashboard
+                        # (which can't write ~/.sessionfs/deleted.json).
+                        exc_str = str(exc)
+                        if "410" in exc_str or "deleted" in exc_str.lower():
+                            from sessionfs.store.deleted import is_excluded as _chk, mark_deleted
+                            if not _chk(sid):
+                                mark_deleted(sid, "cloud")
+                            push_results[sid] = "skipped"
+                        else:
+                            push_results[sid] = "error"
+                            err_console.print(f"[red]Push failed for {sid[:12]}: {exc}[/red]")
 
             push_tasks = [_push_one(sid) for sid in local_by_id]
             await asyncio.gather(*push_tasks)
@@ -554,6 +565,7 @@ def sync_all() -> None:
             pushed = sum(1 for v in push_results.values() if v == "pushed")
             conflicts = sum(1 for v in push_results.values() if v == "conflict")
             push_errors = sum(1 for v in push_results.values() if v == "error")
+            push_skipped = sum(1 for v in push_results.values() if v == "skipped")
 
             # Pull remote sessions not present locally (also concurrency-limited)
             pull_sem = asyncio.Semaphore(5)
@@ -591,15 +603,17 @@ def sync_all() -> None:
             pull_errors = max(0, pull_errors)  # Don't count skipped sessions as errors
             total_errors = push_errors + pull_errors
 
-            return pushed, pulled, conflicts, total_errors
+            return pushed, pulled, conflicts, total_errors, push_skipped
         finally:
             await client.close()
 
     try:
         console.print("Fetching remote sessions...")
-        pushed, pulled, conflicts, errors = asyncio.run(_sync())
+        pushed, pulled, conflicts, errors, skipped = asyncio.run(_sync())
         color = "green" if errors == 0 else "yellow"
         summary = f"Sync complete: {pushed} pushed, {pulled} pulled, {conflicts} conflicts"
+        if skipped > 0:
+            summary += f", {skipped} skipped (deleted)"
         if errors > 0:
             summary += f", {errors} failed"
         console.print(f"[{color}]{summary}[/{color}]")
