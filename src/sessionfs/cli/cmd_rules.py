@@ -373,6 +373,15 @@ def rules_init(
     recent session usage. Only the 5 supported tools are preselected
     (claude-code, codex, cursor, copilot, gemini).
     """
+    import sys
+
+    if not yes and not sys.stdin.isatty():
+        err_console.print(
+            "[red]sfs rules init requires interactive input. "
+            "Use --yes to accept defaults non-interactively.[/red]"
+        )
+        raise typer.Exit(1)
+
     git_root = _get_git_root()
     if git_root is None:
         err_console.print("[red]Not a git repository.[/red]")

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthContext';
 import { setItem } from '../utils/storage';
+import CopyButton from '../components/CopyButton';
 import Wordmark from '../components/Wordmark';
 
 /**
@@ -40,7 +41,13 @@ type Tool = (typeof TOOLS)[number];
 export default function GettingStartedPage() {
   const { auth } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedTool, setSelectedTool] = useState<Tool>(TOOLS[0]);
+
+  // After signup auto-login, LoginPage passes the raw API key via router state
+  // so we can show it once in a dismissible banner.
+  const signupApiKey = (location.state as { apiKey?: string } | null)?.apiKey;
+  const [showKeyBanner, setShowKeyBanner] = useState(!!signupApiKey);
 
   const sessions = useQuery({
     queryKey: ['sessions', { page: 1, page_size: 1 }],
@@ -67,6 +74,28 @@ export default function GettingStartedPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-5 py-10 md:py-16">
+      {/* API key banner — shown once after signup */}
+      {showKeyBanner && signupApiKey && (
+        <div className="mb-6 p-4 bg-[var(--bg-elevated)] border border-[var(--brand)]/30 rounded-lg">
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <p className="text-sm font-medium text-[var(--text-primary)]">Your API key</p>
+            <button
+              onClick={() => setShowKeyBanner(false)}
+              className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]"
+            >
+              Dismiss
+            </button>
+          </div>
+          <p className="text-xs text-[var(--text-tertiary)] mb-2">Save this now — you will not see it again.</p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-xs font-mono bg-[var(--bg-primary)] px-3 py-1.5 rounded border border-[var(--border)] truncate">
+              {signupApiKey}
+            </code>
+            <CopyButton text={signupApiKey} />
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="text-center mb-10">
         <div className="inline-block mb-4">

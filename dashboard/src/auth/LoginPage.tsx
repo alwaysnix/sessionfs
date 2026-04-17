@@ -90,9 +90,11 @@ export default function LoginPage() {
     try {
       const signupResult = await signup(baseUrl, email);
       setSignupKey(signupResult.raw_key);
-      // Auto-login with the new key and navigate to onboarding
+      // Auto-login with the new key and navigate to onboarding.
+      // Pass the raw key via router state so the getting-started page
+      // can display it in a copy-able banner.
       await login(baseUrl, signupResult.raw_key);
-      navigate('/getting-started');
+      navigate('/getting-started', { state: { apiKey: signupResult.raw_key } });
       return;
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {

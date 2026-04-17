@@ -80,7 +80,7 @@ describe('LoginPage', () => {
     await waitFor(() => {
       expect(mockSignup).toHaveBeenCalled();
       expect(mockLogin).toHaveBeenCalledWith(expect.any(String), 'sk_sfs_test123');
-      expect(mockNavigate).toHaveBeenCalledWith('/getting-started');
+      expect(mockNavigate).toHaveBeenCalledWith('/getting-started', { state: { apiKey: 'sk_sfs_test123' } });
     });
   });
 });

@@ -4,6 +4,12 @@ on:
   workflow_run:
     workflows: ["Release"]
     types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build from (tag or branch)"
+        required: false
+        default: "main"
 
 env:
   REGISTRY: ghcr.io
