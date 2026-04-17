@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SessionList from './SessionList';
 
 const { hooks } = vi.hoisted(() => ({
@@ -56,6 +57,15 @@ vi.mock('@tanstack/react-query', async () => {
 });
 
 describe('SessionList empty state', () => {
+  beforeEach(() => {
+    hooks.useSessions.mockReset();
+    hooks.useDeletedSessions.mockReset();
+    hooks.useRestoreSession.mockReset();
+    hooks.useFolders.mockReset();
+    hooks.useAddBookmark.mockReset();
+    hooks.useFolderSessions.mockReset();
+  });
+
   it('shows "Get Started" link to /getting-started when no sessions', () => {
     hooks.useSessions.mockReturnValue({
       data: { sessions: [], total: 0, page: 1, page_size: 20, has_more: false },
@@ -80,5 +90,79 @@ describe('SessionList empty state', () => {
     expect(getStartedLink).toHaveAttribute('href', '/getting-started');
     const helpLink = screen.getByRole('link', { name: /view help/i });
     expect(helpLink).toHaveAttribute('href', '/help');
+  });
+
+  it('groups sessions by tool when "Sort: Tool" is selected', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    hooks.useSessions.mockReturnValue({
+      data: {
+        sessions: [
+          {
+            id: 'ses_codex1',
+            title: 'Codex Session',
+            source_tool: 'codex',
+            model_id: null,
+            message_count: 5,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            created_at: now,
+            updated_at: now,
+            last_user_at: now,
+            tool_use_count: 0,
+          },
+          {
+            id: 'ses_gemini1',
+            title: 'Gemini Session',
+            source_tool: 'gemini-cli',
+            model_id: null,
+            message_count: 3,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            created_at: now,
+            updated_at: now,
+            last_user_at: now,
+            tool_use_count: 0,
+          },
+          {
+            id: 'ses_claude1',
+            title: 'Claude Session',
+            source_tool: 'claude-code',
+            model_id: null,
+            message_count: 7,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            created_at: now,
+            updated_at: now,
+            last_user_at: now,
+            tool_use_count: 0,
+          },
+        ],
+        total: 3,
+        page: 1,
+        page_size: 20,
+        has_more: false,
+      },
+      isLoading: false,
+      error: null,
+    });
+    hooks.useDeletedSessions.mockReturnValue({ data: { sessions: [] }, isLoading: false });
+    hooks.useRestoreSession.mockReturnValue({ mutate: vi.fn(), isPending: false });
+    hooks.useFolders.mockReturnValue({ data: { folders: [] }, isLoading: false });
+    hooks.useAddBookmark.mockReturnValue({ mutateAsync: vi.fn() });
+    hooks.useFolderSessions.mockReturnValue({ data: null, isLoading: false });
+
+    render(
+      <MemoryRouter>
+        <SessionList />
+      </MemoryRouter>,
+    );
+
+    await user.selectOptions(screen.getByDisplayValue('Sort: Date'), 'tool');
+
+    expect(screen.queryByRole('heading', { name: 'Today' })).not.toBeInTheDocument();
+    const groupHeadings = screen.getAllByRole('heading', { level: 3 }).map((el) => el.textContent);
+    expect(groupHeadings).toEqual(['Claude Code', 'Codex', 'Gemini CLI']);
   });
 });

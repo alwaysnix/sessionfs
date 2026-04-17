@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.9.5] - 2026-04-17
+
+### Added
+- **First-run onboarding** — signup auto-authenticates and navigates to `/getting-started`. Three-step onboarding page (install tool, capture session, create project) with live completion indicators. State-based redirect gate: 0 sessions + 0 projects → onboarding. API key shown in dismissible banner after signup. User-scoped dismissal via djb2 hash (not global to browser). Legacy key migration for upgrade path.
+- **Sort direction toggle** — ascending/descending on all sort modes in the dashboard. CLI adds `--sort messages-asc` and `--sort tokens-asc` for finding small sessions.
+- **Tool sort mode** — real "Sort: Tool" in the sessions list groups by tool label.
+- **Tool filter alias normalization** — `gemini` / `gemini-cli` and `copilot` / `copilot-cli` treated as the same family across list, search, and admin endpoints.
+
+### Changed
+- **Cloud Run min-instances** — API deployment now sets `--min-instances 1` to eliminate cold-start latency.
+- **OnboardingGate loading** — shows lightweight placeholder instead of blank screen or mounting SessionList prematurely (avoids extra folder/handoff queries for first-time users).
+- **Publish Container Images workflow** — now supports `workflow_dispatch` for manual retrigger with configurable ref.
+
+### Fixed
+- **Unified 410 delete propagation** — structured `SyncDeletedError` replaces string-based detection. Shared `cleanup_deleted_session()` helper wired into all three sync paths (bulk `sfs sync`, explicit `sfs push`, daemon autosync). Dashboard-deleted sessions are auto-cleaned locally on next sync instead of showing red 410 errors.
+- **Full local cleanup on server 410** — removes `.sfs` directory + SQLite index entry (both `sessions` and `tracked_sessions` tables) + adds to exclusion list. No more orphaned local copies.
+- **Migration 030 cross-DB backfill** — replaced raw PostgreSQL-only `INTERVAL` syntax + `is_deleted = 1` with SQLAlchemy Core queries (works on both PostgreSQL and SQLite). Handles NULL `deleted_at` with sensible defaults.
+- **`sfs delete` / `sfs restore` prefix resolution** — now resolves session ID prefixes via local store for all scopes (was only resolving for local/everywhere, not cloud).
+- **`sfs rules init` TTY guard** — fails fast with clear message when stdin is not a TTY and `--yes` is not passed.
+- **Sessions empty state** — now links to `/getting-started` and `/help` instead of bare `sfs push` command.
+
 ## [0.9.9.4] - 2026-04-16
 
 ### Added

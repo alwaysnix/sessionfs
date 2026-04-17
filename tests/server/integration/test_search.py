@@ -164,6 +164,35 @@ async def test_search_with_tool_filter(
 
 
 @pytest.mark.asyncio
+async def test_search_with_tool_filter_alias_family(
+    client: AsyncClient,
+    auth_headers: dict,
+    db_session: AsyncSession,
+    test_user: User,
+):
+    """Search tool filter treats gemini and gemini-cli as the same family."""
+    await _create_session_with_text(
+        db_session, test_user,
+        title="Gemini debugging session",
+        source_tool="gemini-cli",
+        messages_text="debugging network connectivity issues in gemini",
+    )
+
+    test_user.tier = "pro"
+    await db_session.commit()
+
+    resp = await client.get(
+        "/api/v1/sessions/search",
+        params={"q": "debugging network", "tool": "gemini"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["results"][0]["source_tool"] == "gemini-cli"
+
+
+@pytest.mark.asyncio
 async def test_search_with_days_filter(
     client: AsyncClient,
     auth_headers: dict,
