@@ -2160,7 +2160,15 @@ async def _handle_add_knowledge(args: dict) -> str:
     content = args.get("content", "")
     entry_type = args.get("entry_type", "discovery")
     session_id = args.get("session_id")
-    confidence = float(args.get("confidence", 1.0))
+    # v0.10.10 — only forward confidence when caller explicitly passed
+    # it. Pre-fix, the handler defaulted to 1.0 and always sent it,
+    # which prevented the server from distinguishing 'caller said 1.0'
+    # from 'caller didn't say'. Combined with the server's old
+    # manual-source clamp at 0.7, this silently lowered legitimate
+    # caller-supplied confidence. Now both layers agree: explicit
+    # confidence is honored end-to-end.
+    raw_conf = args.get("confidence")
+    confidence: float | None = float(raw_conf) if raw_conf is not None else None
     entity_ref = args.get("entity_ref")
     entity_type = args.get("entity_type")
     force_claim = args.get("force_claim", False)
@@ -2176,8 +2184,9 @@ async def _handle_add_knowledge(args: dict) -> str:
         payload: dict = {
             "content": content,
             "entry_type": entry_type,
-            "confidence": confidence,
         }
+        if confidence is not None:
+            payload["confidence"] = confidence
         if session_id:
             payload["session_id"] = session_id
         if entity_ref:

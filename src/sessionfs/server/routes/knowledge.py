@@ -73,6 +73,43 @@ class KnowledgeEntryResponse(BaseModel):
     dismissed_reason: str | None = None
 
 
+def _entry_to_response(entry: KnowledgeEntry) -> "KnowledgeEntryResponse":
+    """v0.10.10 — shared KnowledgeEntry serializer. Codex LOW: hand-rolled
+    response construction in each route was drifting (the new /confidence
+    route originally omitted retrieved_count / used_in_answer_count /
+    compiled_count / last_relevant_at / supersession_reason because the
+    author copied an older route's shape). Centralizing keeps every
+    surface returning the same fields."""
+    return KnowledgeEntryResponse(
+        id=entry.id,
+        project_id=entry.project_id,
+        session_id=entry.session_id,
+        user_id=entry.user_id,
+        entry_type=entry.entry_type,
+        content=entry.content,
+        confidence=entry.confidence,
+        source_context=entry.source_context,
+        created_at=entry.created_at,
+        compiled_at=entry.compiled_at,
+        dismissed=entry.dismissed,
+        claim_class=getattr(entry, "claim_class", "claim"),
+        entity_ref=getattr(entry, "entity_ref", None),
+        entity_type=getattr(entry, "entity_type", None),
+        freshness_class=getattr(entry, "freshness_class", "current"),
+        superseded_by=entry.superseded_by,
+        supersession_reason=getattr(entry, "supersession_reason", None),
+        promoted_at=getattr(entry, "promoted_at", None),
+        promoted_by=getattr(entry, "promoted_by", None),
+        retrieved_count=getattr(entry, "retrieved_count", 0),
+        used_in_answer_count=getattr(entry, "used_in_answer_count", 0),
+        compiled_count=getattr(entry, "compiled_count", 0),
+        last_relevant_at=getattr(entry, "last_relevant_at", None),
+        dismissed_at=getattr(entry, "dismissed_at", None),
+        dismissed_by=getattr(entry, "dismissed_by", None),
+        dismissed_reason=getattr(entry, "dismissed_reason", None),
+    )
+
+
 class CompilationResponse(BaseModel):
     id: int
     project_id: str
@@ -89,6 +126,13 @@ class CompilationResponse(BaseModel):
     context_words_after: int = 0
     section_pages_updated: int = 0
     concept_pages_updated: int = 0
+    # v0.10.10 tk_483cede83deb443b — explain no-op compiles. Without
+    # this, callers (CEO included) see entries_compiled=0 and
+    # compiled_at=<now> alongside health.last_compilation_at=<older>
+    # and think the surfaces are inconsistent. noop_reason makes it
+    # explicit that nothing was eligible AND health is the source of
+    # truth for the last real compilation.
+    noop_reason: str | None = None
 
 
 class ContextSectionResponse(BaseModel):
@@ -110,7 +154,13 @@ class AddEntryRequest(BaseModel):
     content: str
     entry_type: str = "discovery"
     session_id: str | None = None
-    confidence: float = 1.0
+    # v0.10.10 — confidence is now Optional so the server can distinguish
+    # 'caller did not specify' (apply manual-source default of 0.7) from
+    # 'caller explicitly set X' (honor X). Pre-fix, the field defaulted
+    # to 1.0 and the server then clamped manual/cli-ask sources to 0.7
+    # unconditionally — silently lowering ANY caller-supplied confidence
+    # for those sources (the CEO's blocker on tk_483cede83deb443b).
+    confidence: float | None = Field(None, ge=0.0, le=1.0)
     source_context: str | None = None
     entity_ref: str | None = None
     entity_type: str | None = None
@@ -159,6 +209,13 @@ class DismissRequest(BaseModel):
             return None
         stripped = value.strip()
         return stripped or None
+
+
+class ConfidenceUpdateRequest(BaseModel):
+    """v0.10.10 tk_483cede83deb443b — explicit confidence update path.
+    The PUT /entries/{id} endpoint was dismiss-only; CEO confidence
+    updates were being silently dropped. This is the missing surface."""
+    confidence: float = Field(..., ge=0.0, le=1.0)
 
 
 class HealthResponse(BaseModel):
@@ -590,10 +647,21 @@ async def add_entry(
     if is_duplicate:
         raise HTTPException(409, "Similar entry already exists")
 
-    # Gate 4: Lower confidence for cli-ask/manual sources
-    confidence = body.confidence
-    if session_id in ("cli-ask", "manual"):
-        confidence = min(confidence, 0.7)
+    # v0.10.10 tk_483cede83deb443b — honor explicit confidence from
+    # the caller. Pre-fix this branch did `min(confidence, 0.7)` for
+    # manual/cli-ask sources, silently clamping CEO-supplied 0.95
+    # values down to 0.7 and blocking promotion (gate is 0.8). Now:
+    # if the caller passes confidence explicitly, trust them — the
+    # /promote endpoint enforces quality gates at promote time, so
+    # the write path doesn't need to second-guess. If the caller
+    # omits confidence (request body field is None), apply the
+    # legacy 0.7-for-manual / 1.0-for-session-derived defaults.
+    if body.confidence is not None:
+        confidence = body.confidence
+    elif session_id in ("cli-ask", "manual"):
+        confidence = 0.7
+    else:
+        confidence = 1.0
 
     # Claim classification: default to 'note', promote to 'claim' if quality gates pass
     claim_class = "note"
@@ -925,6 +993,58 @@ async def compile_context(
     concept_pages = await _count_pages("concept")
 
     if not compilation:
+        # v0.10.10 tk_483cede83deb443b + Codex review on tk_328006e4c6024dd8
+        # — no eligible entries to compile. The response must align with
+        # health.last_compilation_at and health.word_count so callers
+        # don't see two surfaces disagreeing on the same data.
+        last_ts = (
+            await db.execute(
+                select(ContextCompilation.compiled_at)
+                .where(ContextCompilation.project_id == project_id)
+                .order_by(ContextCompilation.compiled_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+
+        # Derive word counts from project.context_document — same source
+        # health uses (Codex MEDIUM 2: zero unconditional words_before/after
+        # disagreed with health when a project already had context but
+        # nothing new to compile).
+        project_row = await _get_project_or_404(project_id, db, user.id)
+        existing_context = (project_row.context_document or "").strip()
+        existing_words = len(existing_context.split()) if existing_context else 0
+
+        # Diagnose the most common reason no entries were eligible so
+        # the CEO doesn't have to guess: notes vs claims, dismissed,
+        # or already-compiled. The wording avoids claiming confidence
+        # is the only blocker — /promote returns per-entry gate failures
+        # (content length, near-duplicate) too (Codex review answer #3).
+        from sessionfs.server.db.models import KnowledgeEntry as _KE
+        note_count = (
+            await db.execute(
+                select(func.count(_KE.id)).where(
+                    _KE.project_id == project_id,
+                    _KE.claim_class == "note",
+                    _KE.dismissed == False,  # noqa: E712
+                    _KE.compiled_at.is_(None),
+                )
+            )
+        ).scalar() or 0
+        if note_count > 0:
+            reason = (
+                f"No claims eligible to compile. {note_count} note(s) "
+                f"are uncompiled — notes do not auto-promote. Update "
+                f"confidence via PUT /entries/{{id}}/confidence then "
+                f"call PUT /entries/{{id}}/promote, which returns the "
+                f"specific gate failures (confidence, content length, "
+                f"near-duplicate) when promotion is blocked."
+            )
+        else:
+            reason = (
+                "No pending claims to compile (all claims already "
+                "compiled, dismissed, or none exist)."
+            )
+
         return CompilationResponse(
             id=0,
             project_id=project_id,
@@ -932,11 +1052,23 @@ async def compile_context(
             entries_compiled=0,
             context_before=None,
             context_after=None,
-            compiled_at=datetime.now(timezone.utc),
-            context_words_before=0,
-            context_words_after=0,
+            # Codex MEDIUM 2 — first-ever-noop should NOT pretend a
+            # compile happened. If last_ts is None (no prior real
+            # compilation), return the project's created_at OR a sentinel
+            # epoch-ish value… actually the cleanest is to keep this
+            # field non-nullable per the schema but make its semantic
+            # 'last actual compile time, or now as a degenerate fallback
+            # for first-ever no-op when no compile history exists'.
+            # Health reports last_compilation_at=None in that case;
+            # noop_reason tells callers the gap. Future v0.11 work could
+            # make compiled_at: datetime | None throughout but that's a
+            # breaking change deferred from this fix.
+            compiled_at=last_ts or datetime.now(timezone.utc),
+            context_words_before=existing_words,
+            context_words_after=existing_words,
             section_pages_updated=section_pages,
             concept_pages_updated=concept_pages,
+            noop_reason=reason,
         )
 
     # (Legacy) concept generation also runs after real compilation
@@ -1428,6 +1560,47 @@ async def promote_entry(
         dismissed_by=getattr(entry, "dismissed_by", None),
         dismissed_reason=getattr(entry, "dismissed_reason", None),
     )
+
+
+@router.put(
+    "/{project_id}/entries/{entry_id}/confidence",
+    response_model=KnowledgeEntryResponse,
+)
+async def update_entry_confidence(
+    project_id: str,
+    entry_id: int,
+    body: ConfidenceUpdateRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> KnowledgeEntryResponse:
+    """v0.10.10 tk_483cede83deb443b — update a knowledge entry's confidence.
+
+    Before this endpoint, PUT /entries/{id} only handled dismiss/un-dismiss,
+    so confidence updates were being silently dropped — entries stayed at
+    their original score (typically 0.7 for notes) and could never clear
+    the 0.8 promotion gate. After updating confidence, callers can hit
+    PUT /entries/{id}/promote to attempt the claim_class transition;
+    that endpoint surfaces clear 422 errors when other gates fail
+    (content length, near-duplicate).
+
+    Does NOT auto-promote — keeps confidence orthogonal to claim_class
+    transitions. Use /promote explicitly after updating confidence.
+    """
+    await _get_project_or_404(project_id, db, user.id)
+    entry = (
+        await db.execute(
+            select(KnowledgeEntry).where(
+                KnowledgeEntry.id == entry_id,
+                KnowledgeEntry.project_id == project_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if entry is None:
+        raise HTTPException(404, "Entry not found")
+    entry.confidence = body.confidence
+    await db.commit()
+    await db.refresh(entry)
+    return _entry_to_response(entry)
 
 
 # ---------------------------------------------------------------------------

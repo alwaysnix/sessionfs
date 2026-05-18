@@ -216,7 +216,7 @@ All file paths are relative to workspace root. Sessions are append-only — conf
 
 ## Status
 
-**v0.10.9 — Public Beta.** 1796 backend tests + 186 dashboard tests passing. 41 database migrations. 53 MCP tools. Comprehensive handoff redesign: first-class coordination primitive on the same plane as tickets, personas, and agent runs. New: 8 handoff MCP tools, team management surface, lifecycle endpoints (revoke / decline / comments / events), provenance carry-through (ticket + persona auto-applied to recipient's next session), atomic claim race protection, 404-not-403 existence hiding, lazy expiry.
+**v0.10.10 — Public Beta.** 1819 backend tests + 186 dashboard tests passing. 42 database migrations. 54 MCP tools. Scoped service API keys for cloud agents and CI: deny-by-default for service keys, capability-scoped routes (`handoffs:write`, `agent_runs:write`), cross-org boundary enforcement, structured error codes, audit-row provenance distinguishing service-key calls from human calls. Plus KB confidence update fix — explicit confidence from manual/MCP sources is now honored end-to-end (was silently clamped to 0.7).
 
 ### Session capture, resume, and search
 

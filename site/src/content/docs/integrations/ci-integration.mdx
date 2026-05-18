@@ -248,7 +248,7 @@ Same operations are available through 3 MCP tools (`create_agent_run`, `complete
 - **No transcript / session capture.** AgentRun records the *outcome* of a review; the model's transcript is not uploaded.
 - **No model orchestration.** SessionFS doesn't spawn Claude/Codex/Bedrock. Your script picks the LLM and writes findings.
 - **No automatic KB promotion.** Findings stay as run data. If you want a finding promoted into the persistent knowledge base, call `sfs project entries add` (or the MCP `add_knowledge` tool) explicitly.
-- **No scoped service tokens.** Use your existing Bearer API key (the same one `sfs auth login` set up). Scoped service tokens for CI runners are a deferred follow-up.
+- **Scoped service API keys (v0.10.10+).** CI runners should use a scoped service key (`POST /api/v1/orgs/{org_id}/service-keys`) restricted to `agent_runs:write` (and optionally `tickets:read`, `knowledge:write`, etc.) — not a personal user bearer token. Service keys are expirable, org-scoped, can be rotated server-side, and write `actor_type="service_key"` provenance on every AgentRun and resulting audit row. Existing personal bearer tokens still authenticate (back-filled to `scopes=["*"]`) but are no longer the recommended pattern for CI.
 
 ## See also
 

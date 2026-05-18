@@ -45,7 +45,11 @@ from pydantic import BaseModel, field_validator
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sessionfs.server.auth.dependencies import get_current_user
+from sessionfs.server.auth.dependencies import (
+    AuthContext,
+    get_current_user,
+    require_scope,
+)
 from sessionfs.server.db.engine import get_db
 from sessionfs.server.db.models import AgentPersona, AgentRun, Ticket, User
 from sessionfs.server.routes.tickets import _compile_persona_context
@@ -340,13 +344,26 @@ def _new_run_id() -> str:
 async def create_agent_run(
     project_id: str,
     body: AgentRunCreate,
-    user: User = Depends(get_current_user),
+    auth: AuthContext = Depends(require_scope("agent_runs:write")),
     ctx: UserContext = Depends(get_user_context),
     db: AsyncSession = Depends(get_db),
 ) -> AgentRunResponse:
-    """Create a queued AgentRun. Validates same-project ticket + active persona."""
+    """Create a queued AgentRun. Validates same-project ticket + active persona.
+
+    v0.10.10 — accepts service keys with `agent_runs:write` scope. The
+    row's actor_type=='service_key' when a service key triggered the
+    run, separate from triggered_by_user_id (the human who minted the key).
+    """
+    user = auth.user
     check_feature(ctx, "agent_runs")
-    await _get_project_or_404(project_id, db, user.id)
+    project = await _get_project_or_404(project_id, db, user.id)
+    # Codex R5 HIGH 1 — service-key org/project boundary BEFORE side
+    # effects. A key minted for org_A cannot create runs in org_B even
+    # if the backing user happens to have access to both.
+    from sessionfs.server.auth.dependencies import (
+        assert_service_key_can_access_project,
+    )
+    await assert_service_key_can_access_project(db, auth, project)
 
     # Validate persona exists + is active in this project.
     await _validate_active_persona(project_id, body.persona_name, db)
@@ -370,6 +387,10 @@ async def create_agent_run(
         fail_on=body.fail_on,
         triggered_by_user_id=user.id,
         triggered_by_persona=body.triggered_by_persona,
+        # v0.10.10 — service-key provenance (Codex R1 HIGH 2).
+        actor_type=auth.actor_type,
+        service_key_id=auth.service_key_id,
+        service_key_name=auth.service_key_name,
         created_at=now,
     )
     db.add(row)
@@ -525,13 +546,22 @@ async def complete_agent_run(
     project_id: str,
     run_id: str,
     body: AgentRunComplete,
-    user: User = Depends(get_current_user),
+    auth: AuthContext = Depends(require_scope("agent_runs:write")),
     ctx: UserContext = Depends(get_user_context),
     db: AsyncSession = Depends(get_db),
 ) -> AgentRunResponse:
-    """Atomic running/queued → passed/failed/errored. Runs policy evaluation."""
+    """Atomic running/queued → passed/failed/errored. Runs policy evaluation.
+
+    v0.10.10 — accepts service keys with `agent_runs:write` scope.
+    Codex R5 HIGH 1 — also enforces service-key org/project boundary.
+    """
+    user = auth.user
     check_feature(ctx, "agent_runs")
-    await _get_project_or_404(project_id, db, user.id)
+    project = await _get_project_or_404(project_id, db, user.id)
+    from sessionfs.server.auth.dependencies import (
+        assert_service_key_can_access_project,
+    )
+    await assert_service_key_can_access_project(db, auth, project)
 
     now = datetime.now(timezone.utc)
     # Read the row first so we can compute duration_seconds and evaluate policy.

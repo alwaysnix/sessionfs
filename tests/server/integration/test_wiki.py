@@ -7,11 +7,9 @@ from datetime import datetime, timezone
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sessionfs.server.db.models import (
-    KnowledgeEntry,
     KnowledgePage,
     Project,
     User,
@@ -58,7 +56,13 @@ async def test_add_entry_via_api(
     data = resp.json()
     assert data["content"] == "Always use UTC timestamps"
     assert data["entry_type"] == "convention"
-    assert data["confidence"] == 0.7  # capped for session_id="manual"
+    # v0.10.10 tk_483cede83deb443b — explicit confidence is now honored
+    # for manual sources (was incorrectly clamped to min(0.7); blocked
+    # CEO's KB workflow). When caller omits confidence entirely, the
+    # 0.7 manual default still applies — see
+    # tests/server/integration/test_knowledge.py::
+    # test_add_entry_honors_explicit_confidence_from_manual_source.
+    assert data["confidence"] == 0.95
     assert data["session_id"] == "manual"
     assert data["project_id"] == test_project.id
 

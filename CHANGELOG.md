@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.10] - 2026-05-18
+
+### Added
+
+**Scoped service API keys** (parent tk_2e030a85253143df, 7 Codex review rounds across two phase reviews) — replaces broad static user bearer tokens for cloud agents, CI runners, and integration partners with expirable, scope-restricted service keys. Static user tokens no longer required for Bedrock, Vertex, GitHub Actions, GitLab MR pipelines.
+
+- **Migration 042** — additive. `ApiKey` gains `key_kind` ('user' | 'service'), `org_id` (FK organizations CASCADE, required for service keys), `scopes` (JSON list), `expires_at`, `revoked_at`, `revoke_reason`, `created_by_user_id` (FK users SET NULL), `last_used_ip` (45 chars, IPv6-safe), `service_key_name`, `project_ids` (optional project allowlist within org), `key_prefix` (real raw-key prefix captured at create/rotate for incident response). Existing user keys back-fill to `scopes='["*"]'` so every legacy token continues to authorize unchanged.
+- **5 audit-row tables** (TicketComment, KnowledgeEntry, AgentRun, RetrievalAuditEvent, HandoffEvent) gain `actor_type` ('user' | 'service_key') + `service_key_id` + `service_key_name`. Service keys never silently impersonate humans in provenance.
+- **Deny-by-default for service keys** (Codex Phase 2 R2 HIGH) — `get_current_user` rejects service keys with 403 `service_key_not_allowed`. The ONLY way a service key reaches a route handler is via `require_scope(*scopes)` or `require_any_scope(*scopes)` dependencies. Pre-route enforcement, not post-route middleware — side effects are impossible from unauthorized service keys.
+- **Scope vocabulary** — 14 capability scopes (sessions:read, handoffs:read/write, tickets:read/write, personas:read/write, knowledge:read/write, rules:read/write, agent_runs:read/write, retrieval_audit:read, admin:*). `*` wildcard reserved for legacy user/admin keys; service keys must enumerate explicitly (rejected with 422 at create otherwise).
+- **Cross-org boundary** — `assert_service_key_can_access_project` enforces that a service key's `org_id` matches the target project's `org_id` before any project-scoped state change. Optional per-key `project_ids` allowlist gives finer control. Routes that handle handoffs resolve the source session's project via `sessions.project_id` (authoritative since migration 036) — Codex Phase 2 R6 caught and fixed a `git_remote_normalized` fallback that originally "preferred the key's org" on ambiguity (bypass vector).
+- **Org-scoped admin surface** — `POST/GET /api/v1/orgs/{org_id}/service-keys`, `DELETE /api/v1/orgs/{org_id}/service-keys/{id}`, `POST /api/v1/orgs/{org_id}/service-keys/{id}/rotate`. Org admin role + Team+ tier required for mutations. Cross-org 404 (not 403) for existence hiding. Personal user keys under `/api/v1/auth/me/api-keys`.
+- **Structured error codes** — `api_key_revoked`, `api_key_expired`, `service_key_not_allowed`, `insufficient_scope` (with `required` + `current` arrays), `cross_org_denied` (with `key_org_id` + `project_org_id`), `service_key_project_required`, `service_key_project_not_registered`, `service_key_project_ambiguous`. Agents can distinguish rotate-needed from permission-needed without log-scraping.
+- **Secret handling** — raw key returned exactly once on POST create + POST rotate. List/detail endpoints return only `key_prefix`. Tests assert raw key absent from log output on both paths.
+- **Phase 2 route opt-in** — 5 handoff write routes (POST `/handoffs`, claim, revoke, decline, comments POST) + agent_runs create/complete now use `require_scope("handoffs:write" | "agent_runs:write")`. Service-key callers populate `actor_type='service_key'` on the resulting HandoffEvent and AgentRun audit rows.
+- **18 new integration tests** covering deny-by-default, scope allow/deny, expiry, revocation, cross-org boundary, project-id authoritative resolution, orphan-handoff denial, raw-key-not-in-list, last_used_at/_ip updates, wildcard rejection on service keys, unknown-scope rejection.
+
+**Knowledge base confidence fix** (tk_483cede83deb443b, Codex review tk_328006e4c6024dd8 R1-R3 VERIFIED-CLEAN) — restores the CEO-driven workflow for marking strategy/decision entries as high-confidence and promoting them into compiled context.
+
+- **Root cause** — `POST /entries/add` silently clamped `confidence = min(confidence, 0.7)` for `session_id in ("cli-ask", "manual")`. Combined with MCP's default `session_id="manual"`, this lowered EVERY caller-supplied confidence on manual/MCP-sourced entries to 0.7, blocking promotion (gate is 0.8). Entries 403/404/405 stayed at 0.7 regardless of what the caller passed.
+- **Fix** — `AddEntryRequest.confidence` is now `Optional[float]` with `Field(None, ge=0.0, le=1.0)`. When caller passes confidence explicitly, server honors it. When omitted, legacy 0.7-for-manual / 1.0-for-session-derived defaults still apply. MCP `_handle_add_knowledge` only forwards confidence when caller explicitly supplied it.
+- **NEW endpoint** — `PUT /api/v1/projects/{pid}/entries/{id}/confidence` lets agents/dashboards update confidence on existing entries that got clamped before the fix landed. Repair path for legacy data.
+- **Compile no-op consistency** — `POST /compile` no-op response now derives `context_words_before/after` from `project.context_document` (same source as `/health.word_count`) instead of returning 0 unconditionally. New `noop_reason` field surfaces actionable diagnosis: "No claims eligible to compile. N note(s) are uncompiled — notes do not auto-promote. Update confidence via PUT /entries/{id}/confidence then call PUT /entries/{id}/promote, which returns the specific gate failures...".
+- **Shared serializer** — `_entry_to_response(entry)` helper centralizes the full `KnowledgeEntryResponse` shape so new routes can't omit fields (retrieved_count, used_in_answer_count, compiled_count, last_relevant_at, supersession_reason).
+
+**`list_ticket_comments` MCP tool** (tk_32f3dacf1c9749bc, bundled follow-up from v0.10.9) — wraps `GET /api/v1/projects/{pid}/tickets/{id}/comments` with `since` (ISO timestamp) + `since_id` (cursor tiebreaker for same-millisecond ties) + `limit` (1-500, default 200). Unblocks autonomous Codex/Claude review polling loops over MCP.
+
+### Reviews
+
+- Scoped service keys foundation (Phase 1): Codex R1 scope → R2 schema → R3 implementation → R4 re-review VERIFIED-CLEAN (tk_9fefcc3832ac49da)
+- Scoped service keys route opt-in (Phase 2): Codex R5 → R6 → R7 VERIFIED-CLEAN (tk_f664b480140f40c4)
+- list_ticket_comments: Codex R2 CLEAN (tk_32f3dacf1c9749bc)
+- KB confidence fix: Codex R1 → R2 → R3 VERIFIED-CLEAN (tk_328006e4c6024dd8). HIGH finding (MCP add_knowledge confidence clamp) caught by Codex during this review — Atlas had originally fixed only the symptom (/confidence repair endpoint) without addressing the write-path bug.
+- Shield-SR independent pre-release security review: 0 CRITICAL / 0 HIGH / 0 MEDIUM. Release approved.
+
+### Deferred to v0.10.11+
+
+- TicketComment / KnowledgeEntry / RetrievalAuditEvent writer provenance (their routes still on plain `get_current_user` — service keys correctly rejected; full route opt-in is Phase 3)
+- CLI surface for scoped service keys (`sfs admin service-keys list/create/revoke/rotate`, `sfs auth keys list/create/revoke`)
+- Bedrock + Vertex + GitHub Actions + GitLab MR doc updates to use scoped service keys (`docs/integrations/*` examples)
+- New `docs/api-keys.md`
+- Optional `ApiKey` model_validator rejecting service keys with empty `scopes`
+
 ## [0.10.9] - 2026-05-17
 
 ### Added
@@ -22,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Lazy expiry** — pending handoffs past `expires_at` flip to `expired` on read with audit event. Per-tier `expires_in_hours` clamping: 720h (30d) on Free/Pro/Team, 2160h (90d) on Enterprise.
 - **viewed_at tracking** — first GET by a non-sender stamps `viewed_at` + emits a `viewed` event. Sender's later reads do not overwrite.
 - **4 lifecycle email notifications** — `send_handoff_claimed` (to sender), `send_handoff_revoked` (to recipient), `send_handoff_declined` (to sender), `send_handoff_comment` (to other party). All templates `html.escape()` user-supplied fields. All sends are best-effort try/except — never fail the route.
-- **8 new MCP tools** — `create_handoff`, `claim_handoff`, `get_handoff`, `list_inbox_handoffs`, `list_sent_handoffs`, `revoke_handoff`, `decline_handoff`, `add_handoff_comment` (53 tools total, was 45). All use the shared `_handoff_api_config` helper (handoffs aren't project-scoped).
+- **8 new handoff MCP tools** — `create_handoff`, `claim_handoff`, `get_handoff`, `list_inbox_handoffs`, `list_sent_handoffs`, `revoke_handoff`, `decline_handoff`, `add_handoff_comment`. Alongside the `list_ticket_comments` follow-up, v0.10.9 exposes 54 tools total (was 45). All handoff tools use the shared `_handoff_api_config` helper (handoffs aren't project-scoped).
 - **CLI extensions** — `sfs handoff` accepts `--to-user-id`, `--to-team-id`, `--ticket`, `--persona`, `--expires-hours`, `--attach kind:ref_id` (repeatable). New subcommands: `sfs handoffs get | revoke | decline | comment | comments | events`. `sfs pull-handoff` now persists `active_ticket_payload` to `~/.sessionfs/active_ticket.json` (the core v0.10.9 promise — without this the recipient session loses ticket+persona context).
 
 ### Review history

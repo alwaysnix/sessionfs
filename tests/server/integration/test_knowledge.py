@@ -10,13 +10,10 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sessionfs.server.auth.keys import generate_api_key, hash_api_key
 from sessionfs.server.db.models import (
-    ApiKey,
     ContextCompilation,
     KnowledgeEntry,
     Project,
-    Session,
     User,
 )
 from sessionfs.server.services.summarizer import SessionSummary
@@ -563,3 +560,202 @@ async def test_mixed_confidence_same_batch_verified_wins(
     assert "- Always use UTC timestamps" in c.context_after
     # NOT under Unverified
     assert "(unverified) Always use UTC timestamps" not in c.context_after
+
+
+# ── v0.10.10 tk_483cede83deb443b — confidence update endpoint + noop_reason ──
+
+
+@pytest.mark.asyncio
+async def test_confidence_update_persists_and_unlocks_promote(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_project: Project, test_user: User
+):
+    """The original PUT /entries/{id} was dismiss-only; CEO confidence
+    updates were silently dropped. New PUT /entries/{id}/confidence
+    persists, and /promote then accepts the entry when it crosses 0.8."""
+    # Seed a note at confidence 0.7 (below promote gate). Use enough
+    # content to satisfy /promote 50-char minimum.
+    entry = KnowledgeEntry(
+        project_id=test_project.id,
+        session_id="ses_ceo1",
+        user_id=test_user.id,
+        entry_type="decision",
+        content=(
+            "Adopt scoped service API keys for all cloud agents — "
+            "user tokens too broad for Bedrock/Vertex/CI."
+        ),
+        confidence=0.7,
+        claim_class="note",
+    )
+    db_session.add(entry)
+    await db_session.commit()
+    await db_session.refresh(entry)
+
+    # Before fix: PUT /entries/{id} only handled dismiss; confidence
+    # would silently stay at 0.7. After fix: dedicated endpoint persists.
+    resp = await client.put(
+        f"/api/v1/projects/{test_project.id}/entries/{entry.id}/confidence",
+        headers=auth_headers,
+        json={"confidence": 0.95},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    actual = body["confidence"]
+    assert actual == 0.95, f"expected 0.95, got {actual}"
+
+    # Get verifies persistence — the actual CEO bug was values not
+    # surviving the round trip.
+    g = await client.get(
+        f"/api/v1/projects/{test_project.id}/entries/{entry.id}",
+        headers=auth_headers,
+    )
+    assert g.status_code == 200
+    assert g.json()["confidence"] == 0.95
+
+    # Now /promote can succeed because confidence > 0.8.
+    p = await client.put(
+        f"/api/v1/projects/{test_project.id}/entries/{entry.id}/promote",
+        headers=auth_headers,
+    )
+    assert p.status_code == 200, p.text
+    assert p.json()["claim_class"] == "claim"
+
+
+@pytest.mark.asyncio
+async def test_confidence_update_rejects_out_of_range(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_project: Project, test_user: User
+):
+    """Pydantic Field(ge=0, le=1) returns 422 on out-of-range values."""
+    entry = KnowledgeEntry(
+        project_id=test_project.id, session_id="ses_x", user_id=test_user.id,
+        entry_type="discovery", content="x" * 60, confidence=0.5, claim_class="note",
+    )
+    db_session.add(entry)
+    await db_session.commit()
+    await db_session.refresh(entry)
+    for bad in (-0.1, 1.5):
+        r = await client.put(
+            f"/api/v1/projects/{test_project.id}/entries/{entry.id}/confidence",
+            headers=auth_headers, json={"confidence": bad},
+        )
+        assert r.status_code == 422, f"value {bad} should be rejected"
+
+
+@pytest.mark.asyncio
+async def test_add_entry_honors_explicit_confidence_from_manual_source(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession,
+    test_user: User, test_project: Project,
+):
+    """Codex review HIGH on tk_328006e4c6024dd8 — the real CEO bug was
+    not the missing /confidence endpoint; it was that POST /entries/add
+    with session_id='manual' (the MCP default) clamped confidence to
+    min(0.7). A caller passing confidence=0.95 silently got 0.7 and
+    could never promote. Fix: AddEntryRequest.confidence is now
+    Optional; when caller specifies it, honor it; only apply the 0.7
+    manual-source default when caller omits it entirely."""
+    # Explicit 0.95 from a "manual" source — pre-fix this stored 0.7.
+    r = await client.post(
+        f"/api/v1/projects/{test_project.id}/entries/add",
+        headers=auth_headers,
+        json={
+            "content": "Adopt scoped service API keys for cloud agents — "
+                       "user tokens too broad for Bedrock/Vertex/CI agents",
+            "entry_type": "decision",
+            "session_id": "manual",
+            "confidence": 0.95,
+        },
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["confidence"] == 0.95, (
+        f"Manual source explicit confidence must NOT be clamped to 0.7. "
+        f"Got {body['confidence']}."
+    )
+
+    # And when caller omits confidence entirely, the legacy default
+    # for manual sources (0.7) still applies — back-compat preserved.
+    r2 = await client.post(
+        f"/api/v1/projects/{test_project.id}/entries/add",
+        headers=auth_headers,
+        json={
+            "content": "Default-no-confidence: should still get manual-source default.",
+            "entry_type": "discovery",
+            "session_id": "manual",
+        },
+    )
+    assert r2.status_code == 201
+    assert r2.json()["confidence"] == 0.7, (
+        "Manual source WITHOUT explicit confidence should still default to 0.7"
+    )
+
+
+@pytest.mark.asyncio
+async def test_compile_noop_word_counts_match_health(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession,
+    test_user: User, test_project: Project,
+):
+    """Codex review MEDIUM 2 — when a project has existing context but
+    no eligible entries, no-op compile must report the same word count
+    as health (both derived from project.context_document), not 0.
+    Pre-fix the surfaces disagreed and looked broken."""
+    # The test_project fixture seeds context_document with a paragraph.
+    # Run health and compile + assert they agree.
+    h = await client.get(
+        f"/api/v1/projects/{test_project.id}/health",
+        headers=auth_headers,
+    )
+    assert h.status_code == 200
+    health_words = h.json()["word_count"]
+    assert health_words > 0, "test fixture should seed non-empty context"
+
+    c = await client.post(
+        f"/api/v1/projects/{test_project.id}/compile",
+        headers=auth_headers,
+        json={},
+    )
+    assert c.status_code == 200
+    body = c.json()
+    assert body["entries_compiled"] == 0
+    # Codex MEDIUM 2: words_before/after must match health, not be zero.
+    assert body["context_words_before"] == health_words, (
+        f"compile no-op words_before ({body['context_words_before']}) "
+        f"must match health.word_count ({health_words})"
+    )
+    assert body["context_words_after"] == health_words
+
+
+@pytest.mark.asyncio
+async def test_compile_noop_returns_explanatory_reason(
+    client: AsyncClient, auth_headers: dict, db_session: AsyncSession, test_project: Project, test_user: User
+):
+    """v0.10.10 tk_483cede83deb443b — compile of zero eligible entries
+    must surface a noop_reason so callers know why entries_compiled=0.
+    Before this, response showed compiled_at=<now> alongside health
+    showing last_compilation_at=<older>, looking inconsistent."""
+    # Seed only notes (never auto-compiled).
+    db_session.add_all([
+        KnowledgeEntry(
+            project_id=test_project.id, session_id="ses_n1", user_id=test_user.id,
+            entry_type="decision", content="x" * 60, confidence=0.7,
+            claim_class="note",
+        ),
+        KnowledgeEntry(
+            project_id=test_project.id, session_id="ses_n2", user_id=test_user.id,
+            entry_type="pattern", content="y" * 60, confidence=0.6,
+            claim_class="note",
+        ),
+    ])
+    await db_session.commit()
+
+    r = await client.post(
+        f"/api/v1/projects/{test_project.id}/compile",
+        headers=auth_headers, json={},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["entries_compiled"] == 0
+    assert body["noop_reason"] is not None
+    assert "note" in body["noop_reason"].lower()
+    # Should mention the confidence/promote workflow so caller knows the
+    # fix.
+    assert "confidence" in body["noop_reason"].lower() or "promote" in body["noop_reason"].lower()
+
