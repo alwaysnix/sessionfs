@@ -25,6 +25,8 @@ from typing import Iterable
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi import HTTPException
+
 from sessionfs.server.db.models import (
     AgentPersona,
     Handoff,
@@ -51,6 +53,9 @@ async def write_event(
     event_type: str,
     actor_user_id: str | None,
     payload: dict | None = None,
+    actor_type: str = "user",
+    service_key_id: str | None = None,
+    service_key_name: str | None = None,
 ) -> None:
     """Append a handoff_events row. Caller must commit.
 
@@ -58,6 +63,12 @@ async def write_event(
     v0.10.4 retrieval-audit-event handling). Never include session
     content or raw recipient_email in payload — those live on the
     Handoff row itself.
+
+    v0.10.10 (Codex R1 HIGH 2) — `actor_type` + `service_key_name`
+    capture service-key provenance so audit viewers can distinguish
+    "user X did Y" from "service key K (minted by X) did Y". Defaults
+    preserve user-key behavior for routes that haven't been converted
+    to use AuthContext yet.
     """
     serialized = json.dumps(payload or {}, default=str)
     if len(serialized.encode("utf-8")) > EVENT_PAYLOAD_MAX_BYTES:
@@ -68,6 +79,9 @@ async def write_event(
             event_type=event_type,
             actor_user_id=actor_user_id,
             payload=serialized,
+            actor_type=actor_type,
+            service_key_id=service_key_id,
+            service_key_name=service_key_name,
         )
     )
 
@@ -456,3 +470,95 @@ async def claim_inbox_match(
     if is_recipient(user, handoff):
         return True
     return await is_team_recipient(db, user, handoff)
+
+
+async def assert_service_key_handoff_boundary(
+    db: AsyncSession, auth, source_session: SessionModel | None
+) -> None:
+    """v0.10.10 — service-key project boundary for handoff routes.
+
+    Codex R5 HIGH 2 + R6 HIGH — service keys must be anchored to the
+    handoff's source session's project before mutation. User-key callers
+    are unaffected.
+
+    Resolution order (R6 fix — the prior 'prefer org_id match'
+    fallback let cross-org shared-remote attacks slip through):
+      1. AUTHORITATIVE — source_session.project_id if set.
+      2. LEGACY FALLBACK — git_remote_normalized lookup, but DENY if
+         multiple projects share the remote (ambiguity is unresolvable
+         without project_id; we refuse rather than guess).
+      3. CONSERVATIVE — if source session is missing/None or has no
+         linkage, deny (no orphan-handoff mutation by service keys).
+    """
+    if auth.key_kind != "service":
+        return
+
+    # R6 MEDIUM — service keys cannot mutate orphan handoffs (source
+    # session deleted or never existed). Boundary cannot be verified
+    # → deny conservatively.
+    if source_session is None:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "service_key_project_required",
+                "message": (
+                    "Service keys cannot act on a handoff whose source "
+                    "session is unavailable"
+                ),
+            },
+        )
+
+    # R6 HIGH — authoritative anchor first. sessions.project_id is the
+    # truth; git_remote is only the legacy fallback for rows that
+    # predate session→project linking (migration 036).
+    project: Project | None = None
+    if source_session.project_id:
+        project = (
+            await db.execute(
+                select(Project).where(Project.id == source_session.project_id)
+            )
+        ).scalar_one_or_none()
+    elif source_session.git_remote_normalized:
+        matching = (
+            await db.execute(
+                select(Project).where(
+                    Project.git_remote_normalized == source_session.git_remote_normalized
+                )
+            )
+        ).scalars().all()
+        if len(matching) > 1:
+            # R6 HIGH fix — DO NOT prefer the key's org. Multiple
+            # projects sharing a remote means the anchor is ambiguous;
+            # without project_id we cannot determine which org owns
+            # the session. Refuse rather than pick.
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "error": "service_key_project_ambiguous",
+                    "message": (
+                        "Source session's git remote matches multiple "
+                        "projects; service-key boundary cannot be "
+                        "resolved without sessions.project_id"
+                    ),
+                },
+            )
+        if matching:
+            project = matching[0]
+
+    if project is None:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "error": "service_key_project_not_registered",
+                "message": (
+                    "Source session has no resolvable project anchor — "
+                    "service-key boundary cannot be verified"
+                ),
+            },
+        )
+
+    # Reuse the canonical boundary check from auth/dependencies.
+    from sessionfs.server.auth.dependencies import (
+        assert_service_key_can_access_project,
+    )
+    await assert_service_key_can_access_project(db, auth, project)

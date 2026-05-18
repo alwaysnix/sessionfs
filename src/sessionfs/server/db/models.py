@@ -59,7 +59,24 @@ class User(Base):
 
 
 class ApiKey(Base):
+    """API key for cloud-sync auth.
+
+    v0.10.10 (tk_2e030a85253143df) extends with scoped-service-key
+    fields. `key_kind='user'` rows behave exactly as v0.10.9 did
+    (scopes='["*"]' grants everything); `key_kind='service'` rows
+    require explicit scope enumeration, an `org_id`, and a
+    `service_key_name`, and are only admitted by `require_scope(...)`
+    dependencies (never by plain `get_current_user`). Codex R1+R2.
+    """
+
     __tablename__ = "api_keys"
+    __table_args__ = (
+        Index(
+            "idx_api_keys_kind_active_expires",
+            "key_kind", "is_active", "expires_at",
+        ),
+        Index("idx_api_keys_org_id", "org_id"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(
@@ -70,6 +87,44 @@ class ApiKey(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # v0.10.10 — scoped service key fields. Existing rows backfill to
+    # key_kind='user' + scopes='["*"]' per migration 042.
+    key_kind: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="user", server_default="user"
+    )
+    org_id: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=True,
+    )
+    # Default '["*"]' matches the migration 042 backfill for existing
+    # rows: new user keys minted without explicit scopes inherit the
+    # legacy wildcard. Service keys always set scopes explicitly via
+    # the routes layer so the default never applies to them.
+    scopes: Mapped[str] = mapped_column(
+        Text, nullable=False, default='["*"]', server_default='["*"]'
+    )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revoke_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by_user_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    last_used_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    service_key_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # JSON list of project_ids; null/empty = all projects in org.
+    project_ids: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Codex R3 MEDIUM 2 — real raw-key prefix (sk_sfs_<6 hex>) captured
+    # at create time. List/get responses display this so ops can match
+    # against deployed keys during incident response and rotation.
+    # Existing rows back-fill to NULL since we don't have the raw key.
+    key_prefix: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
 
 class Session(Base):
@@ -341,6 +396,17 @@ class HandoffEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # v0.10.10 — service-key provenance (Codex R1 HIGH 2 + R5 MEDIUM).
+    # Distinct from actor_user_id (which may still be set since the
+    # service key 'runs as' a user context). actor_type='service_key'
+    # tells the audit viewer the key was the actual caller, not the
+    # human directly. service_key_id is the durable identifier for
+    # incident response — names are mutable and reusable.
+    actor_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="user", server_default="user"
+    )
+    service_key_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    service_key_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
 
 class HandoffAttachment(Base):
@@ -879,6 +945,12 @@ class KnowledgeEntry(Base):
     retrieved_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     used_in_answer_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     compiled_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # v0.10.10 — service-key provenance (Codex R1 HIGH 2).
+    actor_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="user", server_default="user"
+    )
+    service_key_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    service_key_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
 
 class ContextCompilation(Base):
@@ -1293,6 +1365,15 @@ class TicketComment(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+    # v0.10.10 — service-key provenance (Codex R1 HIGH 2). actor_type
+    # defaults 'user' so back-compat is automatic; routes that write
+    # this row populate service_key_id+_name from the AuthContext when
+    # key_kind='service'.
+    actor_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="user", server_default="user"
+    )
+    service_key_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    service_key_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
 
 class AgentRun(Base):
@@ -1394,6 +1475,17 @@ class AgentRun(Base):
     )
     duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # v0.10.10 — service-key provenance (Codex R1 HIGH 2). When an
+    # agent run is triggered by a service key, actor_type='service_key'
+    # + service_key_id/_name surface the actual minted key in audit
+    # trails, separate from the human triggered_by_user_id (which may
+    # be the human who minted the key).
+    actor_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="user", server_default="user"
+    )
+    service_key_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    service_key_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
 
 class RetrievalAuditContext(Base):
     """Server-side audit context for MCP retrievals that shaped a run."""
@@ -1457,3 +1549,11 @@ class RetrievalAuditEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    # v0.10.10 — service-key provenance (Codex R1 HIGH 2). source
+    # already distinguishes mcp/cli/local; actor_type distinguishes
+    # user-key vs service-key calls within those.
+    actor_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="user", server_default="user"
+    )
+    service_key_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    service_key_name: Mapped[str | None] = mapped_column(String(100), nullable=True)

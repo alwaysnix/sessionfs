@@ -1,0 +1,921 @@
+"""v0.10.10 — scoped service API keys (tk_2e030a85253143df).
+
+Codex R1 + R2 reviews demanded specific properties; these tests are
+the regression bar that proves they hold.
+
+Critical properties under test:
+1. **Deny-by-default for service keys on undecorated routes** (R2 HIGH):
+   service key with no scope → calls a route still on plain
+   `get_current_user` → 403 service_key_not_allowed BEFORE any side
+   effect (no DB row created).
+2. **Scope allow/deny** (R1): service key with handoffs:write succeeds
+   on require_scope('handoffs:write'); service key with tickets:read
+   fails on the same route with 403 insufficient_scope.
+3. **Expiry** (R1): key past expires_at returns 401 api_key_expired.
+4. **Revocation** (R1): revoked key returns 401 api_key_revoked.
+5. **Cross-org enforcement** (R1 MEDIUM 1): service key bound to org_a
+   → request hitting a project in org_b → 403 cross_org_denied.
+6. **Secret never in list responses** (R1 MEDIUM 3): GET /service-keys
+   omits the raw key field.
+7. **Raw key never logged** (R1 MEDIUM 3): create + rotate paths emit
+   logs that do NOT contain the raw secret.
+8. **Back-compat for legacy user keys** (R1 finding C): existing user
+   keys (key_kind='user', scopes='["*"]') pass every route they could
+   before, including plain get_current_user and require_scope(...).
+9. **last_used_at + last_used_ip update on each auth** (R1).
+10. **Org admin authority** (R1 MEDIUM 2): non-admin org member gets
+    403 on POST /orgs/{id}/service-keys.
+"""
+
+from __future__ import annotations
+
+import io
+import json
+import logging
+import uuid
+from datetime import datetime, timedelta, timezone
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from sessionfs.server.auth.keys import generate_api_key, hash_api_key
+from sessionfs.server.db.models import (
+    ApiKey,
+    OrgMember,
+    Organization,
+    User,
+)
+
+
+# ── helpers ──
+
+
+async def _make_user_with_key(
+    db_session: AsyncSession, email: str, tier: str = "team"
+) -> tuple[User, str]:
+    """Create a user + an ordinary user key (scopes='*'). Returns (user, raw_key)."""
+    user = User(
+        id=str(uuid.uuid4()),
+        email=email,
+        display_name=email.split("@")[0],
+        tier=tier,
+        email_verified=True,
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(user)
+    await db_session.flush()
+    raw = generate_api_key()
+    db_session.add(
+        ApiKey(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            key_hash=hash_api_key(raw),
+            name=f"user-key-{email}",
+            is_active=True,
+            key_kind="user",
+            scopes=json.dumps(["*"]),
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    await db_session.commit()
+    return user, raw
+
+
+async def _make_org_with_admin(
+    db_session: AsyncSession, slug: str | None = None
+) -> tuple[Organization, User, str]:
+    """Create org + admin user with key. Returns (org, admin_user, raw_key)."""
+    org = Organization(
+        id=f"org_{uuid.uuid4().hex[:8]}",
+        name=slug or f"Org-{uuid.uuid4().hex[:6]}",
+        slug=slug or f"o-{uuid.uuid4().hex[:6]}",
+        tier="team",
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(org)
+    await db_session.flush()
+    admin_user, raw = await _make_user_with_key(
+        db_session, f"admin-{uuid.uuid4().hex[:6]}@x.com"
+    )
+    db_session.add(
+        OrgMember(
+            org_id=org.id,
+            user_id=admin_user.id,
+            role="admin",
+            joined_at=datetime.now(timezone.utc),
+        )
+    )
+    await db_session.commit()
+    return org, admin_user, raw
+
+
+async def _create_service_key(
+    db_session: AsyncSession,
+    org_id: str,
+    minter: User,
+    scopes: list[str],
+    expires_at: datetime | None = None,
+    revoked_at: datetime | None = None,
+    project_ids: list[str] | None = None,
+) -> tuple[ApiKey, str]:
+    """Directly insert a service key (skipping the route layer)."""
+    raw = generate_api_key()
+    row = ApiKey(
+        id=str(uuid.uuid4()),
+        user_id=minter.id,
+        key_hash=hash_api_key(raw),
+        name=f"svc-{uuid.uuid4().hex[:6]}",
+        is_active=revoked_at is None,
+        key_kind="service",
+        org_id=org_id,
+        scopes=json.dumps(scopes),
+        expires_at=expires_at,
+        revoked_at=revoked_at,
+        revoke_reason="test" if revoked_at else None,
+        created_by_user_id=minter.id,
+        service_key_name=f"svc-{uuid.uuid4().hex[:6]}",
+        project_ids=json.dumps(project_ids) if project_ids else None,
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(row)
+    await db_session.commit()
+    await db_session.refresh(row)
+    return row, raw
+
+
+def _hdrs(raw_key: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {raw_key}"}
+
+
+async def _get_user_key(db_session: AsyncSession, user: User) -> tuple[ApiKey, str]:
+    """Fetch the first user-kind ApiKey for `user` (returns row + raw
+    placeholder — for tests that need to drive the API as that user
+    when the caller doesn't already have the raw key cached)."""
+    # We can't recover the raw key from the hash, so we mint a fresh
+    # one for the user. Caller is responsible for the cleanup if any.
+    raw = generate_api_key()
+    row = ApiKey(
+        id=str(uuid.uuid4()),
+        user_id=user.id,
+        key_hash=hash_api_key(raw),
+        name="aux-test-key",
+        is_active=True,
+        key_kind="user",
+        scopes='["*"]',
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(row)
+    await db_session.commit()
+    await db_session.refresh(row)
+    return row, raw
+
+
+def _structured_error(body: dict) -> dict:
+    """Navigate the {error: {code, details, message}} envelope the
+    server's exception handler wraps structured-dict HTTPException
+    detail in. Returns the inner `details` dict (which is what we
+    raised), or {} on shape mismatch."""
+    if not isinstance(body, dict):
+        return {}
+    err = body.get("error") or body.get("detail") or body
+    if isinstance(err, dict):
+        inner = err.get("details") or err.get("detail")
+        if isinstance(inner, dict):
+            return inner
+        return err
+    return {}
+
+
+# ── Property 1: deny-by-default for service keys on undecorated routes ──
+
+
+@pytest.mark.asyncio
+async def test_service_key_denied_on_undecorated_route(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Codex R2 HIGH proof — a service key calling a route that still
+    uses plain `get_current_user` must be rejected with 403
+    service_key_not_allowed BEFORE any route side effect.
+
+    Phase 2 converted POST /handoffs to require_scope, so the canary is
+    now any route still on get_current_user. GET /api/v1/sessions (list
+    sessions) is on plain get_current_user and is non-destructive —
+    perfect for proving the deny-by-default still holds for routes that
+    have not yet been opted in to scoped auth."""
+    org, admin, _admin_key = await _make_org_with_admin(db_session)
+    _row, svc_key = await _create_service_key(
+        db_session, org.id, admin, scopes=["handoffs:write"]
+    )
+
+    # Service key with handoffs:write tries to hit GET /api/v1/sessions
+    # — that route is still on plain get_current_user, so the
+    # deny-by-default for service keys fires.
+    resp = await client.get("/api/v1/sessions", headers=_hdrs(svc_key))
+    assert resp.status_code == 403, resp.text
+    structured = _structured_error(resp.json())
+    assert structured.get("error") == "service_key_not_allowed", resp.json()
+
+
+# ── Property 2: scope allow/deny via require_scope on /service-keys route ──
+# ── Property 3+4: expiry + revocation rejection ──
+
+
+@pytest.mark.asyncio
+async def test_expired_service_key_returns_api_key_expired(
+    client: AsyncClient, db_session: AsyncSession
+):
+    org, admin, _ = await _make_org_with_admin(db_session)
+    _row, raw = await _create_service_key(
+        db_session,
+        org.id,
+        admin,
+        scopes=["handoffs:write"],
+        expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    resp = await client.get("/api/v1/auth/me", headers=_hdrs(raw))
+    assert resp.status_code == 401
+    structured = _structured_error(resp.json())
+    assert structured.get("error") == "api_key_expired", resp.json()
+
+
+@pytest.mark.asyncio
+async def test_revoked_service_key_returns_api_key_revoked(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Codex R3 MEDIUM 1 — revoked key must surface structured error
+    code `api_key_revoked`, NOT generic 'Invalid API key'. Real revoke
+    sets is_active=False AND revoked_at=now; the auth dependency must
+    check revoked_at BEFORE is_active so the structured code fires."""
+    org, admin, _ = await _make_org_with_admin(db_session)
+    _row, raw = await _create_service_key(
+        db_session,
+        org.id,
+        admin,
+        scopes=["handoffs:write"],
+        revoked_at=datetime.now(timezone.utc),
+    )
+    resp = await client.get("/api/v1/auth/me", headers=_hdrs(raw))
+    assert resp.status_code == 401
+    structured = _structured_error(resp.json())
+    assert structured.get("error") == "api_key_revoked", resp.json()
+
+
+# ── Property 6: secret never in list responses ──
+
+
+@pytest.mark.asyncio
+async def test_service_key_create_returns_raw_once_then_list_omits(
+    client: AsyncClient, db_session: AsyncSession
+):
+    org, admin, admin_raw = await _make_org_with_admin(db_session)
+    create = await client.post(
+        f"/api/v1/orgs/{org.id}/service-keys",
+        headers=_hdrs(admin_raw),
+        json={
+            "name": "Bedrock agent",
+            "scopes": ["handoffs:write", "tickets:read"],
+            "expires_in_days": 30,
+        },
+    )
+    assert create.status_code == 201, create.text
+    body = create.json()
+    assert body.get("key", "").startswith("sk_sfs_"), "raw key must be on create response"
+    assert body["scopes"] == ["handoffs:write", "tickets:read"]
+    assert body["org_id"] == org.id
+    # Codex R3 MEDIUM 2 — key_prefix must match the actual raw key's
+    # first 12 chars, NOT be synthesized from the UUID. Critical for
+    # incident response and rotation UX.
+    assert body["key_prefix"] == body["key"][:12], (
+        f"key_prefix must equal raw_key[:12]; got prefix={body['key_prefix']!r} "
+        f"vs raw[:12]={body['key'][:12]!r}"
+    )
+
+    listing = await client.get(
+        f"/api/v1/orgs/{org.id}/service-keys", headers=_hdrs(admin_raw)
+    )
+    assert listing.status_code == 200
+    rows = listing.json()
+    matched = [r for r in rows if r["id"] == body["id"]]
+    assert matched, "created key must appear in list"
+    for r in rows:
+        assert "key" not in r, "list response must NOT include raw key"
+        assert r["key_prefix"].startswith("sk_sfs_")
+    # The same prefix returned on create must be returned on list.
+    assert matched[0]["key_prefix"] == body["key_prefix"]
+
+
+# ── Property 7: raw key never logged ──
+
+
+@pytest.mark.asyncio
+async def test_raw_key_not_in_logs_on_create_or_rotate(
+    client: AsyncClient, db_session: AsyncSession, caplog
+):
+    org, admin, admin_raw = await _make_org_with_admin(db_session)
+    with caplog.at_level(logging.DEBUG):
+        create = await client.post(
+            f"/api/v1/orgs/{org.id}/service-keys",
+            headers=_hdrs(admin_raw),
+            json={"name": "test", "scopes": ["handoffs:write"]},
+        )
+    assert create.status_code == 201
+    raw = create.json()["key"]
+    full_log = "\n".join(rec.getMessage() for rec in caplog.records)
+    assert raw not in full_log, (
+        "Raw API key MUST NOT appear in log output (Codex R1 MEDIUM 3)"
+    )
+
+    key_id = create.json()["id"]
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG):
+        rotate = await client.post(
+            f"/api/v1/orgs/{org.id}/service-keys/{key_id}/rotate",
+            headers=_hdrs(admin_raw),
+        )
+    assert rotate.status_code == 200
+    new_raw = rotate.json()["key"]
+    full_log = "\n".join(rec.getMessage() for rec in caplog.records)
+    assert new_raw not in full_log
+
+
+# ── Property 8: back-compat for legacy user keys ──
+
+
+@pytest.mark.asyncio
+async def test_legacy_user_key_passes_get_current_user_routes(
+    client: AsyncClient, auth_headers: dict
+):
+    """The default auth_headers fixture mints a user key. It must still
+    work against routes that use get_current_user (i.e. all existing
+    routes) without any behavior change."""
+    resp = await client.get("/api/v1/auth/me", headers=auth_headers)
+    assert resp.status_code == 200
+
+
+# ── Property 9: last_used updates on each auth ──
+
+
+@pytest.mark.asyncio
+async def test_last_used_at_and_ip_update_on_auth(
+    client: AsyncClient, db_session: AsyncSession
+):
+    user, raw = await _make_user_with_key(
+        db_session, f"poll-{uuid.uuid4().hex[:6]}@x.com"
+    )
+    # First call — last_used_at should now be set.
+    r1 = await client.get(
+        "/api/v1/auth/me", headers=_hdrs(raw), params={"x-forwarded-for": "10.1.2.3"}
+    )
+    assert r1.status_code == 200
+
+    from sqlalchemy import select as _sel
+    row = (
+        await db_session.execute(_sel(ApiKey).where(ApiKey.user_id == user.id))
+    ).scalar_one()
+    await db_session.refresh(row)
+    assert row.last_used_at is not None, "last_used_at must populate on auth"
+    # IP is best-effort — at minimum a non-empty string when test client
+    # uses 127.0.0.1.
+    assert row.last_used_ip is not None
+
+
+# ── Property 10: org admin authority on /service-keys ──
+
+
+@pytest.mark.asyncio
+async def test_non_admin_member_cannot_mint_service_key(
+    client: AsyncClient, db_session: AsyncSession
+):
+    org, _admin, _admin_raw = await _make_org_with_admin(db_session)
+    # Add a plain member to the same org
+    member, member_raw = await _make_user_with_key(
+        db_session, f"mem-{uuid.uuid4().hex[:6]}@x.com"
+    )
+    db_session.add(
+        OrgMember(
+            org_id=org.id,
+            user_id=member.id,
+            role="member",
+            joined_at=datetime.now(timezone.utc),
+        )
+    )
+    await db_session.commit()
+
+    resp = await client.post(
+        f"/api/v1/orgs/{org.id}/service-keys",
+        headers=_hdrs(member_raw),
+        json={"name": "sneaky", "scopes": ["handoffs:write"]},
+    )
+    assert resp.status_code == 403
+
+
+# ── Validation tests ──
+
+
+@pytest.mark.asyncio
+async def test_service_key_with_wildcard_scope_rejected(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Codex R1 finding C — '*' is reserved for user/admin keys."""
+    org, _admin, admin_raw = await _make_org_with_admin(db_session)
+    resp = await client.post(
+        f"/api/v1/orgs/{org.id}/service-keys",
+        headers=_hdrs(admin_raw),
+        json={"name": "no", "scopes": ["*"]},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_service_key_with_unknown_scope_rejected(
+    client: AsyncClient, db_session: AsyncSession
+):
+    org, _admin, admin_raw = await _make_org_with_admin(db_session)
+    resp = await client.post(
+        f"/api/v1/orgs/{org.id}/service-keys",
+        headers=_hdrs(admin_raw),
+        json={"name": "no", "scopes": ["foo:bar"]},
+    )
+    assert resp.status_code == 422
+
+
+# ── Personal key surface ──
+
+
+@pytest.mark.asyncio
+async def test_personal_key_create_and_list(
+    client: AsyncClient, auth_headers: dict
+):
+    create = await client.post(
+        "/api/v1/auth/me/api-keys",
+        headers=auth_headers,
+        json={"name": "my CI key", "expires_in_days": 90},
+    )
+    assert create.status_code == 201, create.text
+    body = create.json()
+    assert body["key"].startswith("sk_sfs_")
+    assert body["name"] == "my CI key"
+    assert body["expires_at"] is not None
+
+    listing = await client.get("/api/v1/auth/me/api-keys", headers=auth_headers)
+    assert listing.status_code == 200
+    rows = listing.json()
+    assert any(r["id"] == body["id"] for r in rows)
+    for r in rows:
+        assert "key" not in r
+
+
+# ── Codex R3 LOW 1: positive require_scope integration test ──
+
+
+@pytest.mark.asyncio
+async def test_require_scope_admits_service_key_with_matching_scope(
+    db_engine, db_session: AsyncSession
+):
+    """Mount a test-only route protected by require_scope('handoffs:write')
+    and prove:
+      - service key with that scope → 200 + AuthContext returned with
+        actor_type='service_key' and service_key_id populated
+      - service key WITHOUT that scope → 403 insufficient_scope
+      - user key (legacy scopes='[\"*\"]') → 200 (back-compat wildcard)
+    This is the positive proof Codex R3 LOW 1 demands."""
+    from fastapi import Depends, FastAPI
+    from httpx import ASGITransport, AsyncClient
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from sessionfs.server.auth.dependencies import AuthContext, require_scope
+    from sessionfs.server.db.engine import get_db
+
+    test_app = FastAPI()
+
+    @test_app.get("/_test/scoped")
+    async def scoped_endpoint(
+        ctx: AuthContext = Depends(require_scope("handoffs:write")),
+    ):
+        return {
+            "actor_type": ctx.actor_type,
+            "key_kind": ctx.key_kind,
+            "service_key_id": ctx.service_key_id,
+            "service_key_name": ctx.service_key_name,
+            "scopes": ctx.scopes,
+        }
+
+    factory = async_sessionmaker(db_engine, expire_on_commit=False)
+
+    async def override_get_db():
+        async with factory() as session:
+            yield session
+
+    test_app.dependency_overrides[get_db] = override_get_db
+
+    # Set up three keys: service-with-scope, service-without-scope,
+    # legacy user-wildcard.
+    org, admin, admin_user_raw = await _make_org_with_admin(db_session)
+    _row, svc_with = await _create_service_key(
+        db_session, org.id, admin, scopes=["handoffs:write"]
+    )
+    _row2, svc_without = await _create_service_key(
+        db_session, org.id, admin, scopes=["tickets:read"]
+    )
+
+    transport = ASGITransport(app=test_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        # Matching scope → 200, AuthContext shows service-key provenance
+        r1 = await c.get("/_test/scoped", headers=_hdrs(svc_with))
+        assert r1.status_code == 200, r1.text
+        body = r1.json()
+        assert body["actor_type"] == "service_key"
+        assert body["key_kind"] == "service"
+        assert body["service_key_id"] is not None
+        assert "handoffs:write" in body["scopes"]
+
+        # Wrong scope → 403 insufficient_scope
+        r2 = await c.get("/_test/scoped", headers=_hdrs(svc_without))
+        assert r2.status_code == 403
+        structured = _structured_error(r2.json())
+        assert structured.get("error") == "insufficient_scope"
+        assert "handoffs:write" in structured.get("required", [])
+
+        # Legacy user key (scopes='["*"]') → 200 (back-compat wildcard)
+        r3 = await c.get("/_test/scoped", headers=_hdrs(admin_user_raw))
+        assert r3.status_code == 200
+        body3 = r3.json()
+        assert body3["actor_type"] == "user"
+        assert body3["key_kind"] == "user"
+        assert body3["service_key_id"] is None
+
+
+# ── Codex R5 HIGH 1+2 — service-key cross-org/project boundary regressions ──
+
+
+@pytest.mark.asyncio
+async def test_service_key_cross_org_create_handoff_denied(
+    client: AsyncClient, db_session: AsyncSession, sample_sfs_tar: bytes
+):
+    """R5 HIGH 2 — service key minted for org_A cannot create a handoff
+    whose source session belongs to org_B, even if the backing user has
+    a session in org_B. Tests assert_service_key_handoff_boundary fires
+    before any Handoff row write."""
+    from sessionfs.server.db.models import Project, Handoff
+    from sqlalchemy import func, select as _sel
+
+    # Set up two orgs. admin_a backs the service key. The session is
+    # pushed by admin_b (different user) so its git_remote points at a
+    # project owned by admin_a in org_b — that's the cross-org leak
+    # surface: backing user has project access (as owner) but the
+    # service key is bound to org_a.
+    org_a, admin_a, _ = await _make_org_with_admin(db_session, slug="a")
+    org_b, admin_b, admin_b_raw = await _make_org_with_admin(db_session, slug="b")
+
+    # Service key minted under org_a, owned by admin_a.
+    _row, svc_key = await _create_service_key(
+        db_session, org_a.id, admin_a, scopes=["handoffs:write"]
+    )
+
+    # Push a session as admin_a (so create_handoff's Session.user_id ==
+    # user.id check passes) and link the session's git_remote to a
+    # project in org_b. The service key (org_a) then tries to hand off
+    # that session — the source session resolves to a project in org_b
+    # which triggers cross_org_denied.
+    _, admin_a_raw = await _get_user_key(db_session, admin_a)
+    sid = f"ses_{uuid.uuid4().hex[:12]}"
+    push = await client.put(
+        f"/api/v1/sessions/{sid}/sync",
+        headers=_hdrs(admin_a_raw),  # session pushed by admin_a (key owner)
+        files={"file": ("s.tar.gz", io.BytesIO(sample_sfs_tar), "application/gzip")},
+    )
+    assert push.status_code == 201
+    from sessionfs.server.db.models import Session as _Sess
+    sess = (
+        await db_session.execute(_sel(_Sess).where(_Sess.id == sid))
+    ).scalar_one()
+    project_b = Project(
+        id=f"proj_b_{uuid.uuid4().hex[:8]}",
+        name="B project",
+        git_remote_normalized=sess.git_remote_normalized or "github.com/b/x",
+        owner_id=admin_b.id,
+        org_id=org_b.id,
+        context_document="",
+        created_at=datetime.now(timezone.utc),
+    )
+    if not sess.git_remote_normalized:
+        sess.git_remote_normalized = project_b.git_remote_normalized
+    db_session.add(project_b)
+    await db_session.commit()
+
+    # The svc_key (org_a) tries to create a handoff for the session
+    # whose project belongs to org_b. Must be denied with cross_org_denied
+    # BEFORE any Handoff row is created.
+    before_count = (
+        await db_session.execute(_sel(func.count(Handoff.id)))
+    ).scalar()
+    resp = await client.post(
+        "/api/v1/handoffs",
+        headers=_hdrs(svc_key),
+        json={"session_id": sid, "recipient_email": "r@x.com"},
+    )
+    assert resp.status_code == 403, resp.text
+    structured = _structured_error(resp.json())
+    assert structured.get("error") == "cross_org_denied", resp.json()
+    after_count = (
+        await db_session.execute(_sel(func.count(Handoff.id)))
+    ).scalar()
+    assert after_count == before_count, (
+        "no Handoff row may be inserted on cross-org-denied service-key request"
+    )
+
+
+@pytest.mark.asyncio
+async def test_service_key_cross_org_agent_run_create_denied(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """R5 HIGH 1 — service key minted for org_A cannot create an
+    AgentRun in a project belonging to org_B even if the backing user
+    has org_B access."""
+    from sessionfs.server.db.models import AgentPersona, AgentRun, Project
+    from sqlalchemy import func, select as _sel
+
+    org_a, admin_a, _ = await _make_org_with_admin(db_session, slug="aa")
+    org_b, _admin_b, _ = await _make_org_with_admin(db_session, slug="bb")
+    # admin_a owns a project in org_b (legitimate backing-user access
+    # via project ownership). Service key bound to org_a must still be
+    # denied — the boundary check uses key.org_id, not user access.
+    project_b = Project(
+        id=f"proj_bb_{uuid.uuid4().hex[:8]}",
+        name="org-b proj",
+        git_remote_normalized=f"github.com/b/{uuid.uuid4().hex[:6]}",
+        owner_id=admin_a.id,
+        org_id=org_b.id,
+        context_document="",
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(project_b)
+    db_session.add(
+        AgentPersona(
+            id=f"per_{uuid.uuid4().hex[:8]}",
+            project_id=project_b.id,
+            name="atlas",
+            role="Backend",
+            created_by=admin_a.id,
+        )
+    )
+    await db_session.commit()
+
+    _row, svc_key = await _create_service_key(
+        db_session, org_a.id, admin_a, scopes=["agent_runs:write"]
+    )
+
+    before = (await db_session.execute(_sel(func.count(AgentRun.id)))).scalar()
+    resp = await client.post(
+        f"/api/v1/projects/{project_b.id}/agent-runs",
+        headers=_hdrs(svc_key),
+        json={
+            "persona_name": "atlas",
+            "tool": "claude-code",
+            "trigger_source": "manual",
+        },
+    )
+    assert resp.status_code == 403, resp.text
+    structured = _structured_error(resp.json())
+    assert structured.get("error") == "cross_org_denied", resp.json()
+    after = (await db_session.execute(_sel(func.count(AgentRun.id)))).scalar()
+    assert after == before, "no AgentRun row may be inserted on cross-org-denied"
+
+
+@pytest.mark.asyncio
+async def test_service_key_event_records_service_key_id(
+    client: AsyncClient, db_session: AsyncSession, sample_sfs_tar: bytes
+):
+    """R5 MEDIUM — HandoffEvent must now record service_key_id (not
+    just service_key_name) for durable incident-response traceability."""
+    from sessionfs.server.db.models import HandoffEvent, Project
+    from sqlalchemy import select as _sel
+
+    org, admin, admin_raw = await _make_org_with_admin(db_session)
+    svc_row, svc_key = await _create_service_key(
+        db_session, org.id, admin, scopes=["handoffs:write"]
+    )
+
+    # Push session AS admin so service_key (owned by admin) passes
+    # Session.user_id == user.id, AND set up matching project in same org
+    # so boundary passes.
+    sid = f"ses_{uuid.uuid4().hex[:12]}"
+    push = await client.put(
+        f"/api/v1/sessions/{sid}/sync",
+        headers=_hdrs(admin_raw),
+        files={"file": ("s.tar.gz", io.BytesIO(sample_sfs_tar), "application/gzip")},
+    )
+    assert push.status_code == 201
+    from sessionfs.server.db.models import Session as _Sess
+    sess = (
+        await db_session.execute(_sel(_Sess).where(_Sess.id == sid))
+    ).scalar_one()
+    db_session.add(
+        Project(
+            id=f"proj_{uuid.uuid4().hex[:8]}",
+            name="boundary-ok",
+            git_remote_normalized=sess.git_remote_normalized or "github.com/x/y",
+            owner_id=admin.id,
+            org_id=org.id,
+            context_document="",
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    if not sess.git_remote_normalized:
+        # Use last project's git_remote_normalized.
+        sess.git_remote_normalized = "github.com/x/y"
+    await db_session.commit()
+
+    resp = await client.post(
+        "/api/v1/handoffs",
+        headers=_hdrs(svc_key),
+        json={"session_id": sid, "recipient_email": "r@x.com"},
+    )
+    assert resp.status_code == 201, resp.text
+    handoff_id = resp.json()["id"]
+
+    # The created event must carry actor_type='service_key' AND
+    # service_key_id matching the row we minted (R5 MEDIUM — names
+    # are not durable identifiers; id is).
+    created_event = (
+        await db_session.execute(
+            _sel(HandoffEvent).where(
+                HandoffEvent.handoff_id == handoff_id,
+                HandoffEvent.event_type == "created",
+            )
+        )
+    ).scalar_one()
+    assert created_event.actor_type == "service_key"
+    assert created_event.service_key_id == svc_row.id, (
+        f"event.service_key_id must equal the minted key's id; "
+        f"got {created_event.service_key_id!r} vs minted {svc_row.id!r}"
+    )
+    assert created_event.service_key_name
+
+
+# ── Codex R6 HIGH — sessions.project_id is authoritative, not git_remote ──
+
+
+@pytest.mark.asyncio
+async def test_service_key_boundary_uses_session_project_id_anchor(
+    client: AsyncClient, db_session: AsyncSession, sample_sfs_tar: bytes
+):
+    """R6 HIGH — the boundary helper must resolve the source project
+    via `sessions.project_id` (authoritative since migration 036), NOT
+    via git_remote_normalized lookup that ignores the explicit anchor.
+
+    The schema UNIQUE constraint on projects.git_remote_normalized
+    prevents two projects from sharing a remote, so the original Codex
+    attack vector (shared remote + 'prefer org match' bypass) cannot
+    occur in production data. This test proves the resolution path
+    uses project_id even so — same outcome, but via the correct anchor.
+
+    Scenario: service key in org_a, session anchored to project in
+    org_b via session.project_id. Service key denied with cross_org_denied
+    (proves project_id is consulted before any fallback)."""
+    from sessionfs.server.db.models import Project, Handoff, Session as _Sess
+    from sqlalchemy import func, select as _sel
+
+    org_a, admin_a, _ = await _make_org_with_admin(db_session, slug="oa")
+    org_b, admin_b, _ = await _make_org_with_admin(db_session, slug="ob")
+
+    _row, svc_key = await _create_service_key(
+        db_session, org_a.id, admin_a, scopes=["handoffs:write"]
+    )
+
+    # Push session as admin_a (so Session.user_id check passes).
+    _, admin_a_raw = await _get_user_key(db_session, admin_a)
+    sid = f"ses_{uuid.uuid4().hex[:12]}"
+    push = await client.put(
+        f"/api/v1/sessions/{sid}/sync",
+        headers=_hdrs(admin_a_raw),
+        files={"file": ("s.tar.gz", io.BytesIO(sample_sfs_tar), "application/gzip")},
+    )
+    assert push.status_code == 201
+    sess = (
+        await db_session.execute(_sel(_Sess).where(_Sess.id == sid))
+    ).scalar_one()
+
+    # Create a project in org_b with a UNIQUE git_remote (different
+    # from session's), then explicitly anchor session.project_id to it.
+    # This is the case the R6 fix specifically guards: helper must use
+    # project_id, not session.git_remote_normalized.
+    unique_remote = f"github.com/b/{uuid.uuid4().hex[:8]}"
+    project_b = Project(
+        id=f"proj_b_{uuid.uuid4().hex[:8]}",
+        name="org-b authoritative",
+        git_remote_normalized=unique_remote,
+        owner_id=admin_b.id,
+        org_id=org_b.id,
+        context_document="",
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(project_b)
+    sess.project_id = project_b.id  # authoritative anchor
+    await db_session.commit()
+
+    before = (await db_session.execute(_sel(func.count(Handoff.id)))).scalar()
+    resp = await client.post(
+        "/api/v1/handoffs",
+        headers=_hdrs(svc_key),
+        json={"session_id": sid, "recipient_email": "r@x.com"},
+    )
+    assert resp.status_code == 403, resp.text
+    structured = _structured_error(resp.json())
+    assert structured.get("error") == "cross_org_denied", resp.json()
+    after = (await db_session.execute(_sel(func.count(Handoff.id)))).scalar()
+    assert after == before, "no Handoff row may be inserted when project_id anchors to other org"
+
+
+@pytest.mark.asyncio
+async def test_service_key_revoke_denied_on_orphan_handoff(
+    client: AsyncClient, db_session: AsyncSession, sample_sfs_tar: bytes
+):
+    """R6 MEDIUM — revoke/decline/comment must deny service keys when
+    the source session is missing (orphan handoff). Helper denies on
+    None; this regression proves the route no longer short-circuits."""
+    from sessionfs.server.db.models import Handoff, Session as _Sess
+    from sqlalchemy import select as _sel
+
+    org, admin, admin_raw = await _make_org_with_admin(db_session)
+    # Push session + register matching project so the create-handoff
+    # boundary passes (admin owns project in admin's org).
+    sid = f"ses_{uuid.uuid4().hex[:12]}"
+    push = await client.put(
+        f"/api/v1/sessions/{sid}/sync",
+        headers=_hdrs(admin_raw),
+        files={"file": ("s.tar.gz", io.BytesIO(sample_sfs_tar), "application/gzip")},
+    )
+    assert push.status_code == 201
+    sess = (
+        await db_session.execute(_sel(_Sess).where(_Sess.id == sid))
+    ).scalar_one()
+    from sessionfs.server.db.models import Project
+    project = Project(
+        id=f"proj_{uuid.uuid4().hex[:8]}",
+        name="ok",
+        git_remote_normalized=sess.git_remote_normalized or "github.com/x/y",
+        owner_id=admin.id,
+        org_id=org.id,
+        context_document="",
+        created_at=datetime.now(timezone.utc),
+    )
+    if not sess.git_remote_normalized:
+        sess.git_remote_normalized = project.git_remote_normalized
+    db_session.add(project)
+    sess.project_id = project.id
+    await db_session.commit()
+
+    # Create the handoff with a USER key (admin_raw, scope='*') so it
+    # succeeds even with the service-key boundary applied (irrelevant
+    # for user keys).
+    create = await client.post(
+        "/api/v1/handoffs",
+        headers=_hdrs(admin_raw),
+        json={"session_id": sid, "recipient_email": "r@x.com"},
+    )
+    assert create.status_code == 201, create.text
+    handoff_id = create.json()["id"]
+
+    # Now hard-delete the source session — handoff is orphaned.
+    handoff_row = (
+        await db_session.execute(_sel(Handoff).where(Handoff.id == handoff_id))
+    ).scalar_one()
+    await db_session.delete(sess)
+    await db_session.commit()
+
+    # Mint a service key in the same org. Try to revoke the orphan handoff.
+    _row, svc_key = await _create_service_key(
+        db_session, org.id, admin, scopes=["handoffs:write"]
+    )
+    resp = await client.post(
+        f"/api/v1/handoffs/{handoff_id}/revoke",
+        headers=_hdrs(svc_key),
+        json={"reason": "cloud agent cleanup"},
+    )
+    assert resp.status_code == 403, resp.text
+    structured = _structured_error(resp.json())
+    assert structured.get("error") == "service_key_project_required", resp.json()
+
+    # Handoff status must be unchanged (still pending) — boundary denied
+    # BEFORE the UPDATE.
+    await db_session.refresh(handoff_row)
+    assert handoff_row.status == "pending"
+    assert handoff_row.revoked_at is None
+
+
+# ── Cross-org for service-key admin routes ──
+
+
+@pytest.mark.asyncio
+async def test_org_admin_cannot_list_other_org_keys(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """404 (not 403) for cross-org admin attempts — existence hiding."""
+    _org_a, _admin_a, raw_a = await _make_org_with_admin(db_session, slug="a")
+    org_b, _admin_b, _raw_b = await _make_org_with_admin(db_session, slug="b")
+    resp = await client.get(
+        f"/api/v1/orgs/{org_b.id}/service-keys", headers=_hdrs(raw_a)
+    )
+    assert resp.status_code == 404

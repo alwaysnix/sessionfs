@@ -11,7 +11,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from sessionfs.server.auth.dependencies import get_current_user
+from sessionfs.server.auth.dependencies import (
+    AuthContext,
+    get_current_user,
+    require_scope,
+)
 from sessionfs.server.db.engine import get_db
 from sessionfs.server.db.models import (
     Handoff,
@@ -24,6 +28,7 @@ from sessionfs.server.db.models import (
     User,
 )
 from sessionfs.server.services.handoff_helpers import (
+    assert_service_key_handoff_boundary,
     claim_inbox_match,
     lazy_expire,
     parse_event_payload,
@@ -197,7 +202,7 @@ def _handoff_to_response(
 async def create_handoff(
     body: CreateHandoffRequest,
     request: Request,
-    user: User = Depends(get_current_user),
+    auth: AuthContext = Depends(require_scope("handoffs:write")),
     ctx: UserContext = Depends(get_user_context),
     db: AsyncSession = Depends(get_db),
 ):
@@ -210,7 +215,12 @@ async def create_handoff(
     Optional provenance: ticket_id + persona_name (validated against
     session's project). Optional attachments: kb_entry / wiki_page /
     ticket refs (validated against session's project).
+
+    v0.10.10 — accepts service keys with `handoffs:write` scope via
+    require_scope. The created event records actor_type='service_key'
+    when a service key was used (Codex R1 HIGH 2).
     """
+    user = auth.user
     check_feature(ctx, "handoff")
 
     # Team handoffs require Team+ tier (gates broadcast/first-come team flow)
@@ -224,6 +234,12 @@ async def create_handoff(
     session = result.scalar_one_or_none()
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    # Codex R5 HIGH 2 — service-key org/project boundary BEFORE any
+    # state change. Resolves the source session's project and asserts
+    # it belongs to the service key's org (+ project allowlist).
+    # User-key callers are unaffected.
+    await assert_service_key_handoff_boundary(db, auth, session)
 
     # If team handoff, validate the team exists and the sender belongs to it
     # (you can only hand off to teams you're a member of).
@@ -344,7 +360,9 @@ async def create_handoff(
             )
         )
 
-    # Durable audit row.
+    # Durable audit row. v0.10.10 — capture service-key provenance
+    # (Codex R1 HIGH 2) so audit viewers can distinguish service-key
+    # actions from direct human actions.
     await write_event(
         db,
         handoff_id=handoff.id,
@@ -357,6 +375,9 @@ async def create_handoff(
             "has_ticket": bool(body.ticket_id),
             "has_persona": bool(body.persona_name),
         },
+        actor_type=auth.actor_type,
+        service_key_id=auth.service_key_id,
+        service_key_name=auth.service_key_name,
     )
 
     await db.commit()
@@ -676,10 +697,13 @@ async def get_handoff(
 async def claim_handoff(
     handoff_id: str,
     request: Request,
-    user: User = Depends(get_current_user),
+    auth: AuthContext = Depends(require_scope("handoffs:write")),
     db: AsyncSession = Depends(get_db),
 ):
     """Claim a handoff — copy session data to recipient and mark as claimed.
+
+    v0.10.10 — accepts service keys with `handoffs:write` scope. The
+    claimed event records actor_type='service_key' when applicable.
 
     v0.10.9 — supports individual + team handoffs. Uses an atomic
     rowcount-1 UPDATE WHERE status='pending' so concurrent team-member
@@ -690,6 +714,7 @@ async def claim_handoff(
     refs the recipient can't access are silently dropped but surfaced
     in dropped_attachments + an audit event.
     """
+    user = auth.user
     result = await db.execute(select(Handoff).where(Handoff.id == handoff_id))
     handoff = result.scalar_one_or_none()
     if handoff is None:
@@ -736,6 +761,12 @@ async def claim_handoff(
     source_session = session_result.scalar_one_or_none()
     if source_session is None:
         raise HTTPException(status_code=404, detail="Source session no longer exists")
+
+    # Codex R5 HIGH 2 — service-key boundary before atomic claim. A
+    # cloud-agent key minted for org_A cannot claim a handoff whose
+    # source session lives in org_B even if the backing user has
+    # eligibility on both.
+    await assert_service_key_handoff_boundary(db, auth, source_session)
 
     # R3 MEDIUM 2 — win the atomic claim BEFORE doing any blob copy
     # side effect. Pre-allocate new_session_id so we can include it in
@@ -924,6 +955,9 @@ async def claim_handoff(
         handoff_id=handoff.id,
         event_type="claimed",
         actor_user_id=user.id,
+        actor_type=auth.actor_type,
+        service_key_id=auth.service_key_id,
+        service_key_name=auth.service_key_name,
         payload={
             "new_session_id": new_session_id,
             "dropped_attachment_count": len(dropped),
@@ -976,13 +1010,16 @@ async def revoke_handoff(
     handoff_id: str,
     body: RevokeHandoffRequest,
     request: Request,
-    user: User = Depends(get_current_user),
+    auth: AuthContext = Depends(require_scope("handoffs:write")),
     db: AsyncSession = Depends(get_db),
 ):
     """Sender (or org admin override — Phase 3) revokes a pending handoff.
     Atomic UPDATE WHERE status='pending' guards against a claim winning
     the race; loser sees 409 with the canonical status.
+
+    v0.10.10 — accepts service keys with `handoffs:write` scope.
     """
+    user = auth.user
     result = await db.execute(select(Handoff).where(Handoff.id == handoff_id))
     handoff = result.scalar_one_or_none()
     if handoff is None:
@@ -992,6 +1029,14 @@ async def revoke_handoff(
     if user.id != handoff.sender_id:
         # 404 — recipient shouldn't even learn revoke is an option for them.
         raise HTTPException(status_code=404, detail="Handoff not found")
+
+    # Codex R5 HIGH 2 + R6 MEDIUM — service-key boundary before any
+    # state change. Helper now denies on None source session (orphan
+    # handoff) so service keys can't mutate handoffs without an anchor.
+    src = (
+        await db.execute(select(Session).where(Session.id == handoff.session_id))
+    ).scalar_one_or_none()
+    await assert_service_key_handoff_boundary(db, auth, src)
 
     if handoff.status != "pending":
         raise HTTPException(
@@ -1022,6 +1067,9 @@ async def revoke_handoff(
         handoff_id=handoff.id,
         event_type="revoked",
         actor_user_id=user.id,
+        actor_type=auth.actor_type,
+        service_key_id=auth.service_key_id,
+        service_key_name=auth.service_key_name,
         payload={"reason": body.reason},
     )
     await db.commit()
@@ -1058,12 +1106,15 @@ async def decline_handoff(
     handoff_id: str,
     body: DeclineHandoffRequest,
     request: Request,
-    user: User = Depends(get_current_user),
+    auth: AuthContext = Depends(require_scope("handoffs:write")),
     db: AsyncSession = Depends(get_db),
 ):
     """Recipient explicitly declines a pending handoff (optional reason).
     Status flips pending → declined atomically; sender can then redirect.
+
+    v0.10.10 — accepts service keys with `handoffs:write` scope.
     """
+    user = auth.user
     result = await db.execute(select(Handoff).where(Handoff.id == handoff_id))
     handoff = result.scalar_one_or_none()
     if handoff is None:
@@ -1074,6 +1125,14 @@ async def decline_handoff(
     # via the response code.
     if not await claim_inbox_match(db, user, handoff):
         raise HTTPException(status_code=404, detail="Handoff not found")
+
+    # Codex R5 HIGH 2 + R6 MEDIUM — service-key boundary before any
+    # state change. Helper now denies on None source session (orphan
+    # handoff) so service keys can't mutate handoffs without an anchor.
+    src = (
+        await db.execute(select(Session).where(Session.id == handoff.session_id))
+    ).scalar_one_or_none()
+    await assert_service_key_handoff_boundary(db, auth, src)
 
     if handoff.status != "pending":
         raise HTTPException(
@@ -1099,6 +1158,9 @@ async def decline_handoff(
         event_type="declined",
         actor_user_id=user.id,
         payload={"reason": body.reason} if body.reason else None,
+        actor_type=auth.actor_type,
+        service_key_id=auth.service_key_id,
+        service_key_name=auth.service_key_name,
     )
     await db.commit()
     await db.refresh(handoff)
@@ -1132,11 +1194,15 @@ async def create_handoff_comment(
     handoff_id: str,
     body: HandoffCommentCreate,
     request: Request,
-    user: User = Depends(get_current_user),
+    auth: AuthContext = Depends(require_scope("handoffs:write")),
     db: AsyncSession = Depends(get_db),
 ):
     """Post a comment to the handoff thread. Author must be the sender
-    or a valid recipient (individual or team)."""
+    or a valid recipient (individual or team).
+
+    v0.10.10 — accepts service keys with `handoffs:write` scope.
+    """
+    user = auth.user
     result = await db.execute(select(Handoff).where(Handoff.id == handoff_id))
     handoff = result.scalar_one_or_none()
     if handoff is None:
@@ -1145,6 +1211,14 @@ async def create_handoff_comment(
     is_sender = user.id == handoff.sender_id
     if not (is_sender or await claim_inbox_match(db, user, handoff)):
         raise HTTPException(status_code=404, detail="Handoff not found")
+
+    # Codex R5 HIGH 2 + R6 MEDIUM — service-key boundary before comment
+    # side effect; helper denies on orphan handoff so service keys
+    # cannot mutate handoffs whose source session is unavailable.
+    src = (
+        await db.execute(select(Session).where(Session.id == handoff.session_id))
+    ).scalar_one_or_none()
+    await assert_service_key_handoff_boundary(db, auth, src)
 
     now = datetime.now(timezone.utc)
     comment = HandoffComment(
@@ -1161,6 +1235,9 @@ async def create_handoff_comment(
         event_type="commented",
         actor_user_id=user.id,
         payload={"comment_id": comment.id},
+        actor_type=auth.actor_type,
+        service_key_id=auth.service_key_id,
+        service_key_name=auth.service_key_name,
     )
     await db.commit()
     await db.refresh(comment)

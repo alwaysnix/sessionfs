@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -67,11 +67,44 @@ async def get_effective_tier(user: User, db: AsyncSession) -> Tier:
         return Tier.FREE
 
 
+async def _resolve_user_for_context(
+    request,
+    db: AsyncSession,
+) -> User:
+    """v0.10.10 — pull the authenticated User from request.state.auth_context
+    if a scoped dependency (require_scope) has already run; otherwise fall
+    back to the legacy get_current_user path. This avoids double-auth when
+    a route depends on BOTH require_scope and get_user_context, and crucially
+    avoids the get_current_user service-key rejection on routes that have
+    already admitted the service key via require_scope.
+    """
+    auth_ctx = getattr(request.state, "auth_context", None)
+    if auth_ctx is not None:
+        return auth_ctx.user
+    # Legacy path — fall through to get_current_user, which authenticates
+    # AND rejects service keys with 403 service_key_not_allowed. This
+    # preserves the deny-by-default behavior for routes that don't use
+    # require_scope.
+    from sessionfs.server.auth.dependencies import get_rate_limiter
+    return await get_current_user(
+        request=request, db=db, limiter=get_rate_limiter()
+    )
+
+
 async def get_user_context(
-    user: User = Depends(get_current_user),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> UserContext:
-    """Full auth context for a request — tier + role + org."""
+    """Full auth context for a request — tier + role + org.
+
+    v0.10.10 — sources the User from request.state.auth_context when a
+    scoped dependency (require_scope) has already authenticated. Falls
+    back to legacy get_current_user for routes that don't use scoped
+    auth. This breaks the previous coupling where get_user_context
+    inherited get_current_user's service-key rejection even on routes
+    that wanted to accept service keys via require_scope.
+    """
+    user = await _resolve_user_for_context(request, db)
     membership = await get_user_org_membership(user.id, db)
 
     if membership:

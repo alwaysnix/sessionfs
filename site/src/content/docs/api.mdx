@@ -17,6 +17,13 @@ All endpoints (except signup) require a Bearer token:
 Authorization: Bearer sk_sfs_...
 ```
 
+Two key kinds:
+
+- **User keys** — created via `POST /api/v1/auth/keys`. Tied to a single user, inherit all of that user's permissions. Legacy keys are back-filled to `scopes=["*"]`.
+- **Service keys (v0.10.10+)** — created via `POST /api/v1/orgs/{org_id}/service-keys`. Org-scoped, expirable, and restricted to an enumerated `scopes` list (e.g. `["handoffs:write", "agent_runs:write"]`). Deny-by-default: a service key only reaches a route handler that explicitly opted in via `require_scope(...)`. The recommended credential for cloud agents (Bedrock, Vertex), CI runners (GitHub Actions, GitLab MR), and integration partners.
+
+Structured 401/403 error codes: `api_key_revoked`, `api_key_expired`, `service_key_not_allowed`, `insufficient_scope` (with `required` + `current` arrays), `cross_org_denied`, `service_key_project_required`, `service_key_project_not_registered`, `service_key_project_ambiguous`.
+
 ## Endpoints
 
 ### Auth
@@ -25,10 +32,23 @@ Authorization: Bearer sk_sfs_...
 |--------|------|------|-------------|
 | POST | `/api/v1/auth/signup` | None | Create account |
 | GET | `/api/v1/auth/me` | Bearer | Current user profile |
-| POST | `/api/v1/auth/keys` | Bearer | Create API key |
-| GET | `/api/v1/auth/keys` | Bearer | List API keys |
-| DELETE | `/api/v1/auth/keys/{key_id}` | Bearer | Delete an API key |
+| POST | `/api/v1/auth/keys` | Bearer | Create user API key |
+| GET | `/api/v1/auth/keys` | Bearer | List user API keys |
+| DELETE | `/api/v1/auth/keys/{key_id}` | Bearer | Delete a user API key |
 | GET | `/api/v1/auth/verify/{token}` | None | Verify email address |
+
+### Service Keys (v0.10.10+)
+
+Org-scoped, scope-restricted API keys for cloud agents, CI runners, and integration partners. Org admin role + Team+ tier required for mutations. Raw key returned exactly once on create + rotate; the list/detail endpoints only return `key_prefix`.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/v1/orgs/{org_id}/service-keys` | Bearer (org admin) | Create a service key (body: `name`, `scopes[]`, optional `expires_at`, `project_ids[]`) |
+| GET | `/api/v1/orgs/{org_id}/service-keys` | Bearer (org member) | List service keys for the org |
+| DELETE | `/api/v1/orgs/{org_id}/service-keys/{id}` | Bearer (org admin) | Revoke a service key (body: optional `revoke_reason`) |
+| POST | `/api/v1/orgs/{org_id}/service-keys/{id}/rotate` | Bearer (org admin) | Issue a new raw secret for an existing key |
+
+Available scopes: `sessions:read`, `handoffs:read`, `handoffs:write`, `tickets:read`, `tickets:write`, `personas:read`, `personas:write`, `knowledge:read`, `knowledge:write`, `rules:read`, `rules:write`, `agent_runs:read`, `agent_runs:write`, `retrieval_audit:read`, `admin:*`. The `*` wildcard is reserved for legacy user/admin keys; service keys must enumerate explicitly.
 
 ### Sessions
 

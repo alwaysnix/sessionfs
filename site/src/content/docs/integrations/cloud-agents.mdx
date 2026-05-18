@@ -21,7 +21,7 @@ This is a **control-plane** integration: cloud agents can participate in your te
 | Fetch canonical project rules | `GET /api/v1/projects/{project_id}/rules` | Paid |
 | Resolve project + compiled context by git remote | `GET /api/v1/projects/{git_remote_normalized}` | Paid |
 
-All operations require `Authorization: Bearer <SessionFS_API_key>`. The same API key you use for `sfs auth login` works for cloud agents — no new auth model. Scoped service tokens are a deferred follow-up.
+All operations require `Authorization: Bearer <SessionFS_API_key>`. As of v0.10.10, **scoped service API keys** (created at `POST /api/v1/orgs/{org_id}/service-keys`) are the recommended credential for cloud agents — they are org-scoped, expirable, and restricted to a specific scope set (e.g. `tickets:write`, `knowledge:write`, `agent_runs:write`). Your existing user bearer tokens still work for prototyping.
 
 ## Why this is not MCP
 
@@ -124,9 +124,27 @@ A cloud agent kicking off a piece of work typically does:
 
 ## Authentication
 
-For now, cloud agents use the same Bearer API key as everything else (`sfs auth login` → CLI/MCP/Bedrock/Vertex). Treat the key like any production secret: load from AWS Secrets Manager or Google Secret Manager, never bake into Lambda/Cloud Function source.
+**Scoped service API keys (v0.10.10+, recommended for cloud agents).** Create a service key scoped to the capabilities your agent needs:
 
-**Scoped service tokens** (API keys with restricted scopes for non-human callers) are a deferred follow-up.
+```bash
+curl -X POST "$SESSIONFS_API_URL/api/v1/orgs/$ORG_ID/service-keys" \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "bedrock-atlas-agent",
+    "scopes": ["tickets:write", "knowledge:write", "personas:read", "rules:read", "agent_runs:write"],
+    "expires_at": "2026-12-31T23:59:59Z",
+    "project_ids": ["proj_abc"]
+  }'
+```
+
+The response includes the raw key **exactly once** — copy it into AWS Secrets Manager (Bedrock Lambda) or Google Secret Manager (Vertex). The list/detail endpoints only return the `key_prefix` going forward.
+
+Service keys are deny-by-default at the route layer: `get_current_user` rejects them with `403 service_key_not_allowed`, and a key only reaches a handler via `require_scope("tickets:write")` style dependencies. Cross-org access is blocked at the project boundary. Audit rows (HandoffEvent, AgentRun, TicketComment, KnowledgeEntry, RetrievalAuditEvent) record `actor_type="service_key"` + `service_key_id` + `service_key_name` so service-key activity is distinguishable from human activity.
+
+Structured error codes: `api_key_revoked`, `api_key_expired`, `service_key_not_allowed`, `insufficient_scope` (with `required`/`current` arrays), `cross_org_denied`.
+
+**Legacy user bearer tokens** still work (their scopes back-fill to `["*"]`) but are not recommended for cloud agents. If you ship a personal token to Lambda, treat it like any production secret — load from AWS Secrets Manager or Google Secret Manager, never bake into Lambda/Cloud Function source.
 
 ## What this does NOT include
 
@@ -134,7 +152,7 @@ To keep this release thin and reviewable:
 
 - **No transcript / session capture.** Cloud agents don't yet upload `.sfs` sessions. That ships separately.
 - **No new server endpoints.** Everything is the v0.10.2 shipped API.
-- **No new auth model.** Bearer tokens only.
+- **Bearer tokens only at the wire layer.** Service keys (v0.10.10) and user keys both ride the standard `Authorization: Bearer ...` header — no new client-side flow.
 - **No broad CORS changes.** Lambda and Cloud Functions are server-to-server callers; CORS would only matter for browser-hosted cloud agents, which is not in scope.
 - **No new ticket fields for platform routing.** If you need to know which cloud platform executed a ticket, that's an `AgentRun` design — open a follow-up.
 
