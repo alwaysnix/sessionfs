@@ -153,6 +153,9 @@ def service_keys_list(
         err_console.print(f"[red]Error[/red]: {_parse_error(status, body)}")
         raise typer.Exit(1)
 
+    if not isinstance(body, list):
+        err_console.print(f"[red]Unexpected response shape[/red]: {body!r}")
+        raise typer.Exit(1)
     if not body:
         console.print("[dim]No service keys in this org.[/dim]")
         return
@@ -166,6 +169,8 @@ def service_keys_list(
     table.add_column("Expires")
     table.add_column("Active")
     for row in body:
+        if not isinstance(row, dict):
+            continue
         scopes = ", ".join(row.get("scopes") or [])
         projects = ", ".join(row.get("project_ids") or []) or "[dim]all[/dim]"
         expires = row.get("expires_at") or "[dim]never[/dim]"
@@ -389,6 +394,9 @@ def auth_keys_list() -> None:
         err_console.print(f"[red]Error[/red]: {_parse_error(status, body)}")
         raise typer.Exit(1)
 
+    if not isinstance(body, list):
+        err_console.print(f"[red]Unexpected response shape[/red]: {body!r}")
+        raise typer.Exit(1)
     if not body:
         console.print("[dim]No personal API keys.[/dim]")
         return
@@ -401,6 +409,8 @@ def auth_keys_list() -> None:
     table.add_column("Last used")
     table.add_column("Active")
     for row in body:
+        if not isinstance(row, dict):
+            continue
         expires = row.get("expires_at") or "[dim]never[/dim]"
         last_used = row.get("last_used_at") or "[dim]never[/dim]"
         active = (
